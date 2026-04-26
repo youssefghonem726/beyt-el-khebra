@@ -12,10 +12,10 @@ Goal: Work together without conflicts, broken builds, or confusion
 
 
 🌿 Branching Strategy
-Branch	Purpose
-main	Production (live app)
-staging	Pre-production testing
-develop	Integration branch
+Branch	  Purpose
+main	    Production (live app)
+staging	  Pre-production testing
+develop	  Integration branch
 feature/*	Your work
 
 
