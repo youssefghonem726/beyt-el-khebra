@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bayt El Khebra | Unpriced Queue</title>
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body class="page">
+  <div class="app-shell">
+    <aside class="sidebar" data-nav="owner">
+      <h2 class="logo">Bayt El Khebra</h2>
+      <nav></nav>
+      <div class="sidebar-footer">
+        <a class="logout-link" href="../login.html">Log Out</a>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <h1>Unpriced Queue</h1>
+        <p class="topbar-user">Admin</p>
+      </header>
+
+      <section class="grid-4">
+        <article class="card"><h3>Total Unpriced</h3><p class="metric">3</p><p>Jobs waiting for pricing</p></article>
+        <article class="card"><h3>Due Soon</h3><p class="metric">2</p><p>Due within 3 days</p></article>
+        <article class="card"><h3>Overdue</h3><p class="metric">0</p><p>No overdue jobs</p></article>
+        <article class="card"><h3>Average Processing</h3><p class="metric">1.3d</p><p>Average queue time</p></article>
+      </section>
+
+      <section class="table-wrap">
+        <div class="table-head">
+          <h3>Unpriced Jobs</h3>
+          <a class="btn" href="index.html">Back to Dashboard</a>
+        </div>
+        <div class="stack">
+          <article class="card">
+            <h4>Order #1021</h4>
+            <p><strong>Client:</strong> Ahmed Store</p>
+            <p><strong>Product:</strong> Business Cards</p>
+            <p><strong>Quantity:</strong> 1000</p>
+            <p><strong>Status:</strong> Unpriced</p>
+            <p><strong>Deadline:</strong> 24 Apr 2025</p>
+              <div class="card-actions">
+                <a class="btn" href="../production/edit-order.html">Price</a>
+              </div>
+          </article>
+          <article class="card">
+            <h4>Order #1022</h4>
+            <p><strong>Client:</strong> Client Name</p>
+            <p><strong>Product:</strong> Flyers</p>
+            <p><strong>Quantity:</strong> 500</p>
+            <p><strong>Status:</strong> Unpriced</p>
+            <p><strong>Deadline:</strong> 25 Apr 2025</p>
+              <div class="card-actions">
+                <a class="btn" href="../production/edit-order.html">Price</a>
+              </div>
+          </article>
+          <article class="card">
+            <h4>Order #1023</h4>
+            <p><strong>Client:</strong> Retail Plus</p>
+            <p><strong>Product:</strong> Brochures</p>
+            <p><strong>Quantity:</strong> 200</p>
+            <p><strong>Status:</strong> Unpriced</p>
+            <p><strong>Deadline:</strong> 26 Apr 2025</p>
+              <div class="card-actions">
+                <a class="btn" href="../production/edit-order.html">Price</a>
+              </div>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="../components/nav-data.js"></script>
+  <script src="../components/nav-loader.js"></script>
+</body>
+</html>

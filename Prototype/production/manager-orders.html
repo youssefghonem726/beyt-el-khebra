@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bayt El Khebra | Manager Orders</title>
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body class="page">
+  <div class="app-shell">
+    <aside class="sidebar" data-nav="manager">
+      <h2 class="logo"><span class="logo-mark">Logo</span><span class="logo-name">Bayt El Khebra</span><span class="logo-sub">Bayt El Khebra</span></h2>
+      <nav></nav>
+      <div class="sidebar-footer"><a class="logout-link" href="../login.html">Log Out</a></div>
+    </aside>
+    <main class="main">
+      <header class="topbar"><h1>All Orders (Manager Only)</h1><p class="topbar-user">Manager</p></header>
+
+      <section class="grid-2">
+        <article class="table-wrap">
+          <div class="table-head"><h3>Pending Orders</h3><a class="btn" href="manager-order-details.html">Open Details</a></div>
+          <table>
+            <thead><tr><th>Order</th><th>Status</th><th>Client Name</th><th>Action</th></tr></thead>
+            <tbody>
+              <tr><td>#1033</td><td><span class="status pending">UNPRICED</span></td><td>Client Name</td><td><a class="btn" href="manager-order-details.html">View</a></td></tr>
+              <tr><td>#1031</td><td><span class="status pending">PENDING APPROVAL</span></td><td>Design Hub</td><td><a class="btn" href="manager-order-details.html">View</a></td></tr>
+            </tbody>
+          </table>
+        </article>
+
+        <article class="table-wrap">
+          <div class="table-head"><h3>Working Orders</h3><a class="btn" href="active-jobs.html">Production Board</a></div>
+          <table>
+            <thead><tr><th>Order</th><th>Status</th><th>Client Name</th><th>Action</th></tr></thead>
+            <tbody>
+              <tr><td>#1029</td><td><span class="status progress">IN_PROGRESS</span></td><td>Retail Plus</td><td><a class="btn" href="order-work-view.html">View</a></td></tr>
+              <tr><td>#1026</td><td><span class="status progress">FINISHING</span></td><td>Marketing Co.</td><td><a class="btn" href="order-work-view.html">View</a></td></tr>
+            </tbody>
+          </table>
+        </article>
+      </section>
+
+      <section class="table-wrap" style="margin-top: 12px;">
+        <div class="table-head"><h3>Completed Orders</h3><a class="btn" href="production-completed-jobs.html">Open Completed Jobs</a></div>
+        <table>
+          <thead><tr><th>Order</th><th>Status</th><th>Client Name</th><th>Completed At</th><th>Action</th></tr></thead>
+          <tbody>
+            <tr><td>#1024</td><td><span class="status done">COMPLETED</span></td><td>Client Name</td><td>26 Apr 2026, 6:10 PM</td><td><a class="btn" href="manager-order-details.html">View</a></td></tr>
+            <tr><td>#1020</td><td><span class="status done">COMPLETED</span></td><td>Ahmed Store</td><td>26 Apr 2026, 4:45 PM</td><td><a class="btn" href="manager-order-details.html">View</a></td></tr>
+          </tbody>
+        </table>
+      </section>
+    </main>
+  </div>
+  <script src="../components/nav-data.js"></script>
+  <script src="../components/nav-loader.js"></script>
+</body>
+</html>

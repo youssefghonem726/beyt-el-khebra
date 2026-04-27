@@ -1,0 +1,18 @@
+on: [push, pull_request]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - checkout code
+      - install dependencies
+      - run lint
+      - run build
+      - run test
+
+  cd:
+    if: github.ref == 'refs/heads/main'
+    needs: ci
+    runs-on: ubuntu-latest
+    steps:
+      - deploy to production

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bayt El Khebra | Place New Order</title>
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body class="page">
+  <div class="app-shell">
+    <aside class="sidebar" data-nav="client">
+      <h2 class="logo"><span class="logo-mark">Logo</span><span class="logo-name">Bayt El Khebra</span><span class="logo-sub">Bayt El Khebra</span></h2>
+      <nav></nav>
+      <div class="sidebar-footer">
+        <a class="logout-link" href="../login.html">Log Out</a>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <h1>Place New Order</h1>
+        <p class="topbar-user">Client Name</p>
+      </header>
+
+      <section class="split">
+        <article class="table-wrap">
+          <h2 class="section-title">1. Choose Order Type</h2>
+          <div class="form-grid-2">
+            <div class="box">
+              <h3>Priced Orders</h3>
+              <p>Choose from predefined products with instant pricing.</p>
+            </div>
+            <div class="box">
+              <h3>Custom Order</h3>
+              <p>Request a custom order and we will send you a quote.</p>
+            </div>
+          </div>
+
+          <h2 class="section-title">2. Order Details</h2>
+          <form class="stack">
+            <div class="form-grid">
+              <div class="field">
+                <label>Product / Service</label>
+                <select class="select">
+                  <option>Select product or service</option>
+                  <option>Business Cards</option>
+                  <option>Flyers</option>
+                  <option>Stickers</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Quantity</label>
+                <input class="input" type="number" placeholder="Enter quantity">
+              </div>
+              <div class="field">
+                <label>Size</label>
+                <input class="input" type="text" placeholder="e.g. A4, 10x15 cm">
+              </div>
+              <div class="field">
+                <label>Paper Type</label>
+                <select class="select">
+                  <option>Select paper type</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Color</label>
+                <select class="select">
+                  <option>Select color</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Finish</label>
+                <select class="select">
+                  <option>Select finish</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-grid-2">
+              <div class="field">
+                <label>Deadline / Delivery Date</label>
+                <input class="input" type="date">
+              </div>
+              <div class="field">
+                <label>Special Instructions (Optional)</label>
+                <textarea class="textarea" placeholder="Add any special notes..."></textarea>
+              </div>
+            </div>
+          </form>
+
+          <h2 class="section-title">3. Upload Files</h2>
+          <div class="upload-zone">
+            <p>Drag and drop your files here</p>
+            <p class="tiny">Accepted formats: PDF, AI, PSD, JPG, PNG</p>
+          </div>
+
+          <h2 class="section-title">4. Additional Notes (Optional)</h2>
+          <textarea class="textarea" placeholder="Add any additional information that might help us with your order..."></textarea>
+        </article>
+
+        <aside class="stack">
+          <section class="box">
+            <h3>Order Summary</h3>
+            <p class="muted">No items selected yet</p>
+            <div class="line"></div>
+            <ul>
+              <li>Order Type: Custom Order</li>
+              <li>Items: -</li>
+              <li>Quantity: -</li>
+              <li>Subtotal: -</li>
+            </ul>
+          </section>
+
+          <section class="box">
+            <h3>What happens next?</h3>
+            <ul>
+              <li>1. We review your order</li>
+              <li>2. We send you a quote</li>
+              <li>3. You confirm the quote</li>
+              <li>4. We start production</li>
+              <li>5. We deliver your order</li>
+            </ul>
+          </section>
+
+          <div class="actions-inline">
+            <a class="btn primary block" href="my-orders.html">Submit Order Request</a>
+            <a class="btn block" href="quotes.html">Request Price Quotation</a>
+          </div>
+        </aside>
+      </section>
+    </main>
+  </div>
+  <script src="../components/nav-data.js"></script>
+  <script src="../components/nav-loader.js"></script>
+</body>
+</html>
+

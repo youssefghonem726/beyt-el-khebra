@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bayt El Khebra | Client Details - Ahmed Store</title>
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body class="page">
+  <div class="app-shell">
+    <aside class="sidebar" data-nav="owner">
+      <h2 class="logo">Bayt El Khebra</h2>
+      <nav></nav>
+      <div class="sidebar-footer">
+        <a class="logout-link" href="../login.html">Log Out</a>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <h1>Client Details - Ahmed Store</h1>
+        <a class="btn" href="client-management.html">Back to Client Management</a>
+      </header>
+
+      <section class="box">
+        <div class="form-grid-2">
+          <p><strong>Name:</strong> Ahmed Store</p>
+          <p><strong>Phone Number:</strong> +20 101 000 1021</p>
+          <p><strong>Address:</strong> 15 Tahrir Street, Cairo, Egypt</p>
+          <p><strong>Email:</strong> ahmed@store.com</p>
+        </div>
+        <div class="line"></div>
+        <div class="stats-grid">
+          <div class="stat-item"><p>Total Number of Orders</p><h4>24</h4></div>
+          <div class="stat-item"><p>Average Order Price</p><h4>EGP 1,850</h4></div>
+          <div class="stat-item"><p>Customer Since</p><h4>2 years, 4 months</h4></div>
+          <div class="stat-item"><p>Total Amount Spent</p><h4>EGP 44,400</h4></div>
+      </section>
+
+      <section class="table-wrap" style="margin-top: 14px;">
+        <h3>Past Orders</h3>
+        <table>
+          <thead>
+            <tr><th>Order ID</th><th>Product</th><th>Status</th><th>Date</th><th>Total</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>#1021</td><td>Business Cards</td><td><span class="status pending">PRICED_PENDING_CONFIRMATION</span></td><td>21 Apr 2025</td><td>EGP 1,200.00</td></tr>
+            <tr><td>#1020</td><td>Flyers A5</td><td><span class="status progress">IN_PROGRESS</span></td><td>18 Apr 2025</td><td>EGP 2,400.00</td></tr>
+            <tr><td>#1018</td><td>Stickers</td><td><span class="status done">COMPLETED</span></td><td>15 Apr 2025</td><td>EGP 950.00</td></tr>
+          </tbody>
+        </table>
+      </section>
+    </main>
+  </div>
+  <script src="../components/nav-data.js"></script>
+  <script src="../components/nav-loader.js"></script>
+</body>
+</html>

@@ -79,6 +79,7 @@ Request review
 8. After approval
 Use Squash Merge
 Delete your branch
+
 🔄 Full Feature Flow (IMPORTANT)
 
 For features touching both frontend & backend:
@@ -118,22 +119,28 @@ No errors
 🗄️ Database Rules (Django + MySQL)
 Always run:
 python manage.py migrate
+
 Never edit old migrations
 Always commit new migrations
 Resolve migration conflicts BEFORE PR
+
+
 🚀 Deployment Flow
 feature → develop → staging → main
 Staging
 git checkout staging
 git merge develop
+
 Deploy
 Test everything
+
 Production
 git checkout main
 git merge staging
 Deploy backend
 Run migrations
 Deploy frontend
+
 🚑 Hotfix (Production Bug)
 git checkout main
 git checkout -b hotfix/bug-name
