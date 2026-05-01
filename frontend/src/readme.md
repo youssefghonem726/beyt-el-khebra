@@ -21,7 +21,6 @@ pages are in each roles following the naming convention of views/<role>/<page>/
 components
 
 Keep ONLY:
-
 UI primitives
 truly shared components
 
