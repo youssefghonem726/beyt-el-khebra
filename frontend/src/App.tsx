@@ -1,122 +1,136 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useState } from 'react';
+import type { User } from './data/credentials';
 
-function App() {
-  const [count, setCount] = useState(0)
+// Auth
+import Login from './pages/auth/Login';
+import CreateAccount from './pages/auth/CreateAccount';
 
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+// Client
+import ClientDashboard from './pages/client/ClientDashboard';
+import MyOrders from './pages/client/MyOrders';
+import PlaceNewOrder from './pages/client/PlaceNewOrder';
+import TrackOrder from './pages/client/TrackOrder';
+import ClientInvoices from './pages/client/ClientInvoices';
+import ClientNotifications from './pages/client/ClientNotifications';
+import ProfileSettings from './pages/client/ProfileSettings';
+import Quotes from './pages/client/Quotes';
+import Support from './pages/client/Support';
 
-      <div className="ticks"></div>
+// Owner
+import OwnerDashboard from './pages/owner/OwnerDashboard';
+import Production from './pages/owner/Production';
+import ClientManagement from './pages/owner/ClientManagement';
+import Accounting from './pages/owner/Accounting';
+import DeliveryTracking from './pages/owner/DeliveryTracking';
+import OwnerNotifications from './pages/owner/OwnerNotifications';
+import OwnerSettings from './pages/owner/OwnerSettings';
+import UnpricedQueue from './pages/owner/UnpricedQueue';
+import ClientDetail from './pages/owner/ClientDetail';
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+// Manager
+import ActiveJobs from './pages/manager/ActiveJobs';
+import ManagerOrders from './pages/manager/ManagerOrders';
+import ManagerOrderDetails from './pages/manager/ManagerOrderDetails';
+import EditOrder from './pages/manager/EditOrder';
+import OrderWorkView from './pages/manager/OrderWorkView';
+import CompletedJobs from './pages/manager/CompletedJobs';
+import BatchLookup from './pages/manager/BatchLookup';
+import DeliveryViewMore from './pages/manager/DeliveryViewMore';
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+export default function App() {
+  const [page, setPage] = useState('login');
+  const [clientId, setClientId] = useState('client-detail-ahmed');
+  const [user, setUser] = useState<User | null>(null);
+
+  const navigate = (target: string) => {
+    if (target === 'logout') {
+      handleLogout();
+      return;
+    }
+    if (target.startsWith('client-detail-')) setClientId(target);
+    setPage(target);
+  };
+
+  const handleLogin = (loggedInUser: User) => {
+    setUser(loggedInUser);
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    setPage('login');
+  };
+
+  const p = (node: React.ReactNode) => <div className="page">{node}</div>;
+
+  // Auth pages - always accessible
+  if (page === 'login' && !user) {
+    return p(<Login onNavigate={navigate} onLogin={handleLogin} />);
+  }
+  if (page === 'create-account') {
+    return p(<CreateAccount onNavigate={navigate} />);
+  }
+
+  // Check if user is logged in for protected pages
+  if (!user) {
+    return p(<Login onNavigate={navigate} onLogin={handleLogin} />);
+  }
+
+  // Role-based page access
+  const isOwnerPage = ['owner-dashboard', 'owner-production', 'client-management', 'accounting', 'delivery-tracking', 'owner-notifications', 'owner-settings', 'unpriced-queue', 'client-detail-ahmed', 'client-detail-design-hub', 'client-detail-retail-plus'].includes(page);
+  const isClientPage = ['client-dashboard', 'my-orders', 'place-new-order', 'track-order', 'client-invoices', 'client-notifications', 'profile-settings', 'quotes', 'support'].includes(page);
+  const isManagerPage = ['active-jobs', 'manager-orders', 'manager-order-details', 'edit-order', 'order-work-view', 'completed-jobs', 'batch-lookup', 'delivery-view-more'].includes(page);
+
+  // Restrict access based on role
+  if (isOwnerPage && user.role !== 'owner') {
+    return p(<Login onNavigate={navigate} onLogin={handleLogin} />);
+  }
+  if (isClientPage && user.role !== 'client') {
+    return p(<Login onNavigate={navigate} onLogin={handleLogin} />);
+  }
+  if (isManagerPage && user.role !== 'manager') {
+    return p(<Login onNavigate={navigate} onLogin={handleLogin} />);
+  }
+
+  switch (page) {
+    // Auth
+    case 'login':          return p(<Login onNavigate={navigate} onLogin={handleLogin} />);
+    case 'create-account': return p(<CreateAccount onNavigate={navigate} />);
+
+    // Client
+    case 'client-dashboard':     return p(<ClientDashboard onNavigate={navigate} />);
+    case 'my-orders':            return p(<MyOrders onNavigate={navigate} />);
+    case 'place-new-order':      return p(<PlaceNewOrder onNavigate={navigate} />);
+    case 'track-order':          return <TrackOrder onNavigate={navigate} />;
+    case 'client-invoices':      return p(<ClientInvoices onNavigate={navigate} />);
+    case 'client-notifications': return p(<ClientNotifications onNavigate={navigate} />);
+    case 'profile-settings':     return p(<ProfileSettings onNavigate={navigate} />);
+    case 'quotes':               return p(<Quotes onNavigate={navigate} />);
+    case 'support':              return p(<Support onNavigate={navigate} />);
+
+    // Owner
+    case 'owner-dashboard':   return p(<OwnerDashboard onNavigate={navigate} />);
+    case 'owner-production':  return p(<Production onNavigate={navigate} />);
+    case 'client-management': return p(<ClientManagement onNavigate={navigate} />);
+    case 'accounting':        return p(<Accounting onNavigate={navigate} />);
+    case 'delivery-tracking': return p(<DeliveryTracking onNavigate={navigate} />);
+    case 'owner-notifications': return p(<OwnerNotifications onNavigate={navigate} />);
+    case 'owner-settings':    return p(<OwnerSettings onNavigate={navigate} />);
+    case 'unpriced-queue':    return p(<UnpricedQueue onNavigate={navigate} />);
+    case 'client-detail-ahmed':
+    case 'client-detail-design-hub':
+    case 'client-detail-retail-plus':
+      return p(<ClientDetail onNavigate={navigate} clientId={clientId} />);
+
+    // Manager
+    case 'active-jobs':           return p(<ActiveJobs onNavigate={navigate} />);
+    case 'manager-orders':        return p(<ManagerOrders onNavigate={navigate} />);
+    case 'manager-order-details': return p(<ManagerOrderDetails onNavigate={navigate} />);
+    case 'edit-order':            return p(<EditOrder onNavigate={navigate} />);
+    case 'order-work-view':       return p(<OrderWorkView onNavigate={navigate} />);
+    case 'completed-jobs':        return p(<CompletedJobs onNavigate={navigate} />);
+    case 'batch-lookup':          return p(<BatchLookup onNavigate={navigate} />);
+    case 'delivery-view-more':    return <DeliveryViewMore onNavigate={navigate} />;
+
+    default: return p(<Login onNavigate={navigate} onLogin={handleLogin} />);
+  }
 }
-
-export default App
