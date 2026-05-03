@@ -1,6 +1,6 @@
 🚀 Project Collaboration Guide
 
-Stack: React + Django + MySQL
+Stack: React + Django + Supabase auth
 Goal: Work together without conflicts, broken builds, or confusion
 
 📦 Project Structure
