@@ -1,96 +1,97 @@
-import { useState } from 'react';
-
-import TestLanding from './pages/TestLanding';
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { useState } from "react";
+import type { User } from "./data/credentials";
 
 // Auth
-import Login from './pages/auth/Login';
-import CreateAccount from './pages/auth/CreateAccount';
+import Login from "./pages/auth/Login";
+import CreateAccount from "./pages/auth/CreateAccount";
 
-// Client
-import ClientDashboard from './pages/client/ClientDashboard';
-import MyOrders from './pages/client/MyOrders';
-import PlaceNewOrder from './pages/client/PlaceNewOrder';
-import TrackOrder from './pages/client/TrackOrder';
-import ClientInvoices from './pages/client/ClientInvoices';
-import ClientNotifications from './pages/client/ClientNotifications';
-import ProfileSettings from './pages/client/ProfileSettings';
-import Quotes from './pages/client/Quotes';
-import Support from './pages/client/Support';
+// Layout wrapper (optional but clean)
+const Page = ({ children }) => <div className="page">{children}</div>;
 
-// Owner
-import OwnerDashboard from './pages/owner/OwnerDashboard';
-import Production from './pages/owner/Production';
-import ClientManagement from './pages/owner/ClientManagement';
-import Accounting from './pages/owner/Accounting';
-import DeliveryTracking from './pages/owner/DeliveryTracking';
-import OwnerNotifications from './pages/owner/OwnerNotifications';
-import OwnerSettings from './pages/owner/OwnerSettings';
-import UnpricedQueue from './pages/owner/UnpricedQueue';
-import ClientDetail from './pages/owner/ClientDetail';
+// RBAC Guard
+const ProtectedRoute = ({ user, roles, children }) => {
+  if (!user) return <Login />;
 
-// Manager
-import ActiveJobs from './pages/manager/ActiveJobs';
-import ManagerOrders from './pages/manager/ManagerOrders';
-import ManagerOrderDetails from './pages/manager/ManagerOrderDetails';
-import EditOrder from './pages/manager/EditOrder';
-import OrderWorkView from './pages/manager/OrderWorkView';
-import CompletedJobs from './pages/manager/CompletedJobs';
-import BatchLookup from './pages/manager/BatchLookup';
-import DeliveryViewMore from './pages/manager/DeliveryViewMore';
+  if (roles && !roles.includes(user.role)) {
+    return <div>403 Unauthorized</div>;
+  }
+
+  return children;
+};
+
+// Client Pages
+import ClientDashboard from "./pages/client/ClientDashboard";
+import MyOrders from "./pages/client/MyOrders";
+
+// Owner Pages
+import OwnerDashboard from "./pages/owner/OwnerDashboard";
+import Production from "./pages/owner/Production";
+
+// Manager Pages
+import ActiveJobs from "./pages/manager/ActiveJobs";
 
 export default function App() {
-  const [page, setPage] = useState('test-landing');
-  const [clientId, setClientId] = useState('client-detail-ahmed');
+  const [user, setUser] = useState<User | null>(null);
 
-  const navigate = (target: string) => {
-    if (target.startsWith('client-detail-')) setClientId(target);
-    setPage(target);
-  };
+  return (
+    <BrowserRouter>
+      <Routes>
 
-  const p = (node: React.ReactNode) => <div className="page">{node}</div>;
+        {/* PUBLIC ROUTES */}
+        <Route path="/" element={<Login onLogin={setUser} />} />
+        <Route path="/create-account" element={<CreateAccount />} />
 
-  switch (page) {
-    case 'test-landing': return p(<TestLanding onNavigate={navigate} />);
+        {/* CLIENT ROUTES */}
+        <Route
+          path="/client"
+          element={
+            <ProtectedRoute user={user} roles={["client"]}>
+              <Page><ClientDashboard /></Page>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/client/orders"
+          element={
+            <ProtectedRoute user={user} roles={["client"]}>
+              <Page><MyOrders /></Page>
+            </ProtectedRoute>
+          }
+        />
 
-    // Auth
-    case 'login':          return p(<Login onNavigate={navigate} />);
-    case 'create-account': return p(<CreateAccount onNavigate={navigate} />);
+        {/* OWNER ROUTES */}
+        <Route
+          path="/owner"
+          element={
+            <ProtectedRoute user={user} roles={["owner"]}>
+              <Page><OwnerDashboard /></Page>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/owner/production"
+          element={
+            <ProtectedRoute user={user} roles={["owner"]}>
+              <Page><Production /></Page>
+            </ProtectedRoute>
+          }
+        />
 
-    // Client
-    case 'client-dashboard':     return p(<ClientDashboard onNavigate={navigate} />);
-    case 'my-orders':            return p(<MyOrders onNavigate={navigate} />);
-    case 'place-new-order':      return p(<PlaceNewOrder onNavigate={navigate} />);
-    case 'track-order':          return <TrackOrder onNavigate={navigate} />;
-    case 'client-invoices':      return p(<ClientInvoices onNavigate={navigate} />);
-    case 'client-notifications': return p(<ClientNotifications onNavigate={navigate} />);
-    case 'profile-settings':     return p(<ProfileSettings onNavigate={navigate} />);
-    case 'quotes':               return p(<Quotes onNavigate={navigate} />);
-    case 'support':              return p(<Support onNavigate={navigate} />);
+        {/* MANAGER ROUTES */}
+        <Route
+          path="/manager/jobs"
+          element={
+            <ProtectedRoute user={user} roles={["manager"]}>
+              <Page><ActiveJobs /></Page>
+            </ProtectedRoute>
+          }
+        />
 
-    // Owner
-    case 'owner-dashboard':   return p(<OwnerDashboard onNavigate={navigate} />);
-    case 'owner-production':  return p(<Production onNavigate={navigate} />);
-    case 'client-management': return p(<ClientManagement onNavigate={navigate} />);
-    case 'accounting':        return p(<Accounting onNavigate={navigate} />);
-    case 'delivery-tracking': return p(<DeliveryTracking onNavigate={navigate} />);
-    case 'owner-notifications': return p(<OwnerNotifications onNavigate={navigate} />);
-    case 'owner-settings':    return p(<OwnerSettings onNavigate={navigate} />);
-    case 'unpriced-queue':    return p(<UnpricedQueue onNavigate={navigate} />);
-    case 'client-detail-ahmed':
-    case 'client-detail-design-hub':
-    case 'client-detail-retail-plus':
-      return p(<ClientDetail onNavigate={navigate} clientId={clientId} />);
+        {/* FALLBACK */}
+        <Route path="*" element={<div>404 Not Found</div>} />
 
-    // Manager
-    case 'active-jobs':           return p(<ActiveJobs onNavigate={navigate} />);
-    case 'manager-orders':        return p(<ManagerOrders onNavigate={navigate} />);
-    case 'manager-order-details': return p(<ManagerOrderDetails onNavigate={navigate} />);
-    case 'edit-order':            return p(<EditOrder onNavigate={navigate} />);
-    case 'order-work-view':       return p(<OrderWorkView onNavigate={navigate} />);
-    case 'completed-jobs':        return p(<CompletedJobs onNavigate={navigate} />);
-    case 'batch-lookup':          return p(<BatchLookup onNavigate={navigate} />);
-    case 'delivery-view-more':    return <DeliveryViewMore onNavigate={navigate} />;
-
-    default: return p(<Login onNavigate={navigate} />);
-  }
+      </Routes>
+    </BrowserRouter>
+  );
 }
