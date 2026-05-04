@@ -14,7 +14,7 @@ const NOTIFICATIONS = [
 export default function ClientNotifications({ onNavigate }: Props) {
   return (
     <AppShell role="client" activePage="client-notifications" onNavigate={onNavigate}>
-      <Topbar title="Notifications" userName="Client Name" />
+      <Topbar title="Notifications" userName="Ahmed Store" />
       <section className="stack notifications-stack">
         {NOTIFICATIONS.map((n) => (
           <article key={n.id} className={`box notification-card${n.unread ? ' unread' : ''}`}>

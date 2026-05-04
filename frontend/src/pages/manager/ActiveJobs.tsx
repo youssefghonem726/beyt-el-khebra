@@ -74,7 +74,7 @@ export default function ActiveJobs({ onNavigate }: Props) {
           <div className="line" />
           <h3>Job Information</h3>
           <ul>
-            <li>Client: Client Name</li><li>Product: Business Cards</li>
+            <li>Client: Ahmed Store</li><li>Product: Business Cards</li>
             <li>Quantity: 1000</li><li>Paper: Matte 350gsm</li><li>Due Date: 24 Apr 2025</li>
           </ul>
           <div className="line" />

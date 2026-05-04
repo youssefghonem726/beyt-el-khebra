@@ -5,7 +5,7 @@ import Topbar from '../../components/Topbar';
 interface Props { onNavigate: (page: string) => void; }
 
 export default function ProfileSettings({ onNavigate }: Props) {
-  const [info, setInfo] = useState({ name: 'Client Name', email: 'ahmed@store.com', phone: '+20 101 000 1021', address: 'Cairo, Egypt' });
+  const [info, setInfo] = useState({ name: 'Ahmed Store', email: 'ahmed@store.com', phone: '+20 101 000 1021', address: 'Cairo, Egypt' });
   const [security, setSecurity] = useState({ current: '', newPass: '' });
 
   const setField = (k: keyof typeof info) => (e: React.ChangeEvent<HTMLInputElement>) => setInfo((f) => ({ ...f, [k]: e.target.value }));
@@ -13,7 +13,7 @@ export default function ProfileSettings({ onNavigate }: Props) {
 
   return (
     <AppShell role="client" activePage="profile-settings" onNavigate={onNavigate}>
-      <Topbar title="Profile Settings" userName="Client Name" />
+      <Topbar title="Profile Settings" userName="Ahmed Store" />
       <section className="split">
         <article className="box">
           <h3>Account Information</h3>

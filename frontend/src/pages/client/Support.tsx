@@ -11,7 +11,7 @@ export default function Support({ onNavigate }: Props) {
 
   return (
     <AppShell role="client" activePage="support" onNavigate={onNavigate}>
-      <Topbar title="Support" userName="Client Name" />
+      <Topbar title="Support" userName="Ahmed Store" />
       <section className="split">
         <article className="box">
           <h3>Contact Support</h3>

@@ -12,7 +12,7 @@ const NOTIFICATIONS = [
 export default function OwnerNotifications({ onNavigate }: Props) {
   return (
     <AppShell role="owner" activePage="owner-notifications" onNavigate={onNavigate}>
-      <Topbar title="Notifications" userName="Client Name" />
+      <Topbar title="Notifications" userName="Ahmed Store" />
       <section className="stack">
         {NOTIFICATIONS.map((n) => (
           <article key={n.id} className="box">

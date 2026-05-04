@@ -5,7 +5,7 @@ import Topbar from '../../components/Topbar';
 interface Props { onNavigate: (page: string) => void; }
 
 const CLIENTS = [
-  { name: 'Client Name', email: 'ahmed@store.com', phone: '+20 101 000 1021', page: 'client-detail-ahmed' },
+  { name: 'Ahmed Store', email: 'ahmed@store.com', phone: '+20 101 000 1021', page: 'client-detail-ahmed' },
   { name: 'Design Hub', email: 'info@designhub.com', phone: '+20 100 222 3100', page: 'client-detail-design-hub' },
   { name: 'Retail Plus', email: 'contact@retailplus.com', phone: '+20 122 777 4400', page: 'client-detail-retail-plus' },
   { name: 'PrintWorks', email: 'hello@printworks.com', phone: '+20 111 444 5500', page: '' },

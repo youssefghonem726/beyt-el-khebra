@@ -12,7 +12,7 @@ const QUOTES = [
 export default function Quotes({ onNavigate }: Props) {
   return (
     <AppShell role="client" activePage="quotes" onNavigate={onNavigate}>
-      <Topbar title="Quotes" userName="Client Name" />
+      <Topbar title="Quotes" userName="Ahmed Store" />
       <section className="table-wrap">
         <h3>Pending &amp; Approved Quotes</h3>
         <table>

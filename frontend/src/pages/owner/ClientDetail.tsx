@@ -12,7 +12,7 @@ const CLIENTS: Record<string, {
   orders: { id: string; product: string; status: string; date: string; total: string }[];
 }> = {
   'client-detail-ahmed': {
-    name: 'Client Name', phone: '+20 101 000 1021', address: '15 Tahrir Street, Cairo, Egypt', email: 'ahmed@store.com',
+    name: 'Ahmed Store', phone: '+20 101 000 1021', address: '15 Tahrir Street, Cairo, Egypt', email: 'ahmed@store.com',
     stats: [{ label: 'Total Number of Orders', value: '24' }, { label: 'Average Order Price', value: 'EGP 1,850' }, { label: 'Customer Since', value: '2 years, 4 months' }, { label: 'Total Amount Spent', value: 'EGP 44,400' }],
     orders: [{ id: '#1021', product: 'Business Cards', status: 'PRICED_PENDING_CONFIRMATION', date: '21 Apr 2025', total: 'EGP 1,200.00' }, { id: '#1020', product: 'Flyers A5', status: 'IN_PROGRESS', date: '18 Apr 2025', total: 'EGP 2,400.00' }, { id: '#1018', product: 'Stickers', status: 'COMPLETED', date: '15 Apr 2025', total: 'EGP 950.00' }],
   },

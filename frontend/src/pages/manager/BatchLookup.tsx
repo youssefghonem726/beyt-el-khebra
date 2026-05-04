@@ -7,7 +7,7 @@ interface Props { onNavigate: (page: string) => void; }
 
 const BATCHES = [
   { code: 'B-260426-P', order: '#1033', client: 'Client Name', status: 'UNPRICED', date: '26 Apr 2026', page: 'manager-order-details' },
-  { code: 'B-260425-M', order: '#1032', client: 'Client Name', status: 'IN_PROGRESS', date: '25 Apr 2026', page: 'order-work-view' },
+  { code: 'B-260425-M', order: '#1032', client: 'Ahmed Store', status: 'IN_PROGRESS', date: '25 Apr 2026', page: 'order-work-view' },
 ];
 
 export default function BatchLookup({ onNavigate }: Props) {

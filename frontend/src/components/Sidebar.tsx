@@ -9,7 +9,6 @@ interface Props {
 
 export default function Sidebar({ role, activePage, onNavigate }: Props) {
   const links = NAVS[role];
-
   return (
     <aside className="sidebar">
       <h2 className="logo">
@@ -30,7 +29,7 @@ export default function Sidebar({ role, activePage, onNavigate }: Props) {
         ))}
       </nav>
       <div className="sidebar-footer">
-        <a className="logout-link" href="#" onClick={(e) => { e.preventDefault(); onNavigate('logout'); }}>
+        <a className="logout-link" href="#" onClick={(e) => { e.preventDefault(); onNavigate('login'); }}>
           Log Out
         </a>
       </div>

@@ -7,7 +7,7 @@ import ProgressBar from '../../components/ProgressBar';
 interface Props { onNavigate: (page: string) => void; }
 
 const DELIVERIES = [
-  { order: '#1021', client: 'Client Name', id: 'CX-001', address: '15 Tahrir St, Cairo', driver: 'Omar Hassan', company: 'Swift Express', phone: '+20 111 555 8801', status: 'ON TIME', progress: 75, color: 'green' as const },
+  { order: '#1021', client: 'Ahmed Store', id: 'CX-001', address: '15 Tahrir St, Cairo', driver: 'Omar Hassan', company: 'Swift Express', phone: '+20 111 555 8801', status: 'ON TIME', progress: 75, color: 'green' as const },
   { order: '#1020', client: 'Design Hub', id: 'CX-002', address: '7 Smart Village, Giza', driver: 'Mona Adel', company: 'Urban Delivery', phone: '+20 114 201 3332', status: 'DELAYED', progress: 55, color: 'orange' as const },
   { order: '#1019', client: 'Retail Plus', id: 'CX-003', address: '42 Corniche Rd, Alexandria', driver: 'Yousef Nabil', company: 'RoadLine', phone: '+20 115 449 2907', status: 'LOST IN TRANSIT', progress: 35, color: 'red' as const },
 ];

@@ -26,7 +26,7 @@ export default function ClientInvoices({ onNavigate }: Props) {
 
   return (
     <AppShell role="client" activePage="client-invoices" onNavigate={onNavigate}>
-      <Topbar title="My Invoices" userName="Client Name" />
+      <Topbar title="My Invoices" userName="Ahmed Store" />
       <section className="table-wrap">
         <div className="table-head">
           <h3>Invoice History</h3>

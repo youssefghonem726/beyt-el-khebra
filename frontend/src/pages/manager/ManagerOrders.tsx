@@ -14,7 +14,7 @@ const WORKING = [
 ];
 const COMPLETED = [
   { id: '#1024', status: 'COMPLETED', client: 'Client Name', completedAt: '26 Apr 2026, 6:10 PM' },
-  { id: '#1020', status: 'COMPLETED', client: 'Client Name', completedAt: '26 Apr 2026, 4:45 PM' },
+  { id: '#1020', status: 'COMPLETED', client: 'Ahmed Store', completedAt: '26 Apr 2026, 4:45 PM' },
 ];
 
 export default function ManagerOrders({ onNavigate }: Props) {

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import type { User } from './data/credentials';
+
+import TestLanding from './pages/TestLanding';
 
 // Auth
 import Login from './pages/auth/Login';
@@ -38,62 +39,21 @@ import BatchLookup from './pages/manager/BatchLookup';
 import DeliveryViewMore from './pages/manager/DeliveryViewMore';
 
 export default function App() {
-  const [page, setPage] = useState('login');
+  const [page, setPage] = useState('test-landing');
   const [clientId, setClientId] = useState('client-detail-ahmed');
-  const [user, setUser] = useState<User | null>(null);
 
   const navigate = (target: string) => {
-    if (target === 'logout') {
-      handleLogout();
-      return;
-    }
     if (target.startsWith('client-detail-')) setClientId(target);
     setPage(target);
   };
 
-  const handleLogin = (loggedInUser: User) => {
-    setUser(loggedInUser);
-  };
-
-  const handleLogout = () => {
-    setUser(null);
-    setPage('login');
-  };
-
   const p = (node: React.ReactNode) => <div className="page">{node}</div>;
 
-  // Auth pages - always accessible
-  if (page === 'login' && !user) {
-    return p(<Login onNavigate={navigate} onLogin={handleLogin} />);
-  }
-  if (page === 'create-account') {
-    return p(<CreateAccount onNavigate={navigate} />);
-  }
-
-  // Check if user is logged in for protected pages
-  if (!user) {
-    return p(<Login onNavigate={navigate} onLogin={handleLogin} />);
-  }
-
-  // Role-based page access
-  const isOwnerPage = ['owner-dashboard', 'owner-production', 'client-management', 'accounting', 'delivery-tracking', 'owner-notifications', 'owner-settings', 'unpriced-queue', 'client-detail-ahmed', 'client-detail-design-hub', 'client-detail-retail-plus'].includes(page);
-  const isClientPage = ['client-dashboard', 'my-orders', 'place-new-order', 'track-order', 'client-invoices', 'client-notifications', 'profile-settings', 'quotes', 'support'].includes(page);
-  const isManagerPage = ['active-jobs', 'manager-orders', 'manager-order-details', 'edit-order', 'order-work-view', 'completed-jobs', 'batch-lookup', 'delivery-view-more'].includes(page);
-
-  // Restrict access based on role
-  if (isOwnerPage && user.role !== 'owner') {
-    return p(<Login onNavigate={navigate} onLogin={handleLogin} />);
-  }
-  if (isClientPage && user.role !== 'client') {
-    return p(<Login onNavigate={navigate} onLogin={handleLogin} />);
-  }
-  if (isManagerPage && user.role !== 'manager') {
-    return p(<Login onNavigate={navigate} onLogin={handleLogin} />);
-  }
-
   switch (page) {
+    case 'test-landing': return p(<TestLanding onNavigate={navigate} />);
+
     // Auth
-    case 'login':          return p(<Login onNavigate={navigate} onLogin={handleLogin} />);
+    case 'login':          return p(<Login onNavigate={navigate} />);
     case 'create-account': return p(<CreateAccount onNavigate={navigate} />);
 
     // Client
@@ -131,6 +91,6 @@ export default function App() {
     case 'batch-lookup':          return p(<BatchLookup onNavigate={navigate} />);
     case 'delivery-view-more':    return <DeliveryViewMore onNavigate={navigate} />;
 
-    default: return p(<Login onNavigate={navigate} onLogin={handleLogin} />);
+    default: return p(<Login onNavigate={navigate} />);
   }
 }
