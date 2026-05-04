@@ -1,0 +1,44 @@
+[
+  {
+    "name": "Ahmed Store",
+    "email": "ahmed@store.com",
+    "phone": "+20 101 000 1021",
+    "page": "client-detail-ahmed"
+  },
+  {
+    "name": "Design Hub",
+    "email": "info@designhub.com",
+    "phone": "+20 100 222 3100",
+    "page": "client-detail-design-hub"
+  },
+  {
+    "name": "Retail Plus",
+    "email": "contact@retailplus.com",
+    "phone": "+20 122 777 4400",
+    "page": "client-detail-retail-plus"
+  },
+  {
+    "name": "PrintWorks",
+    "email": "hello@printworks.com",
+    "phone": "+20 111 444 5500",
+    "page": ""
+  },
+  {
+    "name": "Spark Creative",
+    "email": "team@sparkcreative.com",
+    "phone": "+20 115 800 3321",
+    "page": ""
+  },
+  {
+    "name": "Nile Office Supply",
+    "email": "support@nileoffice.com",
+    "phone": "+20 100 900 2211",
+    "page": ""
+  },
+  {
+    "name": "Cairo Media",
+    "email": "contact@cairomedia.com",
+    "phone": "+20 122 444 6600",
+    "page": ""
+  }
+]

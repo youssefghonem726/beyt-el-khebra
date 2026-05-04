@@ -29,19 +29,45 @@ export default function PlaceNewOrder({ onNavigate }: Props) {
                 <option>Business Cards</option><option>Flyers</option><option>Stickers</option>
               </select>
             </div>
-            <div className="field"><label>Quantity</label><input className="input" type="number" placeholder="Enter quantity" value={form.quantity} onChange={set('quantity')} /></div>
-            <div className="field"><label>Size</label><input className="input" type="text" placeholder="e.g. A4, 10x15 cm" value={form.size} onChange={set('size')} /></div>
+            <div className="field">
+              <label>Quantity</label>
+              <select className="select" value={form.quantity} onChange={set('quantity')}>
+                <option value="">Select quantity</option>
+                <option>50</option><option>100</option><option>250</option>
+                <option>500</option><option>1000</option><option>2500</option><option>5000</option>
+              </select>
+            </div>
+            <div className="field">
+              <label>Size</label>
+              <select className="select" value={form.size} onChange={set('size')}>
+                <option value="">Select size</option>
+                <option>A6</option><option>A5</option><option>A4</option><option>A3</option>
+                <option>Business Card (9×5 cm)</option><option>10×15 cm</option><option>Custom</option>
+              </select>
+            </div>
             <div className="field">
               <label>Paper Type</label>
-              <select className="select" value={form.paper} onChange={set('paper')}><option value="">Select paper type</option></select>
+              <select className="select" value={form.paper} onChange={set('paper')}>
+                <option value="">Select paper type</option>
+                <option>Matte</option><option>Glossy</option><option>Satin</option>
+                <option>Uncoated</option><option>Recycled</option>
+              </select>
             </div>
             <div className="field">
               <label>Color</label>
-              <select className="select" value={form.color} onChange={set('color')}><option value="">Select color</option></select>
+              <select className="select" value={form.color} onChange={set('color')}>
+                <option value="">Select color</option>
+                <option>Full Color (CMYK)</option><option>Black &amp; White</option>
+                <option>Spot Color</option><option>Pantone</option>
+              </select>
             </div>
             <div className="field">
               <label>Finish</label>
-              <select className="select" value={form.finish} onChange={set('finish')}><option value="">Select finish</option></select>
+              <select className="select" value={form.finish} onChange={set('finish')}>
+                <option value="">Select finish</option>
+                <option>None</option><option>Matte Lamination</option><option>Gloss Lamination</option>
+                <option>UV Coating</option><option>Embossing</option><option>Soft-Touch</option>
+              </select>
             </div>
           </div>
           <div className="form-grid-2">

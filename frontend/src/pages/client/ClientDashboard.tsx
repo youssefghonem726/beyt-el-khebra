@@ -54,10 +54,10 @@ export default function ClientDashboard({ onNavigate }: Props) {
 
   return (
     <AppShell role="client" activePage="client-dashboard" onNavigate={onNavigate}>
-        <Topbar title="Dashboard" userName="Client Name" />
+        <Topbar title="Dashboard" userName="Ahmed Store" />
 
         <section className="welcome">
-          <h2>Welcome back, Client Name</h2>
+          <h2>Welcome back, Ahmed Store</h2>
           <p>Here's what is happening with your orders.</p>
         </section>
 
