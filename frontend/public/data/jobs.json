@@ -1,0 +1,42 @@
+[
+  {
+    "id": "Job #1022",
+    "client": "Client Name",
+    "product": "Business Cards",
+    "qty": 1000,
+    "status": "IN PROGRESS",
+    "progress": 600,
+    "dueDate": "24 Apr 2025",
+    "paper": "Matte 350gsm"
+  },
+  {
+    "id": "Job #1021",
+    "client": "Design Hub",
+    "product": "Flyers",
+    "qty": 2000,
+    "status": "IN PROGRESS",
+    "progress": 1200,
+    "dueDate": "25 Apr 2025",
+    "paper": "Glossy 130gsm"
+  },
+  {
+    "id": "Job #1020",
+    "client": "Marketing Co.",
+    "product": "Brochures",
+    "qty": 500,
+    "status": "ON HOLD",
+    "progress": 0,
+    "dueDate": "28 Apr 2025",
+    "paper": "Satin 170gsm"
+  },
+  {
+    "id": "Job #1019",
+    "client": "Retail Plus",
+    "product": "Stickers",
+    "qty": 1000,
+    "status": "COMPLETED",
+    "progress": 1000,
+    "dueDate": "20 Apr 2025",
+    "paper": "Vinyl Matte"
+  }
+]

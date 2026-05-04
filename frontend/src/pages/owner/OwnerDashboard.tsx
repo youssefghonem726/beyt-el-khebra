@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatCard from '../../components/StatCard';
@@ -5,13 +6,76 @@ import StatusBadge from '../../components/StatusBadge';
 
 interface Props { onNavigate: (page: string) => void; }
 
-const QUICK_LISTS = [
-  { list: 'Pending Orders', count: 8, status: 'AWAITING WORK', action: 'Review and price urgent batches', page: 'manager-orders' },
-  { list: 'Working Orders', count: 12, status: 'IN PRODUCTION', action: 'Track production progress', page: 'owner-production' },
-  { list: 'Completed Orders', count: 27, status: 'READY FOR ARCHIVE', action: 'Validate completion and billing', page: 'completed-jobs' },
-];
+interface Stat {
+  label: string;
+  value: string | number;
+  sub: string;
+}
+
+interface QuickList {
+  list: string;
+  count: number;
+  status: string;
+  action: string;
+  page: string;
+}
 
 export default function OwnerDashboard({ onNavigate }: Props) {
+  const [stats, setStats] = useState<Stat[]>([]);
+  const [quickLists, setQuickLists] = useState<QuickList[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Fetch both stats and quick lists in parallel
+    Promise.all([
+      fetch('/public/data/dashboard-stats.json').then(res => {
+        if (!res.ok) throw new Error(`Stats HTTP ${res.status}`);
+        return res.json();
+      }),
+      fetch('/public/data/quick-lists.json').then(res => {
+        if (!res.ok) throw new Error(`Quick lists HTTP ${res.status}`);
+        return res.json();
+      })
+    ])
+      .then(([statsData, quickListsData]) => {
+        setStats(statsData);
+        setQuickLists(quickListsData);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error('Failed to load dashboard data:', err);
+        setError('Could not load dashboard data. Please try again later.');
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) {
+    return (
+      <AppShell role="owner" activePage="owner-dashboard" onNavigate={onNavigate}>
+        <Topbar title="Owner Dashboard" userName="Owner" />
+        <section className="welcome">
+          <h2>Operations snapshot</h2>
+          <p>Monitor order flow, production load, and accounting status.</p>
+        </section>
+        <div className="loading-state">Loading dashboard data...</div>
+      </AppShell>
+    );
+  }
+
+  if (error) {
+    return (
+      <AppShell role="owner" activePage="owner-dashboard" onNavigate={onNavigate}>
+        <Topbar title="Owner Dashboard" userName="Owner" />
+        <section className="welcome">
+          <h2>Operations snapshot</h2>
+          <p>Monitor order flow, production load, and accounting status.</p>
+        </section>
+        <div className="error-state">{error}</div>
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell role="owner" activePage="owner-dashboard" onNavigate={onNavigate}>
       <Topbar title="Owner Dashboard" userName="Owner" />
@@ -22,10 +86,9 @@ export default function OwnerDashboard({ onNavigate }: Props) {
       </section>
 
       <section className="grid-4">
-        <StatCard label="Unpriced Orders" value={5} sub="Need manager pricing" />
-        <StatCard label="Active Jobs" value={12} sub="Production in progress" />
-        <StatCard label="Revenue Snapshot" value="EGP 84K" sub="This month booked" />
-        <StatCard label="Accounting Items" value={9} sub="Need finance follow-up" />
+        {stats.map((stat, idx) => (
+          <StatCard key={idx} label={stat.label} value={stat.value} sub={stat.sub} />
+        ))}
       </section>
 
       <section className="content">
@@ -39,10 +102,16 @@ export default function OwnerDashboard({ onNavigate }: Props) {
           </div>
           <table>
             <thead>
-              <tr><th>List</th><th>Count</th><th>Status</th><th>Owner Action</th><th>Action</th></tr>
+              <tr>
+                <th>List</th>
+                <th>Count</th>
+                <th>Status</th>
+                <th>Owner Action</th>
+                <th>Action</th>
+              </tr>
             </thead>
             <tbody>
-              {QUICK_LISTS.map((r) => (
+              {quickLists.map((r) => (
                 <tr key={r.list}>
                   <td>{r.list}</td>
                   <td>{r.count}</td>

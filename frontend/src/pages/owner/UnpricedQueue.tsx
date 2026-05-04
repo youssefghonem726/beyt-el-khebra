@@ -1,16 +1,84 @@
+import { useState, useEffect } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatCard from '../../components/StatCard';
 
 interface Props { onNavigate: (page: string) => void; }
 
-const JOBS = [
-  { id: 'Order #1021', client: 'Ahmed Store', product: 'Business Cards', qty: 1000, deadline: '24 Apr 2025' },
-  { id: 'Order #1022', client: 'Client Name', product: 'Flyers', qty: 500, deadline: '25 Apr 2025' },
-  { id: 'Order #1023', client: 'Retail Plus', product: 'Brochures', qty: 200, deadline: '26 Apr 2025' },
-];
+interface UnpricedJob {
+  id: string;
+  client: string;
+  product: string;
+  qty: number;
+  deadline: string;
+}
 
 export default function UnpricedQueue({ onNavigate }: Props) {
+  const [jobs, setJobs] = useState<UnpricedJob[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/data/unpriced-jobs.json')
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then((data: UnpricedJob[]) => {
+        setJobs(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error('Failed to load unpriced jobs:', err);
+        setError('Could not load unpriced queue data. Please try again later.');
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) {
+    return (
+      <AppShell role="owner" activePage="unpriced-queue" onNavigate={onNavigate}>
+        <Topbar title="Unpriced Queue" userName="Admin" />
+        <section className="grid-4">
+          <StatCard label="Total Unpriced" value={3} sub="Jobs waiting for pricing" />
+          <StatCard label="Due Soon" value={2} sub="Due within 3 days" />
+          <StatCard label="Overdue" value={0} sub="No overdue jobs" />
+          <StatCard label="Average Processing" value="1.3d" sub="Average queue time" />
+        </section>
+        <section className="table-wrap">
+          <div className="table-head">
+            <h3>Unpriced Jobs</h3>
+            <button className="btn" onClick={() => onNavigate('owner-dashboard')}>Back to Dashboard</button>
+          </div>
+          <div className="loading-state">Loading jobs...</div>
+        </section>
+      </AppShell>
+    );
+  }
+
+  if (error) {
+    return (
+      <AppShell role="owner" activePage="unpriced-queue" onNavigate={onNavigate}>
+        <Topbar title="Unpriced Queue" userName="Admin" />
+        <section className="grid-4">
+          <StatCard label="Total Unpriced" value={3} sub="Jobs waiting for pricing" />
+          <StatCard label="Due Soon" value={2} sub="Due within 3 days" />
+          <StatCard label="Overdue" value={0} sub="No overdue jobs" />
+          <StatCard label="Average Processing" value="1.3d" sub="Average queue time" />
+        </section>
+        <section className="table-wrap">
+          <div className="table-head">
+            <h3>Unpriced Jobs</h3>
+            <button className="btn" onClick={() => onNavigate('owner-dashboard')}>Back to Dashboard</button>
+          </div>
+          <div className="error-state">{error}</div>
+        </section>
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell role="owner" activePage="unpriced-queue" onNavigate={onNavigate}>
       <Topbar title="Unpriced Queue" userName="Admin" />
@@ -26,7 +94,7 @@ export default function UnpricedQueue({ onNavigate }: Props) {
           <button className="btn" onClick={() => onNavigate('owner-dashboard')}>Back to Dashboard</button>
         </div>
         <div className="stack">
-          {JOBS.map((j) => (
+          {jobs.map((j) => (
             <article key={j.id} className="card">
               <h4>{j.id}</h4>
               <p><strong>Client:</strong> {j.client}</p>

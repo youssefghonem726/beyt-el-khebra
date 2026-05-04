@@ -1,0 +1,23 @@
+[
+  {
+    "list": "Pending Orders",
+    "count": 8,
+    "status": "AWAITING WORK",
+    "action": "Review and price urgent batches",
+    "page": "manager-orders"
+  },
+  {
+    "list": "Working Orders",
+    "count": 12,
+    "status": "IN PRODUCTION",
+    "action": "Track production progress",
+    "page": "owner-production"
+  },
+  {
+    "list": "Completed Orders",
+    "count": 27,
+    "status": "READY FOR ARCHIVE",
+    "action": "Validate completion and billing",
+    "page": "completed-jobs"
+  }
+]

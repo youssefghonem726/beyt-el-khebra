@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import AppShell from '../../components/AppShell';
 import StatusBadge from '../../components/StatusBadge';
 
@@ -6,30 +7,79 @@ interface Props {
   clientId?: string;
 }
 
-const CLIENTS: Record<string, {
-  name: string; phone: string; address: string; email: string;
+// Define the shape of a client object from the JSON file
+interface ClientDetail {
+  id: string;                  // matches page identifier e.g. 'client-detail-ahmed'
+  name: string;
+  phone: string;
+  address: string;
+  email: string;
   stats: { label: string; value: string }[];
-  orders: { id: string; product: string; status: string; date: string; total: string }[];
-}> = {
-  'client-detail-ahmed': {
-    name: 'Ahmed Store', phone: '+20 101 000 1021', address: '15 Tahrir Street, Cairo, Egypt', email: 'ahmed@store.com',
-    stats: [{ label: 'Total Number of Orders', value: '24' }, { label: 'Average Order Price', value: 'EGP 1,850' }, { label: 'Customer Since', value: '2 years, 4 months' }, { label: 'Total Amount Spent', value: 'EGP 44,400' }],
-    orders: [{ id: '#1021', product: 'Business Cards', status: 'PRICED_PENDING_CONFIRMATION', date: '21 Apr 2025', total: 'EGP 1,200.00' }, { id: '#1020', product: 'Flyers A5', status: 'IN_PROGRESS', date: '18 Apr 2025', total: 'EGP 2,400.00' }, { id: '#1018', product: 'Stickers', status: 'COMPLETED', date: '15 Apr 2025', total: 'EGP 950.00' }],
-  },
-  'client-detail-design-hub': {
-    name: 'Design Hub', phone: '+20 100 222 3100', address: '7 Smart Village, Giza, Egypt', email: 'info@designhub.com',
-    stats: [{ label: 'Total Number of Orders', value: '16' }, { label: 'Average Order Price', value: 'EGP 2,050' }, { label: 'Customer Since', value: '1 year, 8 months' }, { label: 'Total Amount Spent', value: 'EGP 32,800' }],
-    orders: [{ id: '#1112', product: 'Catalogs', status: 'COMPLETED', date: '10 Apr 2025', total: 'EGP 3,000.00' }, { id: '#1101', product: 'Posters A3', status: 'COMPLETED', date: '2 Apr 2025', total: 'EGP 1,500.00' }],
-  },
-  'client-detail-retail-plus': {
-    name: 'Retail Plus', phone: '+20 122 777 4400', address: '42 Corniche Road, Alexandria, Egypt', email: 'contact@retailplus.com',
-    stats: [{ label: 'Total Number of Orders', value: '11' }, { label: 'Average Order Price', value: 'EGP 1,420' }, { label: 'Customer Since', value: '11 months' }, { label: 'Total Amount Spent', value: 'EGP 15,620' }],
-    orders: [{ id: '#1096', product: 'Shelf Labels', status: 'IN_PROGRESS', date: '20 Apr 2025', total: 'EGP 1,800.00' }, { id: '#1090', product: 'Price Stickers', status: 'COMPLETED', date: '10 Apr 2025', total: 'EGP 950.00' }],
-  },
-};
+  orders: {
+    id: string;
+    product: string;
+    status: string;
+    date: string;
+    total: string;
+  }[];
+}
 
 export default function ClientDetail({ onNavigate, clientId = 'client-detail-ahmed' }: Props) {
-  const client = CLIENTS[clientId] ?? CLIENTS['client-detail-ahmed'];
+  const [client, setClient] = useState<ClientDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/public/data/clients-detail.json')
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then((data: ClientDetail[]) => {
+        const found = data.find((c) => c.id === clientId);
+        if (found) {
+          setClient(found);
+        } else {
+          setError(`Client with ID "${clientId}" not found.`);
+        }
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error('Failed to load client details:', err);
+        setError('Could not load client data. Please try again later.');
+        setLoading(false);
+      });
+  }, [clientId]); 
+
+  if (loading) {
+    return (
+      <AppShell role="owner" activePage="client-management" onNavigate={onNavigate}>
+        <header className="topbar">
+          <h1>Client Details</h1>
+          <button className="btn" onClick={() => onNavigate('client-management')}>Back to Client Management</button>
+        </header>
+        <section className="box">
+          <div className="loading-state">Loading client details...</div>
+        </section>
+      </AppShell>
+    );
+  }
+
+  if (error || !client) {
+    return (
+      <AppShell role="owner" activePage="client-management" onNavigate={onNavigate}>
+        <header className="topbar">
+          <h1>Client Details</h1>
+          <button className="btn" onClick={() => onNavigate('client-management')}>Back to Client Management</button>
+        </header>
+        <section className="box">
+          <div className="error-state">{error || 'Client data unavailable.'}</div>
+        </section>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell role="owner" activePage="client-management" onNavigate={onNavigate}>
@@ -59,7 +109,15 @@ export default function ClientDetail({ onNavigate, clientId = 'client-detail-ahm
       <section className="table-wrap" style={{ marginTop: 14 }}>
         <h3>Past Orders</h3>
         <table>
-          <thead><tr><th>Order ID</th><th>Product</th><th>Status</th><th>Date</th><th>Total</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Order ID</th>
+              <th>Product</th>
+              <th>Status</th>
+              <th>Date</th>
+              <th>Total</th>
+            </tr>
+          </thead>
           <tbody>
             {client.orders.map((o) => (
               <tr key={o.id}>
