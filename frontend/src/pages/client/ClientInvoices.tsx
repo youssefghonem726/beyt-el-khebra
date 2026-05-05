@@ -1,28 +1,73 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 
 interface Props { onNavigate: (page: string) => void; }
 
-const INVOICES = [
-  { id: 'INV-9021', order: '#1021', issued: '21 Apr 2025', due: '28 Apr 2025', amount: '1,200.00', status: 'Paid' },
-  { id: 'INV-9018', order: '#1018', issued: '15 Apr 2025', due: '22 Apr 2025', amount: '950.00', status: 'Paid' },
-  { id: 'INV-9015', order: '#1015', issued: '10 Apr 2025', due: '17 Apr 2025', amount: '850.00', status: 'Paid' },
-  { id: 'INV-9012', order: '#1012', issued: '05 Apr 2025', due: '12 Apr 2025', amount: '2,100.00', status: 'Pending' },
-  { id: 'INV-9008', order: '#1008', issued: '28 Mar 2025', due: '04 Apr 2025', amount: '3,500.00', status: 'Overdue' },
-];
+interface Invoice {
+  id: string;
+  order: string;
+  issued: string;
+  due: string;
+  amount: string;
+  status: string;
+}
 
 export default function ClientInvoices({ onNavigate }: Props) {
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
-  const filtered = INVOICES.filter((inv) => {
+  useEffect(() => {
+    fetch('/data/client-invoices.json')
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then((data: Invoice[]) => {
+        setInvoices(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error('Failed to load invoices:', err);
+        setError('Could not load your invoices. Please try again later.');
+        setLoading(false);
+      });
+  }, []);
+
+  const filtered = invoices.filter((inv) => {
     const matchQ = !query || inv.id.toLowerCase().includes(query.toLowerCase());
     const matchS = !filterStatus || inv.status.toLowerCase() === filterStatus.toLowerCase();
     return matchQ && matchS;
   });
+
+  if (loading) {
+    return (
+      <AppShell role="client" activePage="client-invoices" onNavigate={onNavigate}>
+        <Topbar title="My Invoices" userName="Ahmed Store" />
+        <section className="table-wrap">
+          <div className="loading-state">Loading your invoices...</div>
+        </section>
+      </AppShell>
+    );
+  }
+
+  if (error) {
+    return (
+      <AppShell role="client" activePage="client-invoices" onNavigate={onNavigate}>
+        <Topbar title="My Invoices" userName="Ahmed Store" />
+        <section className="table-wrap">
+          <div className="error-state">{error}</div>
+        </section>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell role="client" activePage="client-invoices" onNavigate={onNavigate}>
@@ -31,18 +76,30 @@ export default function ClientInvoices({ onNavigate }: Props) {
         <div className="table-head">
           <h3>Invoice History</h3>
           <div className="search-container">
-            <input className="input" type="search" placeholder="Search by invoice ID" value={query} onChange={(e) => setQuery(e.target.value)} />
-            <button className="filter-icon" type="button" onClick={() => setDropdownOpen((o) => !o)}>🔽</button>
+            <input 
+              className="input" 
+              type="search" 
+              placeholder="Search by invoice ID" 
+              value={query} 
+              onChange={(e) => setQuery(e.target.value)} 
+            />
+            <button className="filter-icon" type="button" onClick={() => setDropdownOpen((o) => !o)}>
+              ▼
+            </button>
             {dropdownOpen && (
               <div className="filter-dropdown show">
                 <div className="field">
                   <label>Status</label>
                   <select className="select" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
                     <option value="">All Status</option>
-                    <option>Paid</option><option>Pending</option><option>Overdue</option>
+                    <option>Paid</option>
+                    <option>Pending</option>
+                    <option>Overdue</option>
                   </select>
                 </div>
-                <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>Apply Filters</button>
+                <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>
+                  Apply Filters
+                </button>
               </div>
             )}
           </div>
@@ -50,7 +107,15 @@ export default function ClientInvoices({ onNavigate }: Props) {
         <div className="table-responsive">
           <table className="orders-table">
             <thead>
-              <tr><th>Invoice ID</th><th>Order</th><th>Date Issued</th><th>Due Date</th><th>Amount (EGP)</th><th>Status</th><th>Action</th></tr>
+              <tr>
+                <th>Invoice ID</th>
+                <th>Order</th>
+                <th>Date Issued</th>
+                <th>Due Date</th>
+                <th>Amount (EGP)</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
             </thead>
             <tbody>
               {filtered.length === 0
@@ -66,7 +131,10 @@ export default function ClientInvoices({ onNavigate }: Props) {
                     <td>
                       <div className="action-buttons">
                         {inv.status !== 'Paid' && <button className="btn btn-sm primary">Pay Now</button>}
-                        <button className="btn btn-sm">View</button>
+                        <button 
+                          className="btn btn-sm" 
+                          onClick={() => onNavigate('invoice-detail', invoice.id)}>View
+                        </button>
                         {inv.status === 'Paid' && <button className="btn btn-sm btn-outline">Download</button>}
                       </div>
                     </td>

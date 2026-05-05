@@ -14,26 +14,37 @@ interface Invoice {
   status: string;
 }
 
+interface Stat {
+  label: string;
+  value: string | number;
+  sub: string;
+}
+
 export default function Accounting({ onNavigate }: Props) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [stats, setStats] = useState<Stat[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch('/public/data/invoices.json')
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
+    Promise.all([
+      fetch('/data/invoices.json').then(res => {
+        if (!res.ok) throw new Error(`Invoices HTTP ${res.status}`);
+        return res.json();
+      }),
+      fetch('/data/accounting-stats.json').then(res => {
+        if (!res.ok) throw new Error(`Stats HTTP ${res.status}`);
+        return res.json();
       })
-      .then((data: Invoice[]) => {
-        setInvoices(data);
+    ])
+      .then(([invoicesData, statsData]) => {
+        setInvoices(invoicesData);
+        setStats(statsData);
         setLoading(false);
       })
       .catch((err) => {
-        console.error('Failed to load invoices:', err);
-        setError('Could not load invoice data. Please try again later.');
+        console.error('Failed to load accounting data:', err);
+        setError('Could not load accounting data. Please try again later.');
         setLoading(false);
       });
   }, []);
@@ -43,10 +54,11 @@ export default function Accounting({ onNavigate }: Props) {
       <AppShell role="owner" activePage="accounting" onNavigate={onNavigate}>
         <Topbar title="Accounting Page" userName="Finance Team" />
         <section className="grid-4">
-          <StatCard label="Revenue Snapshot" value="EGP 84K" sub="Current month" />
-          <StatCard label="Pending Collection" value="EGP 22K" sub="Awaiting payment" />
-          <StatCard label="Paid Invoices" value={61} sub="Settled this month" />
-          <StatCard label="Unpaid Invoices" value={9} sub="Follow-up required" />
+          {/* Show placeholders while loading */}
+          <StatCard label="Revenue Snapshot" value="..." sub="Current month" />
+          <StatCard label="Pending Collection" value="..." sub="Awaiting payment" />
+          <StatCard label="Paid Invoices" value="..." sub="Settled this month" />
+          <StatCard label="Unpaid Invoices" value="..." sub="Follow-up required" />
         </section>
         <section className="table-wrap">
           <div className="loading-state">Loading invoices...</div>
@@ -76,10 +88,9 @@ export default function Accounting({ onNavigate }: Props) {
     <AppShell role="owner" activePage="accounting" onNavigate={onNavigate}>
       <Topbar title="Accounting Page" userName="Finance Team" />
       <section className="grid-4">
-        <StatCard label="Revenue Snapshot" value="EGP 84K" sub="Current month" />
-        <StatCard label="Pending Collection" value="EGP 22K" sub="Awaiting payment" />
-        <StatCard label="Paid Invoices" value={61} sub="Settled this month" />
-        <StatCard label="Unpaid Invoices" value={9} sub="Follow-up required" />
+        {stats.map((stat, idx) => (
+          <StatCard key={idx} label={stat.label} value={stat.value} sub={stat.sub} />
+        ))}
       </section>
       <section className="table-wrap">
         <div className="table-head">

@@ -1,0 +1,22 @@
+[
+  {
+    "label": "Revenue Snapshot",
+    "value": "EGP 84K",
+    "sub": "Current month"
+  },
+  {
+    "label": "Pending Collection",
+    "value": "EGP 22K",
+    "sub": "Awaiting payment"
+  },
+  {
+    "label": "Paid Invoices",
+    "value": 61,
+    "sub": "Settled this month"
+  },
+  {
+    "label": "Unpaid Invoices",
+    "value": 9,
+    "sub": "Follow-up required"
+  }
+]

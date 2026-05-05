@@ -1,0 +1,7 @@
+[
+  { "status": "UNPRICED_PENDING", "desc": "Waiting for pricing" },
+  { "status": "PRICED_PENDING_CONFIRMATION", "desc": "Ready for confirmation" },
+  { "status": "IN_PROGRESS", "desc": "Production started" },
+  { "status": "COMPLETED", "desc": "Order delivered" },
+  { "status": "CANCELED", "desc": "Order canceled" }
+]
