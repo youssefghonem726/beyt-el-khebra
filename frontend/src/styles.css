@@ -110,6 +110,27 @@ a {
   padding: 18px;
 }
 
+.global-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 12px;
+  padding: 5px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.global-back-btn:hover {
+  background: var(--primary-soft);
+  color: var(--text);
+}
+
 .topbar {
   background: var(--surface);
   border: 1px solid var(--border);
