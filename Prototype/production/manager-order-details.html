@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bayt El Khebra | Manager Order Details</title>
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body class="page">
+  <div class="app-shell">
+    <aside class="sidebar" data-nav="manager">
+      <h2 class="logo"><span class="logo-mark">Logo</span><span class="logo-name">Bayt El Khebra</span><span class="logo-sub">Bayt El Khebra</span></h2>
+      <nav></nav>
+      <div class="sidebar-footer"><a class="logout-link" href="../login.html">Log Out</a></div>
+    </aside>
+    <main class="main">
+      <header class="topbar"><h1>Order Details #1033</h1><p class="topbar-user">Manager View</p></header>
+      <section class="order-layout">
+        <article class="stack">
+          <section class="box">
+            <h3>Order Overview</h3>
+            <div class="spec-grid">
+              <p>Client Name <span>Client Name</span></p>
+              <p>Batch Code <span>B-260426-P</span></p>
+              <p>Product <span>Packaging Sleeves</span></p>
+              <p>Status <span>UNPRICED</span></p>
+              <p>Quantity <span>2500</span></p>
+              <p>Deadline <span>30 Apr 2026</span></p>
+            </div>
+          </section>
+          <section class="box">
+            <h3>Production Progress</h3>
+            <p><strong>Current Step:</strong> File review</p>
+            <div class="progress-bar" style="margin-top: 10px;"><span style="width: 30%"></span></div>
+            <ul style="margin-top: 10px;">
+              <li>Prepress: Completed</li>
+              <li>Printing: Not started</li>
+              <li>Finishing: Not started</li>
+              <li>QC: Not started</li>
+            </ul>
+          </section>
+        </article>
+        <aside class="box">
+          <h3>Manager Actions</h3>
+          <a class="btn primary block" href="edit-order.html">Edit Order</a>
+          <a class="btn block" href="order-work-view.html">View Order Work</a>
+          <a class="btn block" href="../owner/accounting.html">Send to Accounting</a>
+        </aside>
+      </section>
+    </main>
+  </div>
+  <script src="../components/nav-data.js"></script>
+  <script src="../components/nav-loader.js"></script>
+</body>
+</html>
+

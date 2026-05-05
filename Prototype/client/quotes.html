@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bayt El Khebra | Quotes</title>
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body class="page">
+  <div class="app-shell">
+    <aside class="sidebar" data-nav="client">
+      <h2 class="logo">Bayt El Khebra</h2>
+      <nav></nav>
+      <div class="sidebar-footer"><a class="logout-link" href="../login.html">Log Out</a></div>
+    </aside>
+    <main class="main">
+      <header class="topbar"><h1>Quotes</h1><p class="topbar-user">Ahmed Store</p></header>
+      <section class="table-wrap">
+        <h3>Pending &amp; Approved Quotes</h3>
+        <table>
+          <thead><tr><th>Quote ID</th><th>Order</th><th>Status</th><th>Amount</th><th>Action</th></tr></thead>
+          <tbody>
+            <tr><td>Q-211</td><td>#1021</td><td><span class="status pending">Awaiting Confirmation</span></td><td>EGP 1,200.00</td><td><a class="btn" href="order-1021.html">Review</a></td></tr>
+            <tr><td>Q-208</td><td>#1018</td><td><span class="status done">Approved</span></td><td>EGP 950.00</td><td><a class="btn" href="client-invoices.html">Invoice</a></td></tr>
+          </tbody>
+        </table>
+      </section>
+    </main>
+  </div>
+  <script src="../components/nav-data.js"></script>
+  <script src="../components/nav-loader.js"></script>
+</body>
+</html>

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bayt El Khebra | Notifications</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body class="page">
+  <div class="app-shell">
+    <aside class="sidebar" data-nav="client">
+      <h2 class="logo">
+        <span class="logo-mark">Logo</span>
+        <span class="logo-name">Bayt El Khebra</span>
+        <span class="logo-sub">Bayt El Khebra</span>
+      </h2>
+      <nav></nav>
+      <div class="sidebar-footer">
+        <a class="logout-link" href="../login.html">Log Out</a>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <h1>Notifications</h1>
+        <p class="topbar-user">Ahmed Store</p>
+      </header>
+
+      <section class="stack notifications-stack">
+        <article class="box notification-card unread">
+          <div class="notification-header">
+            <h3>Order #1021 quote is ready</h3>
+            <span class="timestamp">Today, 10:30 AM</span>
+          </div>
+          <p>Please review and confirm your quote to continue production. The quote is valid for 7 days.</p>
+          <div class="notification-actions">
+            <a class="btn btn-sm primary" href="quotes.html">Review Quote</a>
+            <a class="btn btn-sm btn-outline" href="#">Dismiss</a>
+          </div>
+        </article>
+
+        <article class="box notification-card unread">
+          <div class="notification-header">
+            <h3>Order #1020 moved to production</h3>
+            <span class="timestamp">Yesterday, 02:15 PM</span>
+          </div>
+          <p>Your order is now being printed. Estimated completion: 24 Apr 2025.</p>
+          <div class="notification-actions">
+            <a class="btn btn-sm" href="track-order.html">Track Order</a>
+            <a class="btn btn-sm btn-outline" href="#">Dismiss</a>
+          </div>
+        </article>
+
+        <article class="box notification-card">
+          <div class="notification-header">
+            <h3>Invoice INV-9021 paid</h3>
+            <span class="timestamp">21 Apr 2025, 11:00 AM</span>
+          </div>
+          <p>Payment received successfully. Thank you for your business.</p>
+          <div class="notification-actions">
+            <a class="btn btn-sm" href="client-invoices.html">View Invoice</a>
+            <a class="btn btn-sm btn-outline" href="#">Dismiss</a>
+          </div>
+        </article>
+
+        <article class="box notification-card">
+          <div class="notification-header">
+            <h3>Order #1015 is ready for delivery</h3>
+            <span class="timestamp">14 Apr 2025, 09:45 AM</span>
+          </div>
+          <p>Your order has completed production and is out for delivery.</p>
+          <div class="notification-actions">
+            <a class="btn btn-sm" href="track-order.html">Track Delivery</a>
+            <a class="btn btn-sm btn-outline" href="#">Dismiss</a>
+          </div>
+        </article>
+
+        <article class="box notification-card">
+          <div class="notification-header">
+            <h3>Order #1012 delivery confirmed</h3>
+            <span class="timestamp">12 Apr 2025, 03:20 PM</span>
+          </div>
+          <p>Your order has been delivered successfully. We hope you are satisfied with the quality.</p>
+          <div class="notification-actions">
+            <a class="btn btn-sm" href="my-orders.html">View Order</a>
+            <a class="btn btn-sm btn-outline" href="#">Dismiss</a>
+          </div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <script src="../components/nav-data.js"></script>
+  <script src="../components/nav-loader.js"></script>
+</body>
+</html>
