@@ -131,9 +131,9 @@ export default function ClientInvoices({ onNavigate }: Props) {
                     <td>
                       <div className="action-buttons">
                         {inv.status !== 'Paid' && <button className="btn btn-sm primary">Pay Now</button>}
-                        <button 
-                          className="btn btn-sm" 
-                          onClick={() => onNavigate('invoice-detail', invoice.id)}>View
+                        <button
+                          className="btn btn-sm"
+                          onClick={() => onNavigate(`invoice-detail-${inv.id}`)}>View
                         </button>
                         {inv.status === 'Paid' && <button className="btn btn-sm btn-outline">Download</button>}
                       </div>

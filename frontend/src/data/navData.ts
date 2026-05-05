@@ -26,6 +26,7 @@ export const NAVS: Record<Role, NavItem[]> = {
     { label: 'My Orders', page: 'my-orders' },
     { label: 'Place New Order', page: 'place-new-order' },
     { label: 'Quotes', page: 'quotes' },
+    { label: 'Documents', page: 'document-management' },
     { label: 'Invoices', page: 'client-invoices' },
     { label: 'Notifications', page: 'client-notifications' },
     { label: 'Profile Settings', page: 'profile-settings' },

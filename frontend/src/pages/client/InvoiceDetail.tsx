@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
+import './InvoiceDetail.css';
 
 interface Props {
   onNavigate: (page: string) => void;
@@ -83,8 +84,8 @@ export default function InvoiceDetail({ onNavigate, invoiceId }: Props) {
         <Topbar title="Invoice Detail" userName="Ahmed Store" />
         <section className="table-wrap">
           <div className="error-state">{error ?? 'Invoice not found.'}</div>
-          <button className="btn primary" onClick={() => onNavigate('client-invoices')} style={{ marginTop: 16 }}>
-            Back to Invoices
+          <button className="back-btn" onClick={() => onNavigate('client-invoices')} style={{ marginTop: 16 }}>
+            ← Back to Invoices
           </button>
         </section>
       </AppShell>
@@ -100,16 +101,11 @@ export default function InvoiceDetail({ onNavigate, invoiceId }: Props) {
       <Topbar title="Invoice Detail" userName="Ahmed Store" />
 
       <section className="table-wrap">
-        {/* Back button */}
-        <button
-          className="btn btn-sm"
-          style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 6 }}
-          onClick={() => onNavigate('client-invoices')}
-        >
+        <button className="back-btn" onClick={() => onNavigate('client-invoices')}>
           ← Back to Invoices
         </button>
 
-        <div className="box invoice-detail-card">
+        <div className={`box invoice-detail-card${invoice.status === 'Overdue' ? ' overdue' : ''}`}>
           {/* Header */}
           <div className="invoice-header">
             <div>
@@ -201,8 +197,7 @@ export default function InvoiceDetail({ onNavigate, invoiceId }: Props) {
           </div>
         </div>
 
-        {/* Support nudge */}
-        <section className="box" style={{ marginTop: 14 }}>
+        <section className="box" style={{ marginTop: 14, maxWidth: 860, margin: '14px auto 0' }}>
           <div className="table-head">
             <p><strong>Issue with this invoice?</strong> Our support team is here to help.</p>
             <button className="btn primary" onClick={() => onNavigate('support')}>Contact Support</button>

@@ -16,6 +16,8 @@ import ClientNotifications from './pages/client/ClientNotifications';
 import ProfileSettings from './pages/client/ProfileSettings';
 import Quotes from './pages/client/Quotes';
 import Support from './pages/client/Support';
+import DocumentManagement from './pages/client/DocumentManagement';
+import InvoiceDetail from './pages/client/InvoiceDetail';
 
 // Owner
 import OwnerDashboard from './pages/owner/OwnerDashboard';
@@ -41,9 +43,11 @@ import DeliveryViewMore from './pages/manager/DeliveryViewMore';
 export default function App() {
   const [page, setPage] = useState('test-landing');
   const [clientId, setClientId] = useState('client-detail-ahmed');
+  const [invoiceId, setInvoiceId] = useState('');
 
   const navigate = (target: string) => {
     if (target.startsWith('client-detail-')) setClientId(target);
+    if (target.startsWith('invoice-detail-')) setInvoiceId(target.replace('invoice-detail-', ''));
     setPage(target);
   };
 
@@ -66,6 +70,15 @@ export default function App() {
     case 'profile-settings':     return p(<ProfileSettings onNavigate={navigate} />);
     case 'quotes':               return p(<Quotes onNavigate={navigate} />);
     case 'support':              return p(<Support onNavigate={navigate} />);
+    case 'document-management': return p(<DocumentManagement onNavigate={navigate} />);
+
+    // Client invoice detail
+    case 'invoice-detail-INV-9021':
+    case 'invoice-detail-INV-9018':
+    case 'invoice-detail-INV-9015':
+    case 'invoice-detail-INV-9012':
+    case 'invoice-detail-INV-9008':
+      return p(<InvoiceDetail onNavigate={navigate} invoiceId={invoiceId} />);
 
     // Owner
     case 'owner-dashboard':   return p(<OwnerDashboard onNavigate={navigate} />);

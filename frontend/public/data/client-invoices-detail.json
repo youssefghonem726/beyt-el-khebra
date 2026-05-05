@@ -1,8 +1,102 @@
+[
   {
     "id": "INV-9021",
     "order": "#1021",
     "issued": "21 Apr 2025",
     "due": "28 Apr 2025",
+    "paidDate": "27 Apr 2025",
     "amount": "1,200.00",
-    "status": "Paid"
+    "status": "Paid",
+    "billedTo": {
+      "name": "Ahmed Store",
+      "address": "12 El Nasr St, Cairo, Egypt",
+      "taxId": "TAX-10023"
+    },
+    "items": [
+      { "description": "Business Cards (Glossy) – 500 pcs", "quantity": 500, "unitPrice": 1.80 },
+      { "description": "Flyers A5 (Full Colour) – 200 pcs",  "quantity": 200, "unitPrice": 2.10 }
+    ],
+    "vatRate": 0.14,
+    "notes": "Thank you for your business. Payment received on 27 Apr 2025."
+  },
+  {
+    "id": "INV-9018",
+    "order": "#1018",
+    "issued": "15 Apr 2025",
+    "due": "22 Apr 2025",
+    "paidDate": "21 Apr 2025",
+    "amount": "950.00",
+    "status": "Paid",
+    "billedTo": {
+      "name": "Ahmed Store",
+      "address": "12 El Nasr St, Cairo, Egypt",
+      "taxId": "TAX-10023"
+    },
+    "items": [
+      { "description": "Roll-up Banner 85×200 cm",            "quantity": 2,   "unitPrice": 280.00 },
+      { "description": "Vinyl Stickers (Custom die-cut)",     "quantity": 100, "unitPrice": 3.90 }
+    ],
+    "vatRate": 0.14,
+    "notes": "Payment received on 21 Apr 2025."
+  },
+  {
+    "id": "INV-9015",
+    "order": "#1015",
+    "issued": "10 Apr 2025",
+    "due": "17 Apr 2025",
+    "paidDate": "16 Apr 2025",
+    "amount": "850.00",
+    "status": "Paid",
+    "billedTo": {
+      "name": "Ahmed Store",
+      "address": "12 El Nasr St, Cairo, Egypt",
+      "taxId": "TAX-10023"
+    },
+    "items": [
+      { "description": "A4 Brochures (Tri-fold, Matte) – 300 pcs", "quantity": 300, "unitPrice": 2.50 },
+      { "description": "Envelope printing (DL size) – 200 pcs",     "quantity": 200, "unitPrice": 0.25 }
+    ],
+    "vatRate": 0.14,
+    "notes": "Payment received on 16 Apr 2025."
+  },
+  {
+    "id": "INV-9012",
+    "order": "#1012",
+    "issued": "05 Apr 2025",
+    "due": "12 Apr 2025",
+    "amount": "2,100.00",
+    "status": "Pending",
+    "billedTo": {
+      "name": "Ahmed Store",
+      "address": "12 El Nasr St, Cairo, Egypt",
+      "taxId": "TAX-10023"
+    },
+    "items": [
+      { "description": "Large Format Print – 3×1 m banner",        "quantity": 3,   "unitPrice": 420.00 },
+      { "description": "Foam board mounting 50×70 cm",              "quantity": 6,   "unitPrice": 95.00  },
+      { "description": "Delivery & handling",                        "quantity": 1,   "unitPrice": 120.00 }
+    ],
+    "vatRate": 0.14,
+    "notes": "Payment is due on 12 Apr 2025. Please transfer to our bank account or pay online."
+  },
+  {
+    "id": "INV-9008",
+    "order": "#1008",
+    "issued": "28 Mar 2025",
+    "due": "04 Apr 2025",
+    "amount": "3,500.00",
+    "status": "Overdue",
+    "billedTo": {
+      "name": "Ahmed Store",
+      "address": "12 El Nasr St, Cairo, Egypt",
+      "taxId": "TAX-10023"
+    },
+    "items": [
+      { "description": "Exhibition stand graphics (full set)",       "quantity": 1,   "unitPrice": 1800.00 },
+      { "description": "Pull-up banners 85×200 cm",                  "quantity": 4,   "unitPrice": 280.00  },
+      { "description": "Fabric backdrop 3×2 m (dye sublimation)",    "quantity": 1,   "unitPrice": 490.00  }
+    ],
+    "vatRate": 0.14,
+    "notes": "This invoice is overdue. Please settle immediately to avoid service suspension."
   }
+]
