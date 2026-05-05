@@ -63,7 +63,6 @@ export default function InvoiceDetail({ onNavigate, invoiceId }: Props) {
   const handlePrint = () => window.print();
 
   const handleDownload = () => {
-    // Placeholder: replace with actual PDF generation/download logic
     alert('PDF download coming soon.');
   };
 
