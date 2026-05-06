@@ -1,14 +1,8 @@
 import { useState } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
-import { Document, Page, pdfjs } from 'react-pdf';
 
-// PDF worker
-pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
-
-interface Props {
-  onNavigate: (page: string) => void;
-}
+interface Props { onNavigate: (page: string) => void; }
 
 type OrderType = 'package' | 'single' | null;
 type ItemType = 'book' | 'booklet' | 'card' | 'sticker' | 'poster';
@@ -16,28 +10,107 @@ type ItemType = 'book' | 'booklet' | 'card' | 'sticker' | 'poster';
 interface PackageItem {
   id: string;
   type: ItemType;
-  data: any;
+  data: Record<string, any>;
 }
 
-// =============================
-// PDF PREVIEW COMPONENT
-// =============================
-function PdfPreview({ file }: { file: File | null }) {
-  const [numPages, setNumPages] = useState(0);
+function FileField({ label, value, onChange }: { label: string; value: File | null; onChange: (f: File | null) => void }) {
+  return (
+    <div className="field" style={{ marginBottom: 10 }}>
+      <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>{label}</label>
+      <input
+        type="file"
+        accept="application/pdf,image/*"
+        onChange={(e) => onChange(e.target.files?.[0] ?? null)}
+        style={{ fontSize: 13 }}
+      />
+      {value && <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>Selected: {value.name}</p>}
+    </div>
+  );
+}
 
-  if (!file) return null;
+function SelectField({ label, options, value, onChange }: { label: string; options: string[]; value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="field" style={{ marginBottom: 10 }}>
+      <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>{label}</label>
+      <select className="select" value={value} onChange={(e) => onChange(e.target.value)}>
+        {options.map((o) => <option key={o}>{o}</option>)}
+      </select>
+    </div>
+  );
+}
+
+function NumberField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="field" style={{ marginBottom: 10 }}>
+      <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>{label}</label>
+      <input className="input" type="number" min={1} value={value} onChange={(e) => onChange(e.target.value)} style={{ width: 120 }} />
+    </div>
+  );
+}
+
+function ItemEditor({ item, onChange, onRemove }: { item: PackageItem; onChange: (d: Record<string, any>) => void; onRemove: () => void }) {
+  const d = item.data;
+  const set = (k: string, v: any) => onChange({ ...d, [k]: v });
+
+  const typeLabel = item.type.charAt(0).toUpperCase() + item.type.slice(1);
 
   return (
-    <div style={{ maxHeight: 400, overflow: 'auto', marginTop: 10 }}>
-      <Document
-        file={file}
-        onLoadSuccess={({ numPages }) => setNumPages(numPages)}
-      >
-        {Array.from(new Array(numPages), (_, i) => (
-          <Page key={i} pageNumber={i + 1} width={250} />
-        ))}
-      </Document>
-    </div>
+    <article className="box" style={{ marginBottom: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <h4>{typeLabel}</h4>
+        <button className="btn" style={{ fontSize: 12 }} onClick={onRemove}>Remove</button>
+      </div>
+
+      <NumberField label="Quantity" value={d.qty ?? '100'} onChange={(v) => set('qty', v)} />
+      <FileField label="Print File (PDF)" value={d.pdf ?? null} onChange={(f) => set('pdf', f)} />
+
+      {item.type === 'book' && (
+        <>
+          <FileField label="Cover File" value={d.cover ?? null} onChange={(f) => set('cover', f)} />
+          <SelectField label="Cover Finish" options={['Matte', 'Shiny', 'Transparent']} value={d.coverFinish ?? 'Matte'} onChange={(v) => set('coverFinish', v)} />
+          <SelectField label="Colors" options={['B&W', 'Colors']} value={d.colors ?? 'Colors'} onChange={(v) => set('colors', v)} />
+          <SelectField label="Size" options={['A4', 'A5']} value={d.size ?? 'A4'} onChange={(v) => set('size', v)} />
+          <SelectField label="Print Type" options={['Front', 'Front & Back']} value={d.printType ?? 'Front & Back'} onChange={(v) => set('printType', v)} />
+          <SelectField label="Binding" options={['Softcover', 'Hardcover', 'Spiral']} value={d.casing ?? 'Softcover'} onChange={(v) => set('casing', v)} />
+        </>
+      )}
+
+      {item.type === 'booklet' && (
+        <>
+          <SelectField label="Paper Weight" options={['150g', '200g', '300g']} value={d.weight ?? '150g'} onChange={(v) => set('weight', v)} />
+          <SelectField label="Size" options={['A4', 'A3 (Centerfold)']} value={d.size ?? 'A4'} onChange={(v) => set('size', v)} />
+          <SelectField label="Colors" options={['B&W', 'Colors']} value={d.colors ?? 'Colors'} onChange={(v) => set('colors', v)} />
+          <SelectField label="Print Type" options={['Front', 'Front & Back']} value={d.printType ?? 'Front & Back'} onChange={(v) => set('printType', v)} />
+          <SelectField label="Binding" options={['Staple', 'Glue']} value={d.casing ?? 'Staple'} onChange={(v) => set('casing', v)} />
+        </>
+      )}
+
+      {item.type === 'card' && (
+        <>
+          <SelectField label="Paper Weight" options={['200g', '300g', '400g']} value={d.weight ?? '300g'} onChange={(v) => set('weight', v)} />
+          <SelectField label="Size" options={['6×9 cm', '3×6 cm', 'A5', 'A4 ÷ 8']} value={d.size ?? '6×9 cm'} onChange={(v) => set('size', v)} />
+          <SelectField label="Finish" options={['Matte', 'Glossy', 'UV']} value={d.finish ?? 'Matte'} onChange={(v) => set('finish', v)} />
+          <SelectField label="Print Type" options={['Front', 'Front & Back']} value={d.printType ?? 'Front & Back'} onChange={(v) => set('printType', v)} />
+        </>
+      )}
+
+      {item.type === 'sticker' && (
+        <>
+          <SelectField label="Material" options={['Vinyl', 'Paper', 'Clear']} value={d.material ?? 'Vinyl'} onChange={(v) => set('material', v)} />
+          <SelectField label="Shape" options={['Rectangle', 'Circle', 'Custom']} value={d.shape ?? 'Rectangle'} onChange={(v) => set('shape', v)} />
+          <SelectField label="Finish" options={['Glossy', 'Matte']} value={d.finish ?? 'Glossy'} onChange={(v) => set('finish', v)} />
+        </>
+      )}
+
+      {item.type === 'poster' && (
+        <>
+          <SelectField label="Size" options={['A3', 'A2', 'A1', 'A0']} value={d.size ?? 'A3'} onChange={(v) => set('size', v)} />
+          <SelectField label="Paper Weight" options={['150g', '200g', '300g']} value={d.weight ?? '200g'} onChange={(v) => set('weight', v)} />
+          <SelectField label="Finish" options={['Matte', 'Glossy']} value={d.finish ?? 'Matte'} onChange={(v) => set('finish', v)} />
+          <SelectField label="Print Type" options={['Front', 'Front & Back']} value={d.printType ?? 'Front'} onChange={(v) => set('printType', v)} />
+        </>
+      )}
+    </article>
   );
 }
 
@@ -45,256 +118,73 @@ export default function PlaceNewOrder({ onNavigate }: Props) {
   const [orderType, setOrderType] = useState<OrderType>(null);
   const [items, setItems] = useState<PackageItem[]>([]);
   const [singleType, setSingleType] = useState<ItemType | ''>('');
-  const [singleData, setSingleData] = useState<any>({});
+  const [singleData, setSingleData] = useState<Record<string, any>>({});
+  const [submitted, setSubmitted] = useState(false);
+  const [notes, setNotes] = useState('');
 
-  // =============================
-  // Package Logic
-  // =============================
   const addItem = (type: ItemType) => {
-    if (!type) return;
-
-    const newItem: PackageItem = {
-      id: crypto.randomUUID(),
-      type,
-      data: {},
-    };
-
-    setItems((prev) => [...prev, newItem]);
+    setItems((prev) => [...prev, { id: crypto.randomUUID(), type, data: {} }]);
   };
 
-  const updateItem = (id: string, data: any) => {
-    setItems((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, data } : i))
-    );
+  const updateItem = (id: string, data: Record<string, any>) => {
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, data } : i)));
   };
 
   const removeItem = (id: string) => {
     setItems((prev) => prev.filter((i) => i.id !== id));
   };
 
-  // =============================
-  // Shared Item Renderer
-  // =============================
-  const ItemEditor = ({
-    item,
-    onChange,
-  }: {
-    item: PackageItem;
-    onChange: (data: any) => void;
-  }) => {
-    const data = item.data || {};
-
-    const set = (k: string, v: any) => {
-      onChange({ ...data, [k]: v });
-    };
-
-    const FileSelector = (keyName: string) => (
-      <>
-        <select onChange={(e) => set(`${keyName}Source`, e.target.value)}>
-          <option value="new">Upload New</option>
-          <option value="existing">Use Existing</option>
-        </select>
-
-        {data[`${keyName}Source`] === 'existing' ? (
-          <select onChange={(e) => set(`${keyName}Existing`, e.target.value)}>
-            <option>Old File 1</option>
-            <option>Old File 2</option>
-          </select>
-        ) : (
-          <input
-            type="file"
-            accept="application/pdf"
-            onChange={(e) => set(keyName, e.target.files?.[0])}
-          />
-        )}
-
-        {/* PDF Preview */}
-        {data[keyName] && <PdfPreview file={data[keyName]} />}
-      </>
+  if (submitted) {
+    return (
+      <AppShell role="client" activePage="place-new-order" onNavigate={onNavigate}>
+        <Topbar title="Place New Order" userName="Ahmed Store" />
+        <section className="box" style={{ textAlign: 'center', padding: 48 }}>
+          <p style={{ fontSize: 40, marginBottom: 12 }}>✓</p>
+          <h2 style={{ marginBottom: 8 }}>Order Submitted!</h2>
+          <p style={{ color: 'var(--muted)', marginBottom: 24 }}>
+            We've received your order and will send you a quote shortly.
+          </p>
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+            <button className="btn primary" onClick={() => onNavigate('my-orders')}>View My Orders</button>
+            <button className="btn" onClick={() => { setSubmitted(false); setOrderType(null); setItems([]); setSingleType(''); setSingleData({}); setNotes(''); }}>
+              Place Another
+            </button>
+          </div>
+        </section>
+      </AppShell>
     );
-
-    switch (item.type) {
-      case 'book':
-        return (
-          <div className="box">
-            <div className="flex-between">
-              <h4>Book</h4>
-              <button
-                className="btn danger small"
-                onClick={() => removeItem(item.id)}
-              >
-                Remove
-              </button>
-            </div>
-
-            <label>PDF</label>
-            {FileSelector('pdf')}
-
-            <h5>Cover</h5>
-            {FileSelector('cover')}
-
-            <select onChange={(e) => set('coverFinish', e.target.value)}>
-              <option>Matte</option>
-              <option>Shiny</option>
-              <option>Transparent</option>
-            </select>
-
-            <select onChange={(e) => set('colors', e.target.value)}>
-              <option>B&W</option>
-              <option>Colours</option>
-            </select>
-
-            <h5>Content</h5>
-            <select onChange={(e) => set('size', e.target.value)}>
-              <option>A4</option>
-            </select>
-
-            <select onChange={(e) => set('printType', e.target.value)}>
-              <option>Front</option>
-              <option>Front & Back</option>
-            </select>
-
-            <select onChange={(e) => set('casing', e.target.value)}>
-              <option>Bashr</option>
-              <option>Tak3ib</option>
-            </select>
-          </div>
-        );
-
-      case 'booklet':
-        return (
-          <div className="box">
-            <div className="flex-between">
-              <h4>Booklet</h4>
-              <button
-                className="btn danger small"
-                onClick={() => removeItem(item.id)}
-              >
-                Remove
-              </button>
-            </div>
-
-            <label>PDF</label>
-            {FileSelector('pdf')}
-
-            <select onChange={(e) => set('weight', e.target.value)}>
-              <option>150g</option>
-              <option>200g</option>
-              <option>300g</option>
-            </select>
-
-            <select onChange={(e) => set('size', e.target.value)}>
-              <option>A4</option>
-              <option>A3 (Centerfold)</option>
-            </select>
-
-            <select onChange={(e) => set('colors', e.target.value)}>
-              <option>B&W</option>
-              <option>Colours</option>
-            </select>
-
-            <select onChange={(e) => set('printType', e.target.value)}>
-              <option>Front</option>
-              <option>Front & Back</option>
-            </select>
-
-            <select onChange={(e) => set('casing', e.target.value)}>
-              <option>Bashr</option>
-              <option>Tak3ib</option>
-            </select>
-          </div>
-        );
-
-      case 'card':
-        return (
-          <div className="box">
-            <div className="flex-between">
-              <h4>Card</h4>
-              <button
-                className="btn danger small"
-                onClick={() => removeItem(item.id)}
-              >
-                Remove
-              </button>
-            </div>
-
-            <label>Card PDF</label>
-            {FileSelector('pdf')}
-
-            <select onChange={(e) => set('weight', e.target.value)}>
-              <option>200g</option>
-              <option>300g</option>
-            </select>
-
-            <select onChange={(e) => set('size', e.target.value)}>
-              <option>6x9</option>
-              <option>3x6</option>
-              <option>A5</option>
-              <option>A4 div 8</option>
-            </select>
-          </div>
-        );
-
-      case 'sticker':
-        return (
-          <div className="box">
-            <div className="flex-between">
-              <h4>Sticker</h4>
-              <button
-                className="btn danger small"
-                onClick={() => removeItem(item.id)}
-              >
-                Remove
-              </button>
-            </div>
-
-            {FileSelector('file')}
-          </div>
-        );
-
-      case 'poster':
-        return (
-          <div className="box">
-            <div className="flex-between">
-              <h4>🪧 Poster</h4>
-              <button
-                className="btn danger small"
-                onClick={() => removeItem(item.id)}
-              >
-                Remove
-              </button>
-            </div>
-
-            {FileSelector('file')}
-
-            <select onChange={(e) => set('size', e.target.value)}>
-              <option>A3</option>
-            </select>
-
-            <select onChange={(e) => set('printType', e.target.value)}>
-              <option>Front</option>
-              <option>Front & Back</option>
-            </select>
-          </div>
-        );
-
-      default:
-        return null;
-    }
-  };
+  }
 
   return (
     <AppShell role="client" activePage="place-new-order" onNavigate={onNavigate}>
-      <Topbar title="Place New Order" userName="Client Name" />
+      <Topbar title="Place New Order" userName="Ahmed Store" />
 
       {!orderType && (
-        <section className="form-grid-2">
-          <div className="box" onClick={() => setOrderType('package')}>
-            <h3>Package</h3>
-          </div>
-
-          <div className="box" onClick={() => setOrderType('single')}>
-            <h3>Individual Order</h3>
+        <section style={{ maxWidth: 700, margin: '0 auto' }}>
+          <p style={{ color: 'var(--muted)', marginBottom: 20 }}>
+            Choose how you'd like to place your order.
+          </p>
+          <div className="grid-2" style={{ gap: 16 }}>
+            <div
+              className="box"
+              style={{ cursor: 'pointer', borderColor: 'var(--border)', transition: 'border-color .15s' }}
+              onClick={() => setOrderType('package')}
+            >
+              <h3 style={{ marginBottom: 8 }}>Package Order</h3>
+              <p style={{ color: 'var(--muted)', fontSize: 13 }}>
+                Combine multiple print items (books, cards, posters…) into one order.
+              </p>
+            </div>
+            <div
+              className="box"
+              style={{ cursor: 'pointer', borderColor: 'var(--border)', transition: 'border-color .15s' }}
+              onClick={() => setOrderType('single')}
+            >
+              <h3 style={{ marginBottom: 8 }}>Individual Order</h3>
+              <p style={{ color: 'var(--muted)', fontSize: 13 }}>
+                Order a single print item with full customization options.
+              </p>
+            </div>
           </div>
         </section>
       )}
@@ -302,47 +192,61 @@ export default function PlaceNewOrder({ onNavigate }: Props) {
       {orderType === 'package' && (
         <section className="split">
           <article>
-            <h2>Add Items</h2>
+            <button className="global-back-btn" style={{ marginBottom: 12 }} onClick={() => setOrderType(null)}>
+              ← Back
+            </button>
+            <h3 style={{ marginBottom: 12 }}>Add Items to Package</h3>
 
-            <select
-              onChange={(e) => {
-                addItem(e.target.value as ItemType);
-                e.target.value = '';
-              }}
-            >
-              <option value="">Select item type</option>
-              <option value="book">Book</option>
-              <option value="booklet">Booklet</option>
-              <option value="card">Card</option>
-              <option value="sticker">Sticker</option>
-              <option value="poster">Poster</option>
-            </select>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16 }}>
+              <select className="select" onChange={(e) => { if (e.target.value) { addItem(e.target.value as ItemType); e.target.value = ''; } }}>
+                <option value="">+ Add item type</option>
+                <option value="book">Book</option>
+                <option value="booklet">Booklet</option>
+                <option value="card">Business Card</option>
+                <option value="sticker">Sticker</option>
+                <option value="poster">Poster</option>
+              </select>
+            </div>
 
+            {items.length === 0 && (
+              <p className="muted" style={{ fontSize: 13 }}>No items added yet. Use the selector above to add items.</p>
+            )}
             {items.map((item) => (
               <ItemEditor
                 key={item.id}
                 item={item}
                 onChange={(data) => updateItem(item.id, data)}
+                onRemove={() => removeItem(item.id)}
               />
             ))}
+
+            <div className="field" style={{ marginTop: 8 }}>
+              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Additional Notes</label>
+              <textarea className="input" rows={3} placeholder="Any special instructions…" value={notes} onChange={(e) => setNotes(e.target.value)} style={{ resize: 'vertical', width: '100%' }} />
+            </div>
           </article>
 
-          <aside className="box">
-            <h3>Package Preview</h3>
-
+          <aside className="box" style={{ alignSelf: 'flex-start', position: 'sticky', top: 18 }}>
+            <h3 style={{ marginBottom: 12 }}>Package Summary</h3>
             {items.length === 0 ? (
-              <p>No items added</p>
+              <p className="muted" style={{ fontSize: 13 }}>No items added.</p>
             ) : (
-              <ul>
+              <ul style={{ listStyle: 'none', display: 'grid', gap: 6, fontSize: 13, marginBottom: 16 }}>
                 {items.map((i) => (
-                  <li key={i.id}>{i.type}</li>
+                  <li key={i.id} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>{i.type.charAt(0).toUpperCase() + i.type.slice(1)}</span>
+                    <span className="muted">{i.data.qty ?? 100} pcs</span>
+                  </li>
                 ))}
               </ul>
             )}
-
+            <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>
+              Pricing will be sent to you after submission.
+            </p>
             <button
               className="btn primary block"
-              onClick={() => onNavigate('my-orders')}
+              disabled={items.length === 0}
+              onClick={() => setSubmitted(true)}
             >
               Submit Package
             </button>
@@ -351,31 +255,43 @@ export default function PlaceNewOrder({ onNavigate }: Props) {
       )}
 
       {orderType === 'single' && (
-        <section>
-          <h2>Select Item Type</h2>
+        <section style={{ maxWidth: 600 }}>
+          <button className="global-back-btn" style={{ marginBottom: 12 }} onClick={() => { setOrderType(null); setSingleType(''); setSingleData({}); }}>
+            ← Back
+          </button>
+          <h3 style={{ marginBottom: 12 }}>Individual Order</h3>
 
-          <select onChange={(e) => setSingleType(e.target.value as ItemType)}>
-            <option value="">Select type</option>
-            <option value="book">Book</option>
-            <option value="booklet">Booklet</option>
-            <option value="card">Card</option>
-            <option value="sticker">Sticker</option>
-            <option value="poster">Poster</option>
-          </select>
+          <div className="field" style={{ marginBottom: 16 }}>
+            <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Item Type</label>
+            <select className="select" value={singleType} onChange={(e) => { setSingleType(e.target.value as ItemType); setSingleData({}); }}>
+              <option value="">Select type…</option>
+              <option value="book">Book</option>
+              <option value="booklet">Booklet</option>
+              <option value="card">Business Card</option>
+              <option value="sticker">Sticker</option>
+              <option value="poster">Poster</option>
+            </select>
+          </div>
 
           {singleType && (
-            <ItemEditor
-              item={{ id: 'single', type: singleType, data: singleData }}
-              onChange={setSingleData}
-            />
+            <>
+              <ItemEditor
+                item={{ id: 'single', type: singleType, data: singleData }}
+                onChange={setSingleData}
+                onRemove={() => { setSingleType(''); setSingleData({}); }}
+              />
+              <div className="field" style={{ marginBottom: 16 }}>
+                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Additional Notes</label>
+                <textarea className="input" rows={3} placeholder="Any special instructions…" value={notes} onChange={(e) => setNotes(e.target.value)} style={{ resize: 'vertical', width: '100%' }} />
+              </div>
+              <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>
+                Pricing will be sent to you after submission.
+              </p>
+              <button className="btn primary" onClick={() => setSubmitted(true)}>
+                Submit Order
+              </button>
+            </>
           )}
-
-          <button
-            className="btn primary block"
-            onClick={() => onNavigate('my-orders')}
-          >
-            Submit Order
-          </button>
         </section>
       )}
     </AppShell>

@@ -19,7 +19,7 @@ export default function ClientManagement({ onNavigate }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch('/public/data/clients.json')
+    fetch('/data/clients.json')
       .then((response) => {
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);

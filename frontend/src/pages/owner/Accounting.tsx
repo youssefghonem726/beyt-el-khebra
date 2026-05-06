@@ -3,6 +3,7 @@ import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatCard from '../../components/StatCard';
 import StatusBadge from '../../components/StatusBadge';
+import { downloadText } from '../../utils/download';
 
 interface Props { onNavigate: (page: string) => void; }
 
@@ -95,7 +96,6 @@ export default function Accounting({ onNavigate }: Props) {
       <section className="table-wrap">
         <div className="table-head">
           <h3>Invoices (moved under Accounting)</h3>
-          <button className="btn" onClick={() => onNavigate('owner-dashboard')}>Back to Owner Dashboard</button>
         </div>
         <table>
           <thead>
@@ -116,7 +116,13 @@ export default function Accounting({ onNavigate }: Props) {
                 <td>{inv.client}</td>
                 <td>{inv.total}</td>
                 <td><StatusBadge status={inv.status} /></td>
-                <td><button className="btn">Download</button></td>
+                <td><button className="btn" onClick={() => downloadText(`invoice-${inv.id}.txt`, [
+                  `INVOICE: ${inv.id}`,
+                  `Order:   ${inv.order}`,
+                  `Client:  ${inv.client}`,
+                  `Total:   ${inv.total}`,
+                  `Status:  ${inv.status}`,
+                ])}>Download</button></td>
               </tr>
             ))}
           </tbody>

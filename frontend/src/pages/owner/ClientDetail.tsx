@@ -30,7 +30,7 @@ export default function ClientDetail({ onNavigate, clientId = 'client-detail-ahm
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch('/public/data/clients-detail.json')
+    fetch('/data/clients-detail.json')
       .then((response) => {
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -58,7 +58,6 @@ export default function ClientDetail({ onNavigate, clientId = 'client-detail-ahm
       <AppShell role="owner" activePage="client-management" onNavigate={onNavigate}>
         <header className="topbar">
           <h1>Client Details</h1>
-          <button className="btn" onClick={() => onNavigate('client-management')}>Back to Client Management</button>
         </header>
         <section className="box">
           <div className="loading-state">Loading client details...</div>
@@ -72,7 +71,6 @@ export default function ClientDetail({ onNavigate, clientId = 'client-detail-ahm
       <AppShell role="owner" activePage="client-management" onNavigate={onNavigate}>
         <header className="topbar">
           <h1>Client Details</h1>
-          <button className="btn" onClick={() => onNavigate('client-management')}>Back to Client Management</button>
         </header>
         <section className="box">
           <div className="error-state">{error || 'Client data unavailable.'}</div>
