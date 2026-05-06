@@ -93,7 +93,7 @@ export default function Login({ onNavigate }: Props) {
         </div>
 
         <button className="btn primary block center" onClick={handleLogin}>
-          Login
+          Login Account
         </button>
 
         <p className="center muted tiny">or</p>

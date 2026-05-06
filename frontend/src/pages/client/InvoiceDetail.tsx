@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
+import './InvoiceDetail.css';
+import { downloadText } from '../../utils/download';
 
 interface Props {
   onNavigate: (page: string) => void;
@@ -40,6 +42,8 @@ export default function InvoiceDetail({ onNavigate, invoiceId }: Props) {
   const [invoice, setInvoice] = useState<InvoiceDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [paying, setPaying] = useState(false);
+  const [paid, setPaid] = useState(false);
 
   useEffect(() => {
     fetch('/data/client-invoices-detail.json')
@@ -63,7 +67,32 @@ export default function InvoiceDetail({ onNavigate, invoiceId }: Props) {
   const handlePrint = () => window.print();
 
   const handleDownload = () => {
-    alert('PDF download coming soon.');
+    if (!invoice) return;
+    const sub = invoice.items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
+    const v = sub * invoice.vatRate;
+    const tot = sub + v;
+    downloadText(`invoice-${invoice.id}.txt`, [
+      `INVOICE #${invoice.id}`,
+      ``,
+      `Billed To:   ${invoice.billedTo.name}`,
+      `Address:     ${invoice.billedTo.address}`,
+      `Tax ID:      ${invoice.billedTo.taxId}`,
+      ``,
+      `Linked Order: ${invoice.order}`,
+      `Issue Date:   ${invoice.issued}`,
+      `Due Date:     ${invoice.due}`,
+      invoice.paidDate ? `Payment Date: ${invoice.paidDate}` : '',
+      ``,
+      `Items:`,
+      ...invoice.items.map(item =>
+        `  ${item.description.padEnd(30)} x${item.quantity}  @ EGP ${item.unitPrice.toFixed(2)}  =  EGP ${(item.quantity * item.unitPrice).toFixed(2)}`
+      ),
+      ``,
+      `Subtotal: EGP ${sub.toFixed(2)}`,
+      `VAT (${(invoice.vatRate * 100).toFixed(0)}%): EGP ${v.toFixed(2)}`,
+      `Total:    EGP ${tot.toFixed(2)}`,
+      `Status:   ${invoice.status}`,
+    ].filter(l => l !== undefined));
   };
 
   if (loading) {
@@ -83,9 +112,6 @@ export default function InvoiceDetail({ onNavigate, invoiceId }: Props) {
         <Topbar title="Invoice Detail" userName="Ahmed Store" />
         <section className="table-wrap">
           <div className="error-state">{error ?? 'Invoice not found.'}</div>
-          <button className="btn primary" onClick={() => onNavigate('client-invoices')} style={{ marginTop: 16 }}>
-            Back to Invoices
-          </button>
         </section>
       </AppShell>
     );
@@ -100,16 +126,7 @@ export default function InvoiceDetail({ onNavigate, invoiceId }: Props) {
       <Topbar title="Invoice Detail" userName="Ahmed Store" />
 
       <section className="table-wrap">
-        {/* Back button */}
-        <button
-          className="btn btn-sm"
-          style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 6 }}
-          onClick={() => onNavigate('client-invoices')}
-        >
-          ← Back to Invoices
-        </button>
-
-        <div className="box invoice-detail-card">
+        <div className={`box invoice-detail-card${invoice.status === 'Overdue' ? ' overdue' : ''}`}>
           {/* Header */}
           <div className="invoice-header">
             <div>
@@ -193,16 +210,44 @@ export default function InvoiceDetail({ onNavigate, invoiceId }: Props) {
 
           {/* Actions */}
           <div className="invoice-actions">
-            {invoice.status !== 'Paid' && (
-              <button className="btn primary">Pay Now</button>
+            {invoice.status !== 'Paid' && !paid && (
+              <button className="btn primary" onClick={() => setPaying(true)}>Pay Now</button>
             )}
+            {paid && <span style={{ color: '#2c9a4b', fontWeight: 600, fontSize: 14 }}>✓ Payment confirmed</span>}
             <button className="btn" onClick={handlePrint}>Print</button>
             <button className="btn btn-outline" onClick={handleDownload}>Download PDF</button>
           </div>
+
+          {paying && !paid && (
+            <div style={{ marginTop: 20, padding: 20, background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--border)' }}>
+              <h4 style={{ marginBottom: 16 }}>Payment Details</h4>
+              <div className="field" style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Card Number</label>
+                <input className="input" placeholder="1234 5678 9012 3456" maxLength={19} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                <div className="field">
+                  <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Expiry</label>
+                  <input className="input" placeholder="MM / YY" maxLength={7} />
+                </div>
+                <div className="field">
+                  <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>CVV</label>
+                  <input className="input" placeholder="•••" maxLength={4} type="password" />
+                </div>
+              </div>
+              <div className="field" style={{ marginBottom: 16 }}>
+                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Cardholder Name</label>
+                <input className="input" placeholder="Name on card" />
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button className="btn primary" onClick={() => { setPaid(true); setPaying(false); }}>Confirm Payment</button>
+                <button className="btn" onClick={() => setPaying(false)}>Cancel</button>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Support nudge */}
-        <section className="box" style={{ marginTop: 14 }}>
+        <section className="box" style={{ marginTop: 14, maxWidth: 860, margin: '14px auto 0' }}>
           <div className="table-head">
             <p><strong>Issue with this invoice?</strong> Our support team is here to help.</p>
             <button className="btn primary" onClick={() => onNavigate('support')}>Contact Support</button>

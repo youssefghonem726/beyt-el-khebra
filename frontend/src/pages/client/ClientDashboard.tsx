@@ -106,7 +106,6 @@ export default function ClientDashboard({ onNavigate, clientIdentifier, dataUrls
   const [dashboardData, setDashboardData] = useState<DashboardData>(DEFAULT_DATA);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [availableClients, setAvailableClients] = useState<Client[]>([]);
   
   const [query, setQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -167,9 +166,6 @@ export default function ClientDashboard({ onNavigate, clientIdentifier, dataUrls
         // Find the selected client
         const selectedClient = findClient(clients, clientIdentifier);
         
-        // Store available clients for potential client switcher UI
-        setAvailableClients(clients);
-
         // Apply any fallback data passed as prop (overrides fetched data)
         setDashboardData({
           client: fallbackData?.client ?? selectedClient,
@@ -181,8 +177,6 @@ export default function ClientDashboard({ onNavigate, clientIdentifier, dataUrls
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
         setError('Failed to load dashboard data. Using cached data.');
-        // Keep default data on error
-        setAvailableClients([DEFAULT_DATA.client!]);
       } finally {
         setLoading(false);
       }
@@ -196,14 +190,6 @@ export default function ClientDashboard({ onNavigate, clientIdentifier, dataUrls
     const matchS = !filterStatus || o.status.toLowerCase().replace(/_/g, ' ').includes(filterStatus.replace(/_/g, ' '));
     return matchQ && matchS;
   });
-
-  const handleClientChange = (client: Client) => {
-    setDashboardData(prev => ({ ...prev, client }));
-    // Optionally navigate to client detail page if specified
-    if (client.page) {
-      onNavigate(client.page);
-    }
-  };
 
   if (loading) {
     return (
@@ -226,24 +212,6 @@ export default function ClientDashboard({ onNavigate, clientIdentifier, dataUrls
           <span>⚠️ {error}</span>
           <button onClick={() => window.location.reload()}>Retry</button>
         </div>
-      )}
-
-      {/* Client Selector (optional - shows if multiple clients available) */}
-      {availableClients.length > 1 && (
-        <section className="client-selector">
-          <label>Switch Client: </label>
-          <select 
-            value={dashboardData.client?.name || ''}
-            onChange={(e) => {
-              const selected = availableClients.find(c => c.name === e.target.value);
-              if (selected) handleClientChange(selected);
-            }}
-          >
-            {availableClients.map(client => (
-              <option key={client.name} value={client.name}>{client.name}</option>
-            ))}
-          </select>
-        </section>
       )}
 
       <section className="welcome">
@@ -323,10 +291,8 @@ export default function ClientDashboard({ onNavigate, clientIdentifier, dataUrls
                     <td>{o.total}</td>
                     <td>
                       <div className="action-buttons">
-                        <button className="btn btn-sm" onClick={() => onNavigate('my-orders')}>View</button>
+                        <button className="btn btn-sm" onClick={() => onNavigate(`client-order-${o.id.replace('#', '')}`)}>View</button>
                         <button className="btn btn-sm" onClick={() => onNavigate('track-order')}>Track</button>
-                        <button className="btn btn-sm btn-outline">Review</button>
-                        <button className="btn btn-sm btn-outline" onClick={() => onNavigate('my-orders')}>Details</button>
                       </div>
                     </td>
                   </tr>

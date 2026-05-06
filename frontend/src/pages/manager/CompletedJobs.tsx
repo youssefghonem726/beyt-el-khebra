@@ -3,7 +3,7 @@ import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
 
-interface Props { onNavigate: (page: string) => void; }
+interface Props { onNavigate: (page: string) => void; role?: 'manager' | 'owner'; }
 
 const JOBS = [
   {
@@ -18,9 +18,9 @@ const JOBS = [
   },
 ];
 
-export default function CompletedJobs({ onNavigate }: Props) {
+export default function CompletedJobs({ onNavigate, role = 'manager' }: Props) {
   return (
-    <AppShell role="manager" activePage="completed-jobs" onNavigate={onNavigate}>
+    <AppShell role={role} activePage={role === 'owner' ? 'owner-dashboard' : 'completed-jobs'} onNavigate={onNavigate}>
       <Topbar title="Completed Jobs" userName="Production Summary" />
       {JOBS.map((j) => (
         <section key={j.id} className="split" style={{ marginBottom: 14 }}>

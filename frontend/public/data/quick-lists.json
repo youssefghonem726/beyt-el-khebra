@@ -4,7 +4,7 @@
     "count": 8,
     "status": "AWAITING WORK",
     "action": "Review and price urgent batches",
-    "page": "manager-orders"
+    "page": "owner-manager-orders"
   },
   {
     "list": "Working Orders",
@@ -18,6 +18,6 @@
     "count": 27,
     "status": "READY FOR ARCHIVE",
     "action": "Validate completion and billing",
-    "page": "completed-jobs"
+    "page": "owner-completed-jobs"
   }
 ]
