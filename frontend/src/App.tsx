@@ -47,7 +47,7 @@ import DeliveryList from './pages/manager/DeliveryList';
 export default function App() {
   const [page, setPage] = useState('test-landing');
   const [navHistory, setNavHistory] = useState<string[]>([]);
-  const [clientId, setClientId] = useState('client-detail-ahmed');
+  const [clientId, setClientId] = useState('client-detail-nagdi');
   const [invoiceId, setInvoiceId] = useState('');
   const [clientOrderId, setClientOrderId] = useState('');
   const [quoteDetailId, setQuoteDetailId] = useState('');
@@ -138,7 +138,7 @@ export default function App() {
       case 'owner-notifications': return p(<OwnerNotifications onNavigate={navigate} />);
       case 'owner-settings':     return p(<OwnerSettings onNavigate={navigate} />);
       case 'unpriced-queue':     return p(<UnpricedQueue onNavigate={navigate} />);
-      case 'client-detail-ahmed':
+      case 'client-detail-nagdi':
       case 'client-detail-design-hub':
       case 'client-detail-retail-plus':
         return p(<ClientDetail onNavigate={navigate} clientId={clientId} />);
