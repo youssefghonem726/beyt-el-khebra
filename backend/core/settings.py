@@ -23,12 +23,16 @@ INSTALLED_APPS = [
 
     'rest_framework',
     'corsheaders',
-    'api',
+    
+    'users',
+'orders',
+'uploads',
+'pricing',
 ]
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
-    'api.middleware.SupabaseJWTMiddleware',
+    'core.middleware.SupabaseJWTMiddleware',
 
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
