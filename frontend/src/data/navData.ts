@@ -17,9 +17,12 @@ export const NAVS: Record<Role, NavItem[]> = {
     { label: 'Settings', page: 'owner-settings' },
   ],
   manager: [
-    { label: 'Dashboard', page: 'active-jobs' },
-    { label: 'Completed Jobs', page: 'completed-jobs' },
-    { label: 'Work View', page: 'order-work-view' },
+    { label: 'Dashboard',      page: 'active-jobs'           },
+    { label: 'Orders',         page: 'manager-orders'        },
+    { label: 'Completed Jobs', page: 'completed-jobs'        },
+    { label: 'Work View',      page: 'order-work-view'       },
+    { label: 'Batch Lookup',   page: 'batch-lookup'          },
+    { label: 'Delivery',       page: 'delivery-list'         },
   ],
   client: [
     { label: 'Dashboard', page: 'client-dashboard' },

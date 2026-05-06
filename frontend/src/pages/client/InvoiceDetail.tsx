@@ -84,9 +84,6 @@ export default function InvoiceDetail({ onNavigate, invoiceId }: Props) {
         <Topbar title="Invoice Detail" userName="Ahmed Store" />
         <section className="table-wrap">
           <div className="error-state">{error ?? 'Invoice not found.'}</div>
-          <button className="back-btn" onClick={() => onNavigate('client-invoices')} style={{ marginTop: 16 }}>
-            ← Back to Invoices
-          </button>
         </section>
       </AppShell>
     );
@@ -101,10 +98,6 @@ export default function InvoiceDetail({ onNavigate, invoiceId }: Props) {
       <Topbar title="Invoice Detail" userName="Ahmed Store" />
 
       <section className="table-wrap">
-        <button className="back-btn" onClick={() => onNavigate('client-invoices')}>
-          ← Back to Invoices
-        </button>
-
         <div className={`box invoice-detail-card${invoice.status === 'Overdue' ? ' overdue' : ''}`}>
           {/* Header */}
           <div className="invoice-header">

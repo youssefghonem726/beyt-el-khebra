@@ -329,6 +329,9 @@ export default function DocumentManagement({ onNavigate }: Props) {
                             >
                               🔄 Re-order
                             </button>
+                            <button className="btn-sm btn-outline-sm" onClick={() => showToast(`⬇️ Downloading "${doc.name}"...`)}>
+                              ⬇️ Download
+                            </button>
                             <button className="btn-sm btn-outline-sm" onClick={() => openEditModal(doc.id)}>
                               ✏️ Edit
                             </button>

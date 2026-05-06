@@ -95,7 +95,6 @@ export default function Accounting({ onNavigate }: Props) {
       <section className="table-wrap">
         <div className="table-head">
           <h3>Invoices (moved under Accounting)</h3>
-          <button className="btn" onClick={() => onNavigate('owner-dashboard')}>Back to Owner Dashboard</button>
         </div>
         <table>
           <thead>

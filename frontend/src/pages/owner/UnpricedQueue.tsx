@@ -50,7 +50,6 @@ export default function UnpricedQueue({ onNavigate }: Props) {
         <section className="table-wrap">
           <div className="table-head">
             <h3>Unpriced Jobs</h3>
-            <button className="btn" onClick={() => onNavigate('owner-dashboard')}>Back to Dashboard</button>
           </div>
           <div className="loading-state">Loading jobs...</div>
         </section>
@@ -71,7 +70,6 @@ export default function UnpricedQueue({ onNavigate }: Props) {
         <section className="table-wrap">
           <div className="table-head">
             <h3>Unpriced Jobs</h3>
-            <button className="btn" onClick={() => onNavigate('owner-dashboard')}>Back to Dashboard</button>
           </div>
           <div className="error-state">{error}</div>
         </section>

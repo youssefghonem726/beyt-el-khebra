@@ -58,7 +58,6 @@ export default function ClientDetail({ onNavigate, clientId = 'client-detail-ahm
       <AppShell role="owner" activePage="client-management" onNavigate={onNavigate}>
         <header className="topbar">
           <h1>Client Details</h1>
-          <button className="btn" onClick={() => onNavigate('client-management')}>Back to Client Management</button>
         </header>
         <section className="box">
           <div className="loading-state">Loading client details...</div>
@@ -72,7 +71,6 @@ export default function ClientDetail({ onNavigate, clientId = 'client-detail-ahm
       <AppShell role="owner" activePage="client-management" onNavigate={onNavigate}>
         <header className="topbar">
           <h1>Client Details</h1>
-          <button className="btn" onClick={() => onNavigate('client-management')}>Back to Client Management</button>
         </header>
         <section className="box">
           <div className="error-state">{error || 'Client data unavailable.'}</div>

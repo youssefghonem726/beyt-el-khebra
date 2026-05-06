@@ -72,7 +72,7 @@ export default function MyOrders({ onNavigate }: Props) {
                   <td>{o.total}</td>
                   <td>{o.payment}</td>
                   <td>{o.paid}</td>
-                  <td><button className="btn" onClick={() => onNavigate('manager-order-details')}>View</button></td>
+                  <td><button className="btn" onClick={() => onNavigate(`client-order-${o.id.replace('#','')}`)}>View</button></td>
                 </tr>
               ))}
           </tbody>

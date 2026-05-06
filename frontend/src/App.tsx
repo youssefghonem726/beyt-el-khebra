@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { NavigationContext } from './context/NavigationContext';
-import { NAVS } from './data/navData';
 
 import TestLanding from './pages/TestLanding';
 
@@ -20,6 +19,8 @@ import Quotes from './pages/client/Quotes';
 import Support from './pages/client/Support';
 import DocumentManagement from './pages/client/DocumentManagement';
 import InvoiceDetail from './pages/client/InvoiceDetail';
+import ClientOrderDetail from './pages/client/ClientOrderDetail';
+import QuoteDetail from './pages/client/QuoteDetail';
 
 // Owner
 import OwnerDashboard from './pages/owner/OwnerDashboard';
@@ -41,38 +42,49 @@ import OrderWorkView from './pages/manager/OrderWorkView';
 import CompletedJobs from './pages/manager/CompletedJobs';
 import BatchLookup from './pages/manager/BatchLookup';
 import DeliveryViewMore from './pages/manager/DeliveryViewMore';
-
-const SIDEBAR_PAGES = new Set(
-  Object.values(NAVS).flatMap(items => items.map(item => item.page))
-);
+import DeliveryList from './pages/manager/DeliveryList';
 
 export default function App() {
   const [page, setPage] = useState('test-landing');
   const [navHistory, setNavHistory] = useState<string[]>([]);
   const [clientId, setClientId] = useState('client-detail-ahmed');
   const [invoiceId, setInvoiceId] = useState('');
+  const [clientOrderId, setClientOrderId] = useState('');
+  const [quoteDetailId, setQuoteDetailId] = useState('');
+  const [workViewJobId, setWorkViewJobId] = useState('');
+  const [managerOrderId, setManagerOrderId] = useState('');
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, [page]);
 
+  const extractIds = (target: string) => {
+    if (target.startsWith('client-detail-'))        setClientId(target);
+    if (target.startsWith('invoice-detail-'))       setInvoiceId(target.replace('invoice-detail-', ''));
+    if (target.startsWith('client-order-'))         setClientOrderId(target.replace('client-order-', ''));
+    if (target.startsWith('quote-detail-'))         setQuoteDetailId(target.replace('quote-detail-', ''));
+    if (target.startsWith('work-view-'))            setWorkViewJobId(target.replace('work-view-', ''));
+    if (target.startsWith('manager-order-details-')) setManagerOrderId(target.replace('manager-order-details-', ''));
+  };
+
+  // In-page navigation: always pushes to history so ← Back works
   const navigate = (target: string) => {
-    if (target.startsWith('client-detail-')) setClientId(target);
-    if (target.startsWith('invoice-detail-')) setInvoiceId(target.replace('invoice-detail-', ''));
-    // Sidebar (top-level) navigation resets history; drill-down navigation pushes to it
-    if (SIDEBAR_PAGES.has(target)) {
-      setNavHistory([]);
-    } else {
-      setNavHistory(h => [...h, page]);
-    }
+    extractIds(target);
+    setNavHistory(h => [...h, page]);
+    setPage(target);
+  };
+
+  // Sidebar navigation: clears history (top-level, no back needed)
+  const navigateTopLevel = (target: string) => {
+    extractIds(target);
+    setNavHistory([]);
     setPage(target);
   };
 
   const goBack = () => {
     if (navHistory.length === 0) return;
     const prev = navHistory[navHistory.length - 1];
-    if (prev.startsWith('client-detail-')) setClientId(prev);
-    if (prev.startsWith('invoice-detail-')) setInvoiceId(prev.replace('invoice-detail-', ''));
+    extractIds(prev);
     setPage(prev);
     setNavHistory(h => h.slice(0, -1));
   };
@@ -107,6 +119,16 @@ export default function App() {
       case 'invoice-detail-INV-9008':
         return p(<InvoiceDetail onNavigate={navigate} invoiceId={invoiceId} />);
 
+      // Client order detail
+      case 'client-order-1021':
+      case 'client-order-1020':
+        return p(<ClientOrderDetail onNavigate={navigate} orderId={clientOrderId} />);
+
+      // Quote detail
+      case 'quote-detail-Q-211':
+      case 'quote-detail-Q-208':
+        return p(<QuoteDetail onNavigate={navigate} quoteId={quoteDetailId} />);
+
       // Owner
       case 'owner-dashboard':    return p(<OwnerDashboard onNavigate={navigate} />);
       case 'owner-production':   return p(<Production onNavigate={navigate} />);
@@ -124,11 +146,22 @@ export default function App() {
       // Manager
       case 'active-jobs':           return p(<ActiveJobs onNavigate={navigate} />);
       case 'manager-orders':        return p(<ManagerOrders onNavigate={navigate} />);
-      case 'manager-order-details': return p(<ManagerOrderDetails onNavigate={navigate} />);
+      case 'manager-order-details': return p(<ManagerOrderDetails onNavigate={navigate} orderId={managerOrderId} />);
+      case 'manager-order-details-1033':
+      case 'manager-order-details-1031':
+      case 'manager-order-details-1024':
+      case 'manager-order-details-1020':
+        return p(<ManagerOrderDetails onNavigate={navigate} orderId={managerOrderId} />);
       case 'edit-order':            return p(<EditOrder onNavigate={navigate} />);
       case 'order-work-view':       return p(<OrderWorkView onNavigate={navigate} />);
+      case 'work-view-1022':
+      case 'work-view-1021':
+      case 'work-view-1029':
+      case 'work-view-1026':
+        return p(<OrderWorkView onNavigate={navigate} jobId={workViewJobId} />);
       case 'completed-jobs':        return p(<CompletedJobs onNavigate={navigate} />);
       case 'batch-lookup':          return p(<BatchLookup onNavigate={navigate} />);
+      case 'delivery-list':         return p(<DeliveryList onNavigate={navigate} />);
       case 'delivery-view-more':    return <DeliveryViewMore onNavigate={navigate} />;
 
       default: return p(<Login onNavigate={navigate} />);
@@ -136,7 +169,7 @@ export default function App() {
   };
 
   return (
-    <NavigationContext.Provider value={{ goBack, canGoBack: navHistory.length > 0 }}>
+    <NavigationContext.Provider value={{ goBack, canGoBack: navHistory.length > 0, navigateTopLevel }}>
       {renderPage()}
     </NavigationContext.Provider>
   );

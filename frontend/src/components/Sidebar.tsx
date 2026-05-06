@@ -1,5 +1,6 @@
 import { NAVS } from '../data/navData';
 import type { Role } from '../data/navData';
+import { useNavigation } from '../context/NavigationContext';
 
 interface Props {
   role: Role;
@@ -8,7 +9,9 @@ interface Props {
 }
 
 export default function Sidebar({ role, activePage, onNavigate }: Props) {
+  const { navigateTopLevel } = useNavigation();
   const links = NAVS[role];
+
   return (
     <aside className="sidebar">
       <h2 className="logo">
@@ -22,14 +25,14 @@ export default function Sidebar({ role, activePage, onNavigate }: Props) {
             key={item.page}
             className={`nav-link${activePage === item.page ? ' active' : ''}`}
             href="#"
-            onClick={(e) => { e.preventDefault(); onNavigate(item.page); }}
+            onClick={(e) => { e.preventDefault(); navigateTopLevel(item.page); }}
           >
             {item.label}
           </a>
         ))}
       </nav>
       <div className="sidebar-footer">
-        <a className="logout-link" href="#" onClick={(e) => { e.preventDefault(); onNavigate('login'); }}>
+        <a className="logout-link" href="#" onClick={(e) => { e.preventDefault(); navigateTopLevel('login'); }}>
           Log Out
         </a>
       </div>

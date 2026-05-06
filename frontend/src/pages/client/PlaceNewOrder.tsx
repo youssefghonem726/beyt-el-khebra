@@ -302,6 +302,9 @@ export default function PlaceNewOrder({ onNavigate }: Props) {
       {orderType === 'package' && (
         <section className="split">
           <article>
+            <button className="global-back-btn" style={{ marginBottom: 12 }} onClick={() => setOrderType(null)}>
+              ← Back
+            </button>
             <h2>Add Items</h2>
 
             <select
@@ -352,6 +355,9 @@ export default function PlaceNewOrder({ onNavigate }: Props) {
 
       {orderType === 'single' && (
         <section>
+          <button className="global-back-btn" style={{ marginBottom: 12 }} onClick={() => setOrderType(null)}>
+            ← Back
+          </button>
           <h2>Select Item Type</h2>
 
           <select onChange={(e) => setSingleType(e.target.value as ItemType)}>

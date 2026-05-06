@@ -5,8 +5,8 @@ import StatusBadge from '../../components/StatusBadge';
 interface Props { onNavigate: (page: string) => void; }
 
 const QUOTES = [
-  { id: 'Q-211', order: '#1021', status: 'Awaiting Confirmation', amount: 'EGP 1,200.00', action: { label: 'Review', page: 'unpriced-queue' } },
-  { id: 'Q-208', order: '#1018', status: 'Approved', amount: 'EGP 950.00', action: { label: 'Invoice', page: 'client-invoices' } },
+  { id: 'Q-211', order: '#1021', status: 'Awaiting Confirmation', amount: 'EGP 1,200.00', action: { label: 'Review Quote', page: 'quote-detail-Q-211' } },
+  { id: 'Q-208', order: '#1018', status: 'Approved',              amount: 'EGP 950.00',   action: { label: 'View Invoice',  page: 'invoice-detail-INV-9018' } },
 ];
 
 export default function Quotes({ onNavigate }: Props) {
