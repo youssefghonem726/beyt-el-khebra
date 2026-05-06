@@ -29,11 +29,11 @@ export default function OwnerDashboard({ onNavigate }: Props) {
   useEffect(() => {
     // Fetch both stats and quick lists in parallel
     Promise.all([
-      fetch('/public/data/dashboard-stats.json').then(res => {
+      fetch('/data/dashboard-stats.json').then(res => {
         if (!res.ok) throw new Error(`Stats HTTP ${res.status}`);
         return res.json();
       }),
-      fetch('/public/data/quick-lists.json').then(res => {
+      fetch('/data/quick-lists.json').then(res => {
         if (!res.ok) throw new Error(`Quick lists HTTP ${res.status}`);
         return res.json();
       })
@@ -96,7 +96,7 @@ export default function OwnerDashboard({ onNavigate }: Props) {
           <div className="table-head">
             <h3>Manager Quick Lists</h3>
             <div className="actions-inline">
-              <button className="btn" onClick={() => onNavigate('manager-orders')}>Open Manager Orders</button>
+              <button className="btn" onClick={() => onNavigate('owner-manager-orders')}>Open Manager Orders</button>
               <button className="btn primary" onClick={() => onNavigate('accounting')}>Go to Accounting</button>
             </div>
           </div>
@@ -127,8 +127,8 @@ export default function OwnerDashboard({ onNavigate }: Props) {
         <div className="stack">
           <section className="box">
             <h3>Quick Actions</h3>
-            <button className="btn block" onClick={() => onNavigate('manager-order-details')}>Open Order Details</button>
-            <button className="btn block" style={{ marginTop: 8 }} onClick={() => onNavigate('batch-lookup')}>Batch Lookup and Export</button>
+            <button className="btn block" onClick={() => onNavigate('owner-manager-orders')}>Open Order Details</button>
+            <button className="btn block" style={{ marginTop: 8 }} onClick={() => onNavigate('owner-batch-lookup')}>Batch Lookup and Export</button>
             <button className="btn block" style={{ marginTop: 8 }} onClick={() => onNavigate('owner-settings')}>Update Roles &amp; Notifications</button>
           </section>
           <section className="box">

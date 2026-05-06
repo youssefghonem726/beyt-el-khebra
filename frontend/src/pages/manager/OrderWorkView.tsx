@@ -3,7 +3,7 @@ import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
 
-interface Props { onNavigate: (page: string) => void; jobId?: string; }
+interface Props { onNavigate: (page: string) => void; jobId?: string; role?: 'manager' | 'owner'; }
 
 const JOBS = [
   {
@@ -44,7 +44,7 @@ const JOBS = [
   },
 ];
 
-export default function OrderWorkView({ onNavigate, jobId }: Props) {
+export default function OrderWorkView({ onNavigate, jobId, role = 'manager' }: Props) {
   const displayed = jobId
     ? JOBS.filter(j => j.id === `Job #${jobId}`)
     : JOBS;
@@ -55,7 +55,7 @@ export default function OrderWorkView({ onNavigate, jobId }: Props) {
 
   if (jobId && displayed.length === 0) {
     return (
-      <AppShell role="manager" activePage="order-work-view" onNavigate={onNavigate}>
+      <AppShell role={role} activePage={role === 'owner' ? 'owner-production' : 'order-work-view'} onNavigate={onNavigate}>
         <Topbar title="Work View" userName="Production" />
         <div className="error-state">Job not found.</div>
       </AppShell>
@@ -63,7 +63,7 @@ export default function OrderWorkView({ onNavigate, jobId }: Props) {
   }
 
   return (
-    <AppShell role="manager" activePage="order-work-view" onNavigate={onNavigate}>
+    <AppShell role={role} activePage={role === 'owner' ? 'owner-production' : 'order-work-view'} onNavigate={onNavigate}>
       <Topbar title={title} userName="Production" />
       {displayed.map((j) => (
         <section key={j.id} className="split" style={{ marginBottom: 14 }}>

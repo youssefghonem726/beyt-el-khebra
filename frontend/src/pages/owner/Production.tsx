@@ -166,7 +166,7 @@ export default function Production({ onNavigate }: Props) {
                   <div className="card-actions">
                     <button
                       className="btn"
-                      onClick={(e) => { e.stopPropagation(); onNavigate('order-work-view'); }}
+                      onClick={(e) => { e.stopPropagation(); onNavigate(`owner-work-view-${j.id.replace('Job #', '')}`); }}
                     >
                       Open Work View
                     </button>
@@ -236,7 +236,7 @@ export default function Production({ onNavigate }: Props) {
 
             <div className="line" />
 
-            <button className="btn primary block" style={{ marginTop: 4 }} onClick={() => onNavigate('order-work-view')}>
+            <button className="btn primary block" style={{ marginTop: 4 }} onClick={() => onNavigate(`owner-work-view-${selectedJob.id.replace('Job #', '')}`)}>
               Open Work View
             </button>
           </aside>

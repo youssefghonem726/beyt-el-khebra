@@ -41,6 +41,8 @@ export default function InvoiceDetail({ onNavigate, invoiceId }: Props) {
   const [invoice, setInvoice] = useState<InvoiceDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [paying, setPaying] = useState(false);
+  const [paid, setPaid] = useState(false);
 
   useEffect(() => {
     fetch('/data/client-invoices-detail.json')
@@ -62,10 +64,7 @@ export default function InvoiceDetail({ onNavigate, invoiceId }: Props) {
   }, [invoiceId]);
 
   const handlePrint = () => window.print();
-
-  const handleDownload = () => {
-    alert('PDF download coming soon.');
-  };
+  const handleDownload = () => window.print();
 
   if (loading) {
     return (
@@ -182,12 +181,41 @@ export default function InvoiceDetail({ onNavigate, invoiceId }: Props) {
 
           {/* Actions */}
           <div className="invoice-actions">
-            {invoice.status !== 'Paid' && (
-              <button className="btn primary">Pay Now</button>
+            {invoice.status !== 'Paid' && !paid && (
+              <button className="btn primary" onClick={() => setPaying(true)}>Pay Now</button>
             )}
+            {paid && <span style={{ color: '#2c9a4b', fontWeight: 600, fontSize: 14 }}>✓ Payment confirmed</span>}
             <button className="btn" onClick={handlePrint}>Print</button>
             <button className="btn btn-outline" onClick={handleDownload}>Download PDF</button>
           </div>
+
+          {paying && !paid && (
+            <div style={{ marginTop: 20, padding: 20, background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--border)' }}>
+              <h4 style={{ marginBottom: 16 }}>Payment Details</h4>
+              <div className="field" style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Card Number</label>
+                <input className="input" placeholder="1234 5678 9012 3456" maxLength={19} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                <div className="field">
+                  <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Expiry</label>
+                  <input className="input" placeholder="MM / YY" maxLength={7} />
+                </div>
+                <div className="field">
+                  <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>CVV</label>
+                  <input className="input" placeholder="•••" maxLength={4} type="password" />
+                </div>
+              </div>
+              <div className="field" style={{ marginBottom: 16 }}>
+                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Cardholder Name</label>
+                <input className="input" placeholder="Name on card" />
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button className="btn primary" onClick={() => { setPaid(true); setPaying(false); }}>Confirm Payment</button>
+                <button className="btn" onClick={() => setPaying(false)}>Cancel</button>
+              </div>
+            </div>
+          )}
         </div>
 
         <section className="box" style={{ marginTop: 14, maxWidth: 860, margin: '14px auto 0' }}>

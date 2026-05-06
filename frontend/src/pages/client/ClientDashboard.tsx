@@ -291,7 +291,7 @@ export default function ClientDashboard({ onNavigate, clientIdentifier, dataUrls
                     <td>{o.total}</td>
                     <td>
                       <div className="action-buttons">
-                        <button className="btn btn-sm" onClick={() => onNavigate('my-orders')}>View</button>
+                        <button className="btn btn-sm" onClick={() => onNavigate(`client-order-${o.id.replace('#', '')}`)}>View</button>
                         <button className="btn btn-sm" onClick={() => onNavigate('track-order')}>Track</button>
                       </div>
                     </td>

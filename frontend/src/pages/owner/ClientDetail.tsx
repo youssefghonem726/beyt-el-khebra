@@ -30,7 +30,7 @@ export default function ClientDetail({ onNavigate, clientId = 'client-detail-ahm
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch('/public/data/clients-detail.json')
+    fetch('/data/clients-detail.json')
       .then((response) => {
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);

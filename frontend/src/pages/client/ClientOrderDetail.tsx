@@ -39,6 +39,51 @@ const ORDER_DATA: Record<string, any> = {
       { label: 'Delivered',          date: 'Pending',               done: false },
     ],
   },
+  '1018': {
+    id: '#1018', batch: 'B-240415-B', product: 'Posters A3', status: 'UNPRICED_PENDING',
+    delivery: '—', progress: 0, color: 'orange', date: '15 Apr 2025', deliveryDate: '—',
+    total: '—', payment: '—', paid: '—', invoiceId: '',
+    specs: { size: 'A3', paper: 'Glossy 200gsm', color: 'Full Color', finish: 'Glossy', qty: 50 },
+    timeline: [
+      { label: 'Order Submitted',    date: '15 Apr 2025, 11:00 AM', done: true  },
+      { label: 'Pricing Confirmed',  date: 'Pending',               done: false },
+      { label: 'Order Confirmed',    date: 'Pending',               done: false },
+      { label: 'In Production',      date: 'Pending',               done: false },
+      { label: 'Quality Check',      date: 'Pending',               done: false },
+      { label: 'Ready for Delivery', date: 'Pending',               done: false },
+      { label: 'Delivered',          date: 'Pending',               done: false },
+    ],
+  },
+  '1015': {
+    id: '#1015', batch: 'B-240410-S', product: 'Stickers', status: 'COMPLETED',
+    delivery: 'ON TIME', progress: 100, color: 'green', date: '10 Apr 2025', deliveryDate: '14 Apr 2025',
+    total: 'EGP 850.00', payment: 'Bank Transfer', paid: 'EGP 850.00', invoiceId: 'invoice-detail-INV-9015',
+    specs: { size: '5 × 5 cm', paper: 'Vinyl', color: 'Full Color', finish: 'Glossy', qty: 300 },
+    timeline: [
+      { label: 'Order Submitted',    date: '10 Apr 2025, 09:00 AM', done: true },
+      { label: 'Pricing Confirmed',  date: '10 Apr 2025, 10:00 AM', done: true },
+      { label: 'Order Confirmed',    date: '10 Apr 2025, 10:45 AM', done: true },
+      { label: 'In Production',      date: '11 Apr 2025, 08:00 AM', done: true },
+      { label: 'Quality Check',      date: '13 Apr 2025, 02:00 PM', done: true },
+      { label: 'Ready for Delivery', date: '14 Apr 2025, 09:00 AM', done: true },
+      { label: 'Delivered',          date: '14 Apr 2025, 03:00 PM', done: true },
+    ],
+  },
+  '1012': {
+    id: '#1012', batch: 'B-240405-N', product: 'Banners', status: 'CANCELED',
+    delivery: '—', progress: 0, color: 'red', date: '05 Apr 2025', deliveryDate: '—',
+    total: '—', payment: '—', paid: '—', invoiceId: '',
+    specs: { size: '200 × 80 cm', paper: 'PVC', color: 'Full Color', finish: 'Matte', qty: 5 },
+    timeline: [
+      { label: 'Order Submitted',    date: '05 Apr 2025, 10:00 AM', done: true  },
+      { label: 'Pricing Confirmed',  date: '05 Apr 2025, 11:00 AM', done: true  },
+      { label: 'Order Canceled',     date: '06 Apr 2025, 09:00 AM', done: true  },
+      { label: 'In Production',      date: '—',                     done: false },
+      { label: 'Quality Check',      date: '—',                     done: false },
+      { label: 'Ready for Delivery', date: '—',                     done: false },
+      { label: 'Delivered',          date: '—',                     done: false },
+    ],
+  },
 };
 
 export default function ClientOrderDetail({ onNavigate, orderId }: Props) {

@@ -2,7 +2,7 @@ import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 
-interface Props { onNavigate: (page: string) => void; }
+interface Props { onNavigate: (page: string) => void; role?: 'manager' | 'owner'; }
 
 const PENDING = [
   { id: '#1033', status: 'UNPRICED',         client: 'Client Name' },
@@ -17,9 +17,9 @@ const COMPLETED = [
   { id: '#1020', status: 'COMPLETED', client: 'Ahmed Store',  completedAt: '26 Apr 2026, 4:45 PM' },
 ];
 
-export default function ManagerOrders({ onNavigate }: Props) {
+export default function ManagerOrders({ onNavigate, role = 'manager' }: Props) {
   return (
-    <AppShell role="manager" activePage="manager-orders" onNavigate={onNavigate}>
+    <AppShell role={role} activePage={role === 'owner' ? 'owner-dashboard' : 'manager-orders'} onNavigate={onNavigate}>
       <Topbar title="All Orders" userName="Manager" />
 
       <section className="grid-2">

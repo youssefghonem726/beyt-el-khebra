@@ -8,7 +8,7 @@ interface Props {
   onNavigate: (page: string) => void;
 }
 
-export default function Sidebar({ role, activePage, onNavigate }: Props) {
+export default function Sidebar({ role, activePage, onNavigate: _onNavigate }: Props) {
   const { navigateTopLevel } = useNavigation();
   const links = NAVS[role];
 

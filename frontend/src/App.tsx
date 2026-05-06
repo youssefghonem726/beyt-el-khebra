@@ -63,7 +63,8 @@ export default function App() {
     if (target.startsWith('invoice-detail-'))       setInvoiceId(target.replace('invoice-detail-', ''));
     if (target.startsWith('client-order-'))         setClientOrderId(target.replace('client-order-', ''));
     if (target.startsWith('quote-detail-'))         setQuoteDetailId(target.replace('quote-detail-', ''));
-    if (target.startsWith('work-view-'))            setWorkViewJobId(target.replace('work-view-', ''));
+    if (target.startsWith('owner-work-view-'))      setWorkViewJobId(target.replace('owner-work-view-', ''));
+    else if (target.startsWith('work-view-'))       setWorkViewJobId(target.replace('work-view-', ''));
     if (target.startsWith('manager-order-details-')) setManagerOrderId(target.replace('manager-order-details-', ''));
   };
 
@@ -122,6 +123,9 @@ export default function App() {
       // Client order detail
       case 'client-order-1021':
       case 'client-order-1020':
+      case 'client-order-1018':
+      case 'client-order-1015':
+      case 'client-order-1012':
         return p(<ClientOrderDetail onNavigate={navigate} orderId={clientOrderId} />);
 
       // Quote detail
@@ -138,10 +142,19 @@ export default function App() {
       case 'owner-notifications': return p(<OwnerNotifications onNavigate={navigate} />);
       case 'owner-settings':     return p(<OwnerSettings onNavigate={navigate} />);
       case 'unpriced-queue':     return p(<UnpricedQueue onNavigate={navigate} />);
+      case 'client-detail-ahmed':
       case 'client-detail-nagdi':
       case 'client-detail-design-hub':
       case 'client-detail-retail-plus':
         return p(<ClientDetail onNavigate={navigate} clientId={clientId} />);
+      case 'owner-manager-orders':   return p(<ManagerOrders onNavigate={navigate} role="owner" />);
+      case 'owner-completed-jobs':   return p(<CompletedJobs onNavigate={navigate} role="owner" />);
+      case 'owner-batch-lookup':     return p(<BatchLookup onNavigate={navigate} role="owner" />);
+      case 'owner-work-view-1022':
+      case 'owner-work-view-1021':
+      case 'owner-work-view-1020':
+      case 'owner-work-view-1019':
+        return p(<OrderWorkView onNavigate={navigate} jobId={workViewJobId} role="owner" />);
 
       // Manager
       case 'active-jobs':           return p(<ActiveJobs onNavigate={navigate} />);

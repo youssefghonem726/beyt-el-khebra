@@ -21,6 +21,8 @@ export default function ClientInvoices({ onNavigate }: Props) {
   const [query, setQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [payingId, setPayingId] = useState<string | null>(null);
+  const [paidSet, setPaidSet] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetch('/data/client-invoices.json')
@@ -130,12 +132,16 @@ export default function ClientInvoices({ onNavigate }: Props) {
                     <td><StatusBadge status={inv.status} /></td>
                     <td>
                       <div className="action-buttons">
-                        {inv.status !== 'Paid' && <button className="btn btn-sm primary">Pay Now</button>}
+                        {inv.status !== 'Paid' && !paidSet.has(inv.id) && (
+                          <button className="btn btn-sm primary" onClick={() => setPayingId(inv.id)}>Pay Now</button>
+                        )}
                         <button
                           className="btn btn-sm"
                           onClick={() => onNavigate(`invoice-detail-${inv.id}`)}>View
                         </button>
-                        {inv.status === 'Paid' && <button className="btn btn-sm btn-outline">Download</button>}
+                        {(inv.status === 'Paid' || paidSet.has(inv.id)) && (
+                          <button className="btn btn-sm btn-outline" onClick={() => window.print()}>Download</button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -150,6 +156,44 @@ export default function ClientInvoices({ onNavigate }: Props) {
           <button className="btn primary" onClick={() => onNavigate('support')}>Contact Support</button>
         </div>
       </section>
+
+      {payingId && (
+        <div className="modal active" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div className="box" style={{ width: '100%', maxWidth: 420, padding: 28 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+              <h3>Pay Invoice {payingId}</h3>
+              <button className="btn" onClick={() => setPayingId(null)}>✕</button>
+            </div>
+            <div className="field" style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Card Number</label>
+              <input className="input" placeholder="1234 5678 9012 3456" maxLength={19} />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+              <div className="field">
+                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Expiry</label>
+                <input className="input" placeholder="MM / YY" maxLength={7} />
+              </div>
+              <div className="field">
+                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>CVV</label>
+                <input className="input" placeholder="•••" maxLength={4} type="password" />
+              </div>
+            </div>
+            <div className="field" style={{ marginBottom: 20 }}>
+              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Cardholder Name</label>
+              <input className="input" placeholder="Name on card" />
+            </div>
+            <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>
+              Amount: <strong>{invoices.find(i => i.id === payingId)?.amount} EGP</strong>
+            </p>
+            <button className="btn primary block" onClick={() => {
+              setPaidSet(s => { const n = new Set(s); n.add(payingId!); return n; });
+              setPayingId(null);
+            }}>
+              Confirm Payment
+            </button>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }
