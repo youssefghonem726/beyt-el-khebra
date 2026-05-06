@@ -4,6 +4,7 @@ import Topbar from '../../components/Topbar';
 import StatCard from '../../components/StatCard';
 import TableWrap from '../../components/TableWrap';
 import './DocumentManagement.css';
+import { downloadText } from '../../utils/download';
 
 interface Props {
   onNavigate: (page: string) => void;
@@ -329,7 +330,17 @@ export default function DocumentManagement({ onNavigate }: Props) {
                             >
                               🔄 Re-order
                             </button>
-                            <button className="btn-sm btn-outline-sm" onClick={() => showToast(`⬇️ Downloading "${doc.name}"...`)}>
+                            <button className="btn-sm btn-outline-sm" onClick={() => {
+                              downloadText(`${doc.name}.txt`, [
+                                `Document: ${doc.name}`,
+                                `File:     ${doc.fileName}`,
+                                `Type:     ${doc.type}`,
+                                `Size:     ${formatSize(doc.sizeKB)}`,
+                                `Uploaded: ${doc.uploadedDate}`,
+                                `Re-orders: ${doc.reorderCount}`,
+                              ]);
+                              showToast(`⬇️ "${doc.name}" downloaded`);
+                            }}>
                               ⬇️ Download
                             </button>
                             <button className="btn-sm btn-outline-sm" onClick={() => openEditModal(doc.id)}>

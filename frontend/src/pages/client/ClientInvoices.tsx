@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
+import { downloadText } from '../../utils/download';
 
 interface Props { onNavigate: (page: string) => void; }
 
@@ -140,7 +141,14 @@ export default function ClientInvoices({ onNavigate }: Props) {
                           onClick={() => onNavigate(`invoice-detail-${inv.id}`)}>View
                         </button>
                         {(inv.status === 'Paid' || paidSet.has(inv.id)) && (
-                          <button className="btn btn-sm btn-outline" onClick={() => window.print()}>Download</button>
+                          <button className="btn btn-sm btn-outline" onClick={() => downloadText(`invoice-${inv.id}.txt`, [
+                            `INVOICE: ${inv.id}`,
+                            `Order:       ${inv.order}`,
+                            `Date Issued: ${inv.issued}`,
+                            `Due Date:    ${inv.due}`,
+                            `Amount:      ${inv.amount} EGP`,
+                            `Status:      ${inv.status}`,
+                          ])}>Download</button>
                         )}
                       </div>
                     </td>

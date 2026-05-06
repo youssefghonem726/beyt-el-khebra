@@ -20,6 +20,8 @@ interface Delivery {
   color: 'green' | 'orange' | 'red';
 }
 
+type ActionPanel = 'reschedule' | 'address' | 'cancel' | null;
+
 export default function DeliveryTracking({ onNavigate }: Props) {
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [loading, setLoading]       = useState(true);
@@ -28,6 +30,12 @@ export default function DeliveryTracking({ onNavigate }: Props) {
   const [filterStatus, setFilterStatus] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [selected, setSelected]     = useState<Delivery | null>(null);
+
+  // Action panel state
+  const [activeAction, setActiveAction] = useState<ActionPanel>(null);
+  const [rescheduleDate, setRescheduleDate] = useState('');
+  const [newAddress, setNewAddress]   = useState('');
+  const [toast, setToast]             = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/data/deliveries.json')
@@ -40,9 +48,23 @@ export default function DeliveryTracking({ onNavigate }: Props) {
       .catch(err => { console.error(err); setError('Could not load delivery data.'); setLoading(false); });
   }, []);
 
-  const onTime   = deliveries.filter(d => d.status === 'ON TIME').length;
-  const delayed  = deliveries.filter(d => d.status === 'DELAYED').length;
-  const lost     = deliveries.filter(d => d.status === 'LOST IN TRANSIT').length;
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 2800);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  // Apply changes to a delivery in state and keep `selected` in sync
+  const applyUpdate = (order: string, changes: Partial<Delivery>, message: string) => {
+    setDeliveries(ds => ds.map(d => d.order === order ? { ...d, ...changes } : d));
+    setSelected(s => s?.order === order ? { ...s, ...changes } : s);
+    setActiveAction(null);
+    setToast(message);
+  };
+
+  const onTime  = deliveries.filter(d => d.status === 'ON TIME').length;
+  const delayed = deliveries.filter(d => d.status === 'DELAYED').length;
+  const lost    = deliveries.filter(d => d.status === 'LOST IN TRANSIT').length;
 
   const filtered = deliveries.filter(d => {
     const q = query.toLowerCase();
@@ -51,8 +73,13 @@ export default function DeliveryTracking({ onNavigate }: Props) {
     return matchQ && matchS;
   });
 
-  const statusColor = (s: string) =>
-    s === 'ON TIME' ? 'green' : s === 'DELAYED' ? 'orange' : 'red' as const;
+  const statusColor = (s: string): 'green' | 'orange' | 'red' =>
+    s === 'ON TIME' || s === 'DELIVERED' ? 'green' : s === 'DELAYED' ? 'orange' : 'red';
+
+  const selectDelivery = (d: Delivery) => {
+    setSelected(d);
+    setActiveAction(null);
+  };
 
   if (loading) {
     return (
@@ -71,6 +98,8 @@ export default function DeliveryTracking({ onNavigate }: Props) {
       </AppShell>
     );
   }
+
+  const isClosed = selected && (selected.status === 'CANCELLED' || selected.status === 'DELIVERED');
 
   return (
     <AppShell role="owner" activePage="delivery-tracking" onNavigate={onNavigate}>
@@ -122,7 +151,7 @@ export default function DeliveryTracking({ onNavigate }: Props) {
                 <article
                   key={d.order}
                   className={`card${selected?.order === d.order ? ' card--selected' : ''}`}
-                  onClick={() => setSelected(d)}
+                  onClick={() => selectDelivery(d)}
                   style={{ cursor: 'pointer' }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
@@ -174,18 +203,123 @@ export default function DeliveryTracking({ onNavigate }: Props) {
             <div className="line" />
 
             <h4 style={{ margin: '12px 0 8px' }}>Actions</h4>
-            <button className="btn primary block" onClick={() => onNavigate('delivery-list')}>
-              Manage Delivery
-            </button>
-            <button className="btn block" style={{ marginTop: 8 }} onClick={() => onNavigate('delivery-list')}>
-              Reschedule
-            </button>
-            <button className="btn block" style={{ marginTop: 8, color: '#d9534f' }} onClick={() => onNavigate('delivery-list')}>
-              Cancel Delivery
-            </button>
+
+            {isClosed ? (
+              <p style={{ fontSize: 13, color: 'var(--muted)' }}>
+                {selected.status === 'DELIVERED' ? '✓ Delivery completed.' : '✕ Delivery cancelled.'}
+              </p>
+            ) : (
+              <>
+                {/* ── Mark as Delivered ── */}
+                <button
+                  className="btn primary block"
+                  onClick={() => applyUpdate(selected.order, { status: 'DELIVERED', progress: 100, color: 'green' }, `✓ ${selected.order} marked as delivered.`)}
+                >
+                  Mark as Delivered
+                </button>
+
+                {/* ── Reschedule ── */}
+                <button
+                  className="btn block"
+                  style={{ marginTop: 8 }}
+                  onClick={() => { setActiveAction(activeAction === 'reschedule' ? null : 'reschedule'); setRescheduleDate(''); }}
+                >
+                  {activeAction === 'reschedule' ? 'Cancel Reschedule' : 'Reschedule'}
+                </button>
+                {activeAction === 'reschedule' && (
+                  <div style={{ marginTop: 10, padding: '12px', background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                    <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 6 }}>New delivery date</label>
+                    <input
+                      className="input"
+                      type="date"
+                      value={rescheduleDate}
+                      onChange={e => setRescheduleDate(e.target.value)}
+                      style={{ marginBottom: 10, width: '100%' }}
+                    />
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button
+                        className="btn primary"
+                        disabled={!rescheduleDate}
+                        onClick={() => applyUpdate(selected.order, { status: 'DELAYED', color: 'orange' }, `↻ ${selected.order} rescheduled to ${rescheduleDate}.`)}
+                      >
+                        Save
+                      </button>
+                      <button className="btn" onClick={() => setActiveAction(null)}>Cancel</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Change Address ── */}
+                <button
+                  className="btn block"
+                  style={{ marginTop: 8 }}
+                  onClick={() => { setActiveAction(activeAction === 'address' ? null : 'address'); setNewAddress(selected.address); }}
+                >
+                  {activeAction === 'address' ? 'Cancel Address Change' : 'Change Address'}
+                </button>
+                {activeAction === 'address' && (
+                  <div style={{ marginTop: 10, padding: '12px', background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                    <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 6 }}>New delivery address</label>
+                    <input
+                      className="input"
+                      type="text"
+                      value={newAddress}
+                      onChange={e => setNewAddress(e.target.value)}
+                      style={{ marginBottom: 10, width: '100%' }}
+                    />
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button
+                        className="btn primary"
+                        disabled={!newAddress.trim()}
+                        onClick={() => applyUpdate(selected.order, { address: newAddress.trim() }, `📍 ${selected.order} address updated.`)}
+                      >
+                        Save
+                      </button>
+                      <button className="btn" onClick={() => setActiveAction(null)}>Cancel</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Cancel Delivery ── */}
+                <button
+                  className="btn block"
+                  style={{ marginTop: 8, color: '#d9534f' }}
+                  onClick={() => setActiveAction(activeAction === 'cancel' ? null : 'cancel')}
+                >
+                  {activeAction === 'cancel' ? 'Keep Delivery' : 'Cancel Delivery'}
+                </button>
+                {activeAction === 'cancel' && (
+                  <div style={{ marginTop: 10, padding: '12px', background: '#fff5f5', borderRadius: 8, border: '1px solid #f5c6cb' }}>
+                    <p style={{ fontSize: 13, marginBottom: 10 }}>
+                      Cancel delivery <strong>{selected.order}</strong> for <strong>{selected.client}</strong>? This cannot be undone.
+                    </p>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button
+                        className="btn"
+                        style={{ background: '#d9534f', color: '#fff', border: 'none' }}
+                        onClick={() => applyUpdate(selected.order, { status: 'CANCELLED', progress: 0, color: 'red' }, `✕ ${selected.order} delivery cancelled.`)}
+                      >
+                        Yes, Cancel
+                      </button>
+                      <button className="btn" onClick={() => setActiveAction(null)}>Keep</button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </aside>
         )}
       </section>
+
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+          background: '#2f3640', color: '#fff', padding: '10px 20px', borderRadius: 8,
+          fontSize: 13, zIndex: 1000, boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+        }}>
+          {toast}
+        </div>
+      )}
     </AppShell>
   );
 }

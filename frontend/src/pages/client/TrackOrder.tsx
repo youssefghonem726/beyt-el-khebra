@@ -33,8 +33,8 @@ export default function TrackOrder({ onNavigate }: Props) {
         <div className="table-head" style={{ marginBottom: 14 }}>
           <h2>Order Status</h2>
           <div className="actions-inline">
-            <button className="btn" onClick={() => onNavigate('client-invoices')}>Download Invoice</button>
-            <button className="btn">Print</button>
+            <button className="btn" onClick={() => onNavigate('invoice-detail-INV-9021')}>Download Invoice</button>
+            <button className="btn" onClick={() => window.print()}>Print</button>
           </div>
         </div>
 

@@ -3,6 +3,7 @@ import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import './InvoiceDetail.css';
+import { downloadText } from '../../utils/download';
 
 interface Props {
   onNavigate: (page: string) => void;
@@ -64,7 +65,35 @@ export default function InvoiceDetail({ onNavigate, invoiceId }: Props) {
   }, [invoiceId]);
 
   const handlePrint = () => window.print();
-  const handleDownload = () => window.print();
+
+  const handleDownload = () => {
+    if (!invoice) return;
+    const sub = invoice.items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
+    const v = sub * invoice.vatRate;
+    const tot = sub + v;
+    downloadText(`invoice-${invoice.id}.txt`, [
+      `INVOICE #${invoice.id}`,
+      ``,
+      `Billed To:   ${invoice.billedTo.name}`,
+      `Address:     ${invoice.billedTo.address}`,
+      `Tax ID:      ${invoice.billedTo.taxId}`,
+      ``,
+      `Linked Order: ${invoice.order}`,
+      `Issue Date:   ${invoice.issued}`,
+      `Due Date:     ${invoice.due}`,
+      invoice.paidDate ? `Payment Date: ${invoice.paidDate}` : '',
+      ``,
+      `Items:`,
+      ...invoice.items.map(item =>
+        `  ${item.description.padEnd(30)} x${item.quantity}  @ EGP ${item.unitPrice.toFixed(2)}  =  EGP ${(item.quantity * item.unitPrice).toFixed(2)}`
+      ),
+      ``,
+      `Subtotal: EGP ${sub.toFixed(2)}`,
+      `VAT (${(invoice.vatRate * 100).toFixed(0)}%): EGP ${v.toFixed(2)}`,
+      `Total:    EGP ${tot.toFixed(2)}`,
+      `Status:   ${invoice.status}`,
+    ].filter(l => l !== undefined));
+  };
 
   if (loading) {
     return (
