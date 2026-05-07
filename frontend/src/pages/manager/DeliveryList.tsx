@@ -2,8 +2,7 @@ import { useState, Fragment } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
-
-interface Props { onNavigate: (page: string) => void; }
+import { useNavigation } from '../../context/NavigationContext';
 
 interface Delivery {
   id: string;
@@ -24,7 +23,8 @@ const DELIVERIES: Delivery[] = [
 
 type ExpandKey = { id: string; action: 'reschedule' | 'address' } | null;
 
-export default function DeliveryList({ onNavigate: _onNavigate }: Props) {
+export default function DeliveryList() {
+  const { navigateTopLevel } = useNavigation();
   const [expand, setExpand]       = useState<ExpandKey>(null);
   const [date, setDate]           = useState('');
   const [address, setAddress]     = useState('');
@@ -44,7 +44,7 @@ export default function DeliveryList({ onNavigate: _onNavigate }: Props) {
   const saveAndClose = () => setExpand(null);
 
   return (
-    <AppShell role="manager" activePage="delivery-list" onNavigate={_onNavigate}>
+    <AppShell role="manager" activePage="delivery-list">
       <Topbar title="Deliveries" />
 
       <section className="table-wrap">
@@ -116,7 +116,7 @@ export default function DeliveryList({ onNavigate: _onNavigate }: Props) {
                             </button>
                           </div>
                         )}
-                      </td>
+                       </td>
                     </tr>
 
                     {isExpanded && (

@@ -1,15 +1,10 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import AuthShell from '../../components/AuthShell';
 import supabase from '../../lib/supabase';
-import { getRoleHomePage } from '../../App';
+import { useNavigation } from '../../context/NavigationContext';
 
-interface Props {
-  onNavigate?: (page: string) => void;
-}
-
-export default function CreateAccount({ onNavigate }: Props) {
-  const navigate = useNavigate();
+export default function CreateAccount() {
+  const { navigateTopLevel } = useNavigation();
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -70,19 +65,10 @@ export default function CreateAccount({ onNavigate }: Props) {
       return;
     }
 
-    // After successful signup, redirect based on role
+    // After successful signup, redirect to login
     if (data?.user) {
-      const role = data.user.user_metadata?.user_role ?? 'client';
-      
-      // If using onNavigate prop (for non-router version)
-      if (onNavigate) {
-        alert('Account created successfully! Please login.');
-        onNavigate('login');
-      } else {
-        // If using react-router
-        alert('Account created successfully! Please login.');
-        navigate('/login');
-      }
+      alert('Account created successfully! Please login.');
+      navigateTopLevel('login');
     }
   };
 
@@ -192,11 +178,7 @@ export default function CreateAccount({ onNavigate }: Props) {
             href="#"
             onClick={(e) => {
               e.preventDefault();
-              if (onNavigate) {
-                onNavigate('login');
-              } else {
-                navigate('/login');
-              }
+              navigateTopLevel('login');
             }}
           >
             <strong>Login</strong>
@@ -208,7 +190,7 @@ export default function CreateAccount({ onNavigate }: Props) {
           <button
             className="btn block center"
             style={{ marginTop: '0.5rem', opacity: 0.6, fontSize: '0.75rem' }}
-            onClick={() => navigate('/test')}
+            onClick={() => navigateTopLevel('test')}
           >
             [DEV] Skip to Testing Landing
           </button>

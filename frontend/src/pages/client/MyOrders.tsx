@@ -3,15 +3,15 @@ import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
-
-interface Props { onNavigate: (page: string) => void; }
+import { useNavigation } from '../../context/NavigationContext';
 
 const ORDERS = [
   { id: '#1021', batch: 'B-240421-A', product: 'Business Cards', status: 'PRICED_PENDING_CONFIRMATION', delivery: 'ON TIME', progress: 75, color: 'green' as const, date: '21 Apr 2025', total: 'EGP 1,200.00', payment: 'Bank Transfer', paid: 'EGP 1,200.00' },
   { id: '#1020', batch: 'B-240418-C', product: 'Flyers A5', status: 'IN_PROGRESS', delivery: 'DELAYED', progress: 55, color: 'orange' as const, date: '18 Apr 2025', total: 'EGP 2,400.00', payment: 'Cash', paid: 'EGP 1,000.00' },
 ];
 
-export default function MyOrders({ onNavigate }: Props) {
+export default function MyOrders() {
+  const { navigateTopLevel } = useNavigation();
   const [query, setQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -24,7 +24,7 @@ export default function MyOrders({ onNavigate }: Props) {
   });
 
   return (
-    <AppShell role="client" activePage="my-orders" onNavigate={onNavigate}>
+    <AppShell role="client" activePage="my-orders">
       <Topbar title="My Orders" />
       <section className="table-wrap">
         <div className="table-head">
@@ -48,10 +48,10 @@ export default function MyOrders({ onNavigate }: Props) {
                 </div>
               )}
             </div>
-            <button className="btn primary" onClick={() => onNavigate('place-new-order')}>New Order</button>
+            <button className="btn primary" onClick={() => navigateTopLevel('place-new-order')}>New Order</button>
           </div>
         </div>
-        <table>
+        <table className="orders-table">
           <thead>
             <tr><th>Order</th><th>Batch Code</th><th>Product</th><th>Status</th><th>Delivery Progress</th><th>Date</th><th>Total</th><th>Payment Method</th><th>Paid Amount</th><th>Action</th></tr>
           </thead>
@@ -67,12 +67,12 @@ export default function MyOrders({ onNavigate }: Props) {
                   <td>
                     <StatusBadge status={o.delivery} />
                     <ProgressBar percent={o.progress} color={o.color} style={{ marginTop: 6 }} />
-                  </td>
+                   </td>
                   <td>{o.date}</td>
                   <td>{o.total}</td>
                   <td>{o.payment}</td>
                   <td>{o.paid}</td>
-                  <td><button className="btn" onClick={() => onNavigate(`client-order-${o.id.replace('#','')}`)}>View</button></td>
+                  <td><button className="btn" onClick={() => navigateTopLevel(`client-order-${o.id.replace('#','')}`)}>View</button></td>
                 </tr>
               ))}
           </tbody>

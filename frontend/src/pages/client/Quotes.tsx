@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
-
-interface Props { onNavigate: (page: string) => void; }
+import { useNavigation } from '../../context/NavigationContext';
 
 interface PricingRow {
   id: string;
@@ -24,7 +23,8 @@ function fmt(n: number) {
   return n.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-export default function Quotes({ onNavigate }: Props) {
+export default function Quotes() {
+  const { navigateTopLevel } = useNavigation();
   const [pricing, setPricing]   = useState<PricingRow[]>([]);
   const [showPricing, setShowPricing] = useState(false);
 
@@ -36,18 +36,18 @@ export default function Quotes({ onNavigate }: Props) {
   }, []);
 
   return (
-    <AppShell role="client" activePage="quotes" onNavigate={onNavigate}>
+    <AppShell role="client" activePage="quotes">
       <Topbar title="Quotes" />
 
       {/* ── My quotes ── */}
       <section className="table-wrap" style={{ marginBottom: 16 }}>
         <div className="table-head" style={{ marginBottom: 10 }}>
           <h3>My Quotes</h3>
-          <button className="btn primary" onClick={() => onNavigate('place-new-order')}>
+          <button className="btn primary" onClick={() => navigateTopLevel('place-new-order')}>
             Request New Quote
           </button>
         </div>
-        <table>
+        <tr>
           <thead>
             <tr>
               <th>Quote ID</th>
@@ -65,7 +65,7 @@ export default function Quotes({ onNavigate }: Props) {
                 <td><StatusBadge status={q.status} /></td>
                 <td style={{ fontWeight: 600 }}>{q.amount}</td>
                 <td>
-                  <button className="btn" onClick={() => onNavigate(q.action.page)}>
+                  <button className="btn" onClick={() => navigateTopLevel(q.action.page)}>
                     {q.action.label}
                   </button>
                 </td>
@@ -93,7 +93,7 @@ export default function Quotes({ onNavigate }: Props) {
           pricing.length === 0 ? (
             <p style={{ color: 'var(--muted)', fontSize: 13 }}>Pricing not available.</p>
           ) : (
-            <table>
+            </table>
               <thead>
                 <tr>
                   <th>Product</th>

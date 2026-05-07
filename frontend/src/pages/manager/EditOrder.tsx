@@ -1,16 +1,16 @@
 import { useState } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
+import { useNavigation } from '../../context/NavigationContext';
 
-interface Props { onNavigate: (page: string) => void; }
-
-export default function EditOrder({ onNavigate }: Props) {
+export default function EditOrder() {
+  const { navigateTopLevel } = useNavigation();
   const [form, setForm] = useState({ client: 'Client Name', batch: 'B-260426-P', status: 'UNPRICED', product: 'Packaging Sleeves', qty: '2500', deadline: '' });
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
   return (
-    <AppShell role="manager" activePage="active-jobs" onNavigate={onNavigate}>
+    <AppShell role="manager" activePage="active-jobs">
       <Topbar title="Edit Order #1033" />
       <section className="box">
         <div className="form-grid">
@@ -28,8 +28,8 @@ export default function EditOrder({ onNavigate }: Props) {
         </div>
         <div className="line" />
         <div className="actions-inline">
-          <button className="btn primary" onClick={() => onNavigate('manager-order-details')}>Save Changes</button>
-          <button className="btn" onClick={() => onNavigate('manager-order-details')}>Cancel</button>
+          <button className="btn primary" onClick={() => navigateTopLevel('manager-order-details')}>Save Changes</button>
+          <button className="btn" onClick={() => navigateTopLevel('manager-order-details')}>Cancel</button>
         </div>
       </section>
     </AppShell>

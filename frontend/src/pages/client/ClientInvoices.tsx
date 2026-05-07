@@ -3,8 +3,7 @@ import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import { downloadText } from '../../utils/download';
-
-interface Props { onNavigate: (page: string) => void; }
+import { useNavigation } from '../../context/NavigationContext';
 
 interface Invoice {
   id: string;
@@ -15,7 +14,8 @@ interface Invoice {
   status: string;
 }
 
-export default function ClientInvoices({ onNavigate }: Props) {
+export default function ClientInvoices() {
+  const { navigateTopLevel } = useNavigation();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +52,7 @@ export default function ClientInvoices({ onNavigate }: Props) {
 
   if (loading) {
     return (
-      <AppShell role="client" activePage="client-invoices" onNavigate={onNavigate}>
+      <AppShell role="client" activePage="client-invoices">
         <Topbar title="My Invoices" />
         <section className="table-wrap">
           <div className="loading-state">Loading your invoices...</div>
@@ -63,7 +63,7 @@ export default function ClientInvoices({ onNavigate }: Props) {
 
   if (error) {
     return (
-      <AppShell role="client" activePage="client-invoices" onNavigate={onNavigate}>
+      <AppShell role="client" activePage="client-invoices">
         <Topbar title="My Invoices" />
         <section className="table-wrap">
           <div className="error-state">{error}</div>
@@ -73,7 +73,7 @@ export default function ClientInvoices({ onNavigate }: Props) {
   }
 
   return (
-    <AppShell role="client" activePage="client-invoices" onNavigate={onNavigate}>
+    <AppShell role="client" activePage="client-invoices">
       <Topbar title="My Invoices" />
       <section className="table-wrap">
         <div className="table-head">
@@ -138,7 +138,7 @@ export default function ClientInvoices({ onNavigate }: Props) {
                         )}
                         <button
                           className="btn btn-sm"
-                          onClick={() => onNavigate(`invoice-detail-${inv.id}`)}>View
+                          onClick={() => navigateTopLevel(`invoice-detail-${inv.id}`)}>View
                         </button>
                         {(inv.status === 'Paid' || paidSet.has(inv.id)) && (
                           <button className="btn btn-sm btn-outline" onClick={() => downloadText(`invoice-${inv.id}.txt`, [
@@ -161,7 +161,7 @@ export default function ClientInvoices({ onNavigate }: Props) {
       <section className="box" style={{ marginTop: 14 }}>
         <div className="table-head">
           <p><strong>Need help with an invoice?</strong> Our support team is here to help.</p>
-          <button className="btn primary" onClick={() => onNavigate('support')}>Contact Support</button>
+          <button className="btn primary" onClick={() => navigateTopLevel('support')}>Contact Support</button>
         </div>
       </section>
 

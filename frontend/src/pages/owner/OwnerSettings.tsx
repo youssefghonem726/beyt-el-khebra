@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
-
-interface Props { onNavigate: (page: string) => void; }
+import { useNavigation } from '../../context/NavigationContext';
 
 interface User {
   email: string;
@@ -11,7 +10,8 @@ interface User {
   status: string;
 }
 
-export default function OwnerSettings({ onNavigate }: Props) {
+export default function OwnerSettings() {
+  const { navigateTopLevel } = useNavigation();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +52,7 @@ export default function OwnerSettings({ onNavigate }: Props) {
 
   if (loading) {
     return (
-      <AppShell role="owner" activePage="owner-settings" onNavigate={onNavigate}>
+      <AppShell role="owner" activePage="owner-settings">
         <Topbar title="Owner Settings" />
         <section className="stack">
           <div className="loading-state">Loading settings...</div>
@@ -63,7 +63,7 @@ export default function OwnerSettings({ onNavigate }: Props) {
 
   if (error) {
     return (
-      <AppShell role="owner" activePage="owner-settings" onNavigate={onNavigate}>
+      <AppShell role="owner" activePage="owner-settings">
         <Topbar title="Owner Settings" />
         <section className="stack">
           <div className="error-state">{error}</div>
@@ -73,7 +73,7 @@ export default function OwnerSettings({ onNavigate }: Props) {
   }
 
   return (
-    <AppShell role="owner" activePage="owner-settings" onNavigate={onNavigate}>
+    <AppShell role="owner" activePage="owner-settings">
       <Topbar title="Owner Settings" />
       <section className="stack">
         <article className="box">

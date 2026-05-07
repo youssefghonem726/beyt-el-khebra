@@ -3,15 +3,17 @@ import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import { downloadText } from '../../utils/download';
+import { useNavigation } from '../../context/NavigationContext';
 
-interface Props { onNavigate: (page: string) => void; role?: 'manager' | 'owner'; }
+interface Props { role?: 'manager' | 'owner'; }
 
 const BATCHES = [
   { code: 'B-260426-P', order: '#1033', client: 'Client Name', status: 'UNPRICED', date: '26 Apr 2026', page: 'manager-order-details' },
   { code: 'B-260425-M', order: '#1032', client: 'Ahmed Store', status: 'IN_PROGRESS', date: '25 Apr 2026', page: 'order-work-view' },
 ];
 
-export default function BatchLookup({ onNavigate, role = 'manager' }: Props) {
+export default function BatchLookup({ role = 'manager' }: Props) {
+  const { navigateTopLevel } = useNavigation();
   const [query, setQuery] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
@@ -21,7 +23,7 @@ export default function BatchLookup({ onNavigate, role = 'manager' }: Props) {
   });
 
   return (
-    <AppShell role={role} activePage={role === 'owner' ? 'owner-dashboard' : 'batch-lookup'} onNavigate={onNavigate}>
+    <AppShell role={role} activePage={role === 'owner' ? 'owner-dashboard' : 'batch-lookup'}>
       <Topbar title="Batch Lookup & Search" />
       <section className="table-wrap">
         <div className="table-head">
@@ -58,7 +60,7 @@ export default function BatchLookup({ onNavigate, role = 'manager' }: Props) {
                   <td>{b.client}</td>
                   <td><StatusBadge status={b.status} /></td>
                   <td>{b.date}</td>
-                  <td><button className="btn" onClick={() => onNavigate(b.page)}>View</button></td>
+                  <td><button className="btn" onClick={() => navigateTopLevel(b.page)}>View</button></td>
                 </tr>
               ))}
           </tbody>

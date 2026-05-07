@@ -152,47 +152,47 @@ export default function App() {
   const p = (node: React.ReactNode) => <div className="page">{node}</div>;
 
   switch (page) {
-    case 'test-landing': return p(<TestLanding onNavigate={navigate} />);
+    case 'test-landing': return p(<TestLanding navigateTopLevel={navigate} />);
 
     // Auth
-    case 'login':          return p(<Login onNavigate={navigate} />);
-    case 'create-account': return p(<CreateAccount onNavigate={navigate} />);
+    case 'login':          return p(<Login navigateTopLevel={navigate} />);
+    case 'create-account': return p(<CreateAccount navigateTopLevel={navigate} />);
 
     // Client
-    case 'client-dashboard':     return p(<ClientDashboard onNavigate={navigate} />);
-    case 'my-orders':            return p(<MyOrders onNavigate={navigate} />);
-    case 'place-new-order':      return p(<PlaceNewOrder onNavigate={navigate} />);
-    case 'track-order':          return <TrackOrder onNavigate={navigate} />;
-    case 'client-invoices':      return p(<ClientInvoices onNavigate={navigate} />);
-    case 'client-notifications': return p(<ClientNotifications onNavigate={navigate} />);
-    case 'profile-settings':     return p(<ProfileSettings onNavigate={navigate} />);
-    case 'quotes':               return p(<Quotes onNavigate={navigate} />);
-    case 'support':              return p(<Support onNavigate={navigate} />);
+    case 'client-dashboard':     return p(<ClientDashboard navigateTopLevel={navigate} />);
+    case 'my-orders':            return p(<MyOrders navigateTopLevel={navigate} />);
+    case 'place-new-order':      return p(<PlaceNewOrder navigateTopLevel={navigate} />);
+    case 'track-order':          return <TrackOrder navigateTopLevel={navigate} />;
+    case 'client-invoices':      return p(<ClientInvoices navigateTopLevel={navigate} />);
+    case 'client-notifications': return p(<ClientNotifications navigateTopLevel={navigate} />);
+    case 'profile-settings':     return p(<ProfileSettings navigateTopLevel={navigate} />);
+    case 'quotes':               return p(<Quotes navigateTopLevel={navigate} />);
+    case 'support':              return p(<Support navigateTopLevel={navigate} />);
 
     // Owner
-    case 'owner-dashboard':   return p(<OwnerDashboard onNavigate={navigate} />);
-    case 'owner-production':  return p(<Production onNavigate={navigate} />);
-    case 'client-management': return p(<ClientManagement onNavigate={navigate} />);
-    case 'accounting':        return p(<Accounting onNavigate={navigate} />);
-    case 'delivery-tracking': return p(<DeliveryTracking onNavigate={navigate} />);
-    case 'owner-notifications': return p(<OwnerNotifications onNavigate={navigate} />);
-    case 'owner-settings':    return p(<OwnerSettings onNavigate={navigate} />);
-    case 'unpriced-queue':    return p(<UnpricedQueue onNavigate={navigate} />);
+    case 'owner-dashboard':   return p(<OwnerDashboard navigateTopLevel={navigate} />);
+    case 'owner-production':  return p(<Production navigateTopLevel={navigate} />);
+    case 'client-management': return p(<ClientManagement navigateTopLevel={navigate} />);
+    case 'accounting':        return p(<Accounting navigateTopLevel={navigate} />);
+    case 'delivery-tracking': return p(<DeliveryTracking navigateTopLevel={navigate} />);
+    case 'owner-notifications': return p(<OwnerNotifications navigateTopLevel={navigate} />);
+    case 'owner-settings':    return p(<OwnerSettings navigateTopLevel={navigate} />);
+    case 'unpriced-queue':    return p(<UnpricedQueue navigateTopLevel={navigate} />);
     case 'client-detail-ahmed':
     case 'client-detail-design-hub':
     case 'client-detail-retail-plus':
-      return p(<ClientDetail onNavigate={navigate} clientId={clientId} />);
+      return p(<ClientDetail navigateTopLevel={navigate} clientId={clientId} />);
 
     // Manager
-    case 'active-jobs':           return p(<ActiveJobs onNavigate={navigate} />);
-    case 'manager-orders':        return p(<ManagerOrders onNavigate={navigate} />);
-    case 'manager-order-details': return p(<ManagerOrderDetails onNavigate={navigate} />);
-    case 'edit-order':            return p(<EditOrder onNavigate={navigate} />);
-    case 'order-work-view':       return p(<OrderWorkView onNavigate={navigate} />);
-    case 'completed-jobs':        return p(<CompletedJobs onNavigate={navigate} />);
-    case 'batch-lookup':          return p(<BatchLookup onNavigate={navigate} />);
-    case 'delivery-view-more':    return <DeliveryViewMore onNavigate={navigate} />;
+    case 'active-jobs':           return p(<ActiveJobs navigateTopLevel={navigate} />);
+    case 'manager-orders':        return p(<ManagerOrders navigateTopLevel={navigate} />);
+    case 'manager-order-details': return p(<ManagerOrderDetails navigateTopLevel={navigate} />);
+    case 'edit-order':            return p(<EditOrder navigateTopLevel={navigate} />);
+    case 'order-work-view':       return p(<OrderWorkView navigateTopLevel={navigate} />);
+    case 'completed-jobs':        return p(<CompletedJobs navigateTopLevel={navigate} />);
+    case 'batch-lookup':          return p(<BatchLookup navigateTopLevel={navigate} />);
+    case 'delivery-view-more':    return <DeliveryViewMore navigateTopLevel={navigate} />;
 
-    default: return p(<Login onNavigate={navigate} />);
+    default: return p(<Login navigateTopLevel={navigate} />);
   }
 }

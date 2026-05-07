@@ -5,7 +5,6 @@ import { useNavigation } from '../context/NavigationContext';
 interface Props {
   role: Role;
   activePage: string;
-  onNavigate: (page: string) => void;
 }
 
 export default function Sidebar({ role, activePage }: Props) {

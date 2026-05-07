@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
+import { useNavigation } from '../../context/NavigationContext';
 
-interface Props { onNavigate: (page: string) => void; }
-
-export default function Support({ onNavigate }: Props) {
+export default function Support() {
+  const { navigateTopLevel } = useNavigation();
   const [form, setForm] = useState({ subject: '', orderId: '', message: '' });
   const [sent, setSent] = useState(false);
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -16,7 +16,7 @@ export default function Support({ onNavigate }: Props) {
   };
 
   return (
-    <AppShell role="client" activePage="support" onNavigate={onNavigate}>
+    <AppShell role="client" activePage="support">
       <Topbar title="Support" />
       <section className="split">
         <article className="box">
@@ -45,8 +45,8 @@ export default function Support({ onNavigate }: Props) {
             <li>Working Hours: 9:00 AM - 6:00 PM</li>
           </ul>
           <div className="line" />
-          <button className="btn block" onClick={() => onNavigate('track-order')}>Track an Order</button>
-          <button className="btn block" style={{ marginTop: 8 }} onClick={() => onNavigate('place-new-order')}>Create New Order</button>
+          <button className="btn block" onClick={() => navigateTopLevel('track-order')}>Track an Order</button>
+          <button className="btn block" style={{ marginTop: 8 }} onClick={() => navigateTopLevel('place-new-order')}>Create New Order</button>
         </aside>
       </section>
     </AppShell>

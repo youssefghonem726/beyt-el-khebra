@@ -1,12 +1,10 @@
 import { useState } from 'react';
 import { useNavigation } from '../../context/NavigationContext';
 
-interface Props { onNavigate: (page: string) => void; }
-
 type ActionState = 'delivered' | 'rescheduled' | 'cancelled' | 'address-changed' | null;
 
-export default function DeliveryViewMore({ onNavigate }: Props) {
-  const { goBack, canGoBack } = useNavigation();
+export default function DeliveryViewMore() {
+  const { goBack, canGoBack, navigateTopLevel } = useNavigation();
   const [date, setDate] = useState('');
   const [address, setAddress] = useState('');
   const [action, setAction] = useState<ActionState>(null);
@@ -78,7 +76,7 @@ export default function DeliveryViewMore({ onNavigate }: Props) {
 
           <div className="actions-inline" style={{ marginTop: 16 }}>
             <button className="btn" onClick={() => { setAction(null); setDate(''); setAddress(''); }}>Reset</button>
-            <button className="btn primary" onClick={() => onNavigate('delivery-tracking')}>Done</button>
+            <button className="btn primary" onClick={() => navigateTopLevel('delivery-tracking')}>Done</button>
           </div>
         </section>
       </main>

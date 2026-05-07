@@ -4,8 +4,7 @@ import Topbar from '../../components/Topbar';
 import StatCard from '../../components/StatCard';
 import StatusBadge from '../../components/StatusBadge';
 import { downloadText } from '../../utils/download';
-
-interface Props { onNavigate: (page: string) => void; }
+import { useNavigation } from '../../context/NavigationContext';
 
 interface Invoice {
   id: string;
@@ -21,7 +20,7 @@ interface Stat {
   sub: string;
 }
 
-export default function Accounting({ onNavigate }: Props) {
+export default function Accounting() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [stats, setStats] = useState<Stat[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,7 +51,7 @@ export default function Accounting({ onNavigate }: Props) {
 
   if (loading) {
     return (
-      <AppShell role="owner" activePage="accounting" onNavigate={onNavigate}>
+      <AppShell role="owner" activePage="accounting">
         <Topbar title="Accounting Page" />
         <section className="grid-4">
           {/* Show placeholders while loading */}
@@ -70,7 +69,7 @@ export default function Accounting({ onNavigate }: Props) {
 
   if (error) {
     return (
-      <AppShell role="owner" activePage="accounting" onNavigate={onNavigate}>
+      <AppShell role="owner" activePage="accounting">
         <Topbar title="Accounting Page" />
         <section className="grid-4">
           <StatCard label="Revenue Snapshot" value="EGP 84K" sub="Current month" />
@@ -86,7 +85,7 @@ export default function Accounting({ onNavigate }: Props) {
   }
 
   return (
-    <AppShell role="owner" activePage="accounting" onNavigate={onNavigate}>
+    <AppShell role="owner" activePage="accounting">
       <Topbar title="Accounting Page" />
       <section className="grid-4">
         {stats.map((stat, idx) => (

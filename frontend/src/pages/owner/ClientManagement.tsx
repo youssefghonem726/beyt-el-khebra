@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
-
-interface Props { onNavigate: (page: string) => void; }
+import { useNavigation } from '../../context/NavigationContext';
 
 interface Client {
   name: string;
@@ -25,7 +24,8 @@ function fmt(n: number) {
   return n.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-export default function ClientManagement({ onNavigate }: Props) {
+export default function ClientManagement() {
+  const { navigateTopLevel } = useNavigation();
   const [query, setQuery]             = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [clients, setClients]         = useState<Client[]>([]);
@@ -85,7 +85,7 @@ export default function ClientManagement({ onNavigate }: Props) {
 
   if (loading) {
     return (
-      <AppShell role="owner" activePage="client-management" onNavigate={onNavigate}>
+      <AppShell role="owner" activePage="client-management">
         <Topbar title="Client Management" />
         <section className="box"><div className="loading-state">Loading clients...</div></section>
       </AppShell>
@@ -94,7 +94,7 @@ export default function ClientManagement({ onNavigate }: Props) {
 
   if (error) {
     return (
-      <AppShell role="owner" activePage="client-management" onNavigate={onNavigate}>
+      <AppShell role="owner" activePage="client-management">
         <Topbar title="Client Management" />
         <section className="box"><div className="error-state">{error}</div></section>
       </AppShell>
@@ -102,7 +102,7 @@ export default function ClientManagement({ onNavigate }: Props) {
   }
 
   return (
-    <AppShell role="owner" activePage="client-management" onNavigate={onNavigate}>
+    <AppShell role="owner" activePage="client-management">
       <Topbar title="Client Management" />
 
       {/* ── Clients grid ── */}
@@ -139,7 +139,7 @@ export default function ClientManagement({ onNavigate }: Props) {
               key={c.name}
               className="client-card-link"
               href="#"
-              onClick={e => { e.preventDefault(); if (c.page) onNavigate(c.page); }}
+              onClick={e => { e.preventDefault(); if (c.page) navigateTopLevel(c.page); }}
             >
               <h3>{c.name}</h3>
               <p>{c.email}</p>
@@ -219,7 +219,7 @@ export default function ClientManagement({ onNavigate }: Props) {
                     >
                       {row.active ? 'Active' : 'Inactive'}
                     </span>
-                  </td>
+                   </td>
 
                   <td style={{ textAlign: 'center' }}>
                     {editId === row.id ? (
@@ -230,8 +230,8 @@ export default function ClientManagement({ onNavigate }: Props) {
                     ) : (
                       <button className="btn" style={{ padding: '4px 12px', fontSize: 12 }} onClick={() => startEdit(row)}>Edit</button>
                     )}
-                  </td>
-                </tr>
+                   </td>
+                 </tr>
               ))}
             </tbody>
           </table>

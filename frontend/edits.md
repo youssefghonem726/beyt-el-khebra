@@ -134,7 +134,7 @@ npm install
 Replaced the Vite default `App.tsx` with a single-file switch-based SPA router:
 
 - **State:** `const [page, setPage] = useState('login')`
-- **Navigation:** `onNavigate(page: string)` prop passed to every component
+- **Navigation:** `navigateTopLevel(page: string)` prop passed to every component
 - **Client detail routing:** `clientId` state tracks which profile to show
 - **33 page cases** mapped to their React components
 - No external router library needed (as per user preference)
@@ -147,7 +147,7 @@ Replaced the Vite default `App.tsx` with a single-file switch-based SPA router:
 |---|---|
 | Vite + React + TypeScript | User's explicit choice |
 | No React Router | User requested no router for now |
-| Props-based `onNavigate` | Simple, no global state needed at this stage |
+| Props-based `navigateTopLevel` | Simple, no global state needed at this stage |
 | Static data as typed arrays | No backend yet; data mirrors original HTML sample data exactly |
 | Single `ClientDetail` component | 3 HTML files were identical structure — parameterized via `clientId` prop |
 | `import type` for TS types | Required by `verbatimModuleSyntax` in `tsconfig.json` |

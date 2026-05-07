@@ -4,8 +4,7 @@ import Topbar from '../../components/Topbar';
 import StatCard from '../../components/StatCard';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
-
-interface Props { onNavigate: (page: string) => void; }
+import { useNavigation } from '../../context/NavigationContext';
 
 interface Job {
   id: string;
@@ -35,7 +34,8 @@ function currentStep(pct: number): number {
   return 5;
 }
 
-export default function ActiveJobs({ onNavigate }: Props) {
+export default function ActiveJobs() {
+  const { navigateTopLevel } = useNavigation();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -81,7 +81,7 @@ export default function ActiveJobs({ onNavigate }: Props) {
 
   if (loading) {
     return (
-      <AppShell role="manager" activePage="active-jobs" onNavigate={onNavigate}>
+      <AppShell role="manager" activePage="active-jobs">
         <Topbar title="Production Dashboard" />
         <div className="loading-state">Loading production data...</div>
       </AppShell>
@@ -90,7 +90,7 @@ export default function ActiveJobs({ onNavigate }: Props) {
 
   if (error || jobs.length === 0) {
     return (
-      <AppShell role="manager" activePage="active-jobs" onNavigate={onNavigate}>
+      <AppShell role="manager" activePage="active-jobs">
         <Topbar title="Production Dashboard" />
         <div className="error-state">{error ?? 'No jobs available.'}</div>
       </AppShell>
@@ -100,7 +100,7 @@ export default function ActiveJobs({ onNavigate }: Props) {
   const step = selectedJob ? currentStep(pct(selectedJob)) : 0;
 
   return (
-    <AppShell role="manager" activePage="active-jobs" onNavigate={onNavigate}>
+    <AppShell role="manager" activePage="active-jobs">
       <Topbar title="Production Dashboard" />
 
       <section className="grid-4" style={{ marginBottom: 14 }}>
@@ -166,7 +166,7 @@ export default function ActiveJobs({ onNavigate }: Props) {
                   <div className="card-actions">
                     <button
                       className="btn"
-                      onClick={(e) => { e.stopPropagation(); onNavigate(`work-view-${j.id.replace('Job #', '')}`); }}
+                      onClick={(e) => { e.stopPropagation(); navigateTopLevel(`work-view-${j.id.replace('Job #', '')}`); }}
                     >
                       Open Work View
                     </button>
@@ -236,7 +236,7 @@ export default function ActiveJobs({ onNavigate }: Props) {
 
             <div className="line" />
 
-            <button className="btn primary block" style={{ marginTop: 4 }} onClick={() => onNavigate(`work-view-${selectedJob.id.replace('Job #', '')}`)}>
+            <button className="btn primary block" style={{ marginTop: 4 }} onClick={() => navigateTopLevel(`work-view-${selectedJob.id.replace('Job #', '')}`)}>
               Open Work View
             </button>
           </aside>

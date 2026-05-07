@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
+import { useNavigation } from '../../context/NavigationContext';
 
-interface Props { onNavigate: (page: string) => void; }
-
-export default function ProfileSettings({ onNavigate }: Props) {
+export default function ProfileSettings() {
+  const { navigateTopLevel } = useNavigation();
   const [info, setInfo] = useState({ name: 'Ahmed Store', email: 'ahmed@store.com', phone: '+20 101 000 1021', address: 'Cairo, Egypt' });
   const [security, setSecurity] = useState({ current: '', newPass: '' });
   const [toast, setToast] = useState('');
@@ -28,7 +28,7 @@ export default function ProfileSettings({ onNavigate }: Props) {
   };
 
   return (
-    <AppShell role="client" activePage="profile-settings" onNavigate={onNavigate}>
+    <AppShell role="client" activePage="profile-settings">
       <Topbar title="Profile Settings" />
       <section className="split">
         <article className="box">

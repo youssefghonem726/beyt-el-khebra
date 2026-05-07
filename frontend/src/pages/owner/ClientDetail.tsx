@@ -1,15 +1,13 @@
 import { useState, useEffect } from 'react';
 import AppShell from '../../components/AppShell';
 import StatusBadge from '../../components/StatusBadge';
+import { useNavigation } from '../../context/NavigationContext';
 
 interface Props {
-  onNavigate: (page: string) => void;
   clientId?: string;
 }
-
-// Define the shape of a client object from the JSON file
 interface ClientDetail {
-  id: string;                  // matches page identifier e.g. 'client-detail-ahmed'
+  id: string;                  
   name: string;
   phone: string;
   address: string;
@@ -24,7 +22,8 @@ interface ClientDetail {
   }[];
 }
 
-export default function ClientDetail({ onNavigate, clientId = 'client-detail-ahmed' }: Props) {
+export default function ClientDetail({ clientId = 'client-detail-ahmed' }: Props) {
+  const { navigateTopLevel } = useNavigation();
   const [client, setClient] = useState<ClientDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -55,7 +54,7 @@ export default function ClientDetail({ onNavigate, clientId = 'client-detail-ahm
 
   if (loading) {
     return (
-      <AppShell role="owner" activePage="client-management" onNavigate={onNavigate}>
+      <AppShell role="owner" activePage="client-management">
         <header className="topbar">
           <h1>Client Details</h1>
         </header>
@@ -68,7 +67,7 @@ export default function ClientDetail({ onNavigate, clientId = 'client-detail-ahm
 
   if (error || !client) {
     return (
-      <AppShell role="owner" activePage="client-management" onNavigate={onNavigate}>
+      <AppShell role="owner" activePage="client-management">
         <header className="topbar">
           <h1>Client Details</h1>
         </header>
@@ -80,10 +79,10 @@ export default function ClientDetail({ onNavigate, clientId = 'client-detail-ahm
   }
 
   return (
-    <AppShell role="owner" activePage="client-management" onNavigate={onNavigate}>
+    <AppShell role="owner" activePage="client-management">
       <header className="topbar">
         <h1>Client Details - {client.name}</h1>
-        <button className="btn" onClick={() => onNavigate('client-management')}>Back to Client Management</button>
+        <button className="btn" onClick={() => navigateTopLevel('client-management')}>Back to Client Management</button>
       </header>
 
       <section className="box">

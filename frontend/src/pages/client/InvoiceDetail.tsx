@@ -4,9 +4,9 @@ import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import './InvoiceDetail.css';
 import { downloadText } from '../../utils/download';
+import { useNavigation } from '../../context/NavigationContext';
 
 interface Props {
-  onNavigate: (page: string) => void;
   invoiceId: string;
 }
 
@@ -38,7 +38,8 @@ function formatEGP(value: number): string {
   return value.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-export default function InvoiceDetail({ onNavigate, invoiceId }: Props) {
+export default function InvoiceDetail({ invoiceId }: Props) {
+  const { navigateTopLevel } = useNavigation();
   const [invoice, setInvoice] = useState<InvoiceDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -97,7 +98,7 @@ export default function InvoiceDetail({ onNavigate, invoiceId }: Props) {
 
   if (loading) {
     return (
-      <AppShell role="client" activePage="client-invoices" onNavigate={onNavigate}>
+      <AppShell role="client" activePage="client-invoices">
         <Topbar title="Invoice Detail" />
         <section className="table-wrap">
           <div className="loading-state">Loading invoice...</div>
@@ -108,7 +109,7 @@ export default function InvoiceDetail({ onNavigate, invoiceId }: Props) {
 
   if (error || !invoice) {
     return (
-      <AppShell role="client" activePage="client-invoices" onNavigate={onNavigate}>
+      <AppShell role="client" activePage="client-invoices">
         <Topbar title="Invoice Detail" />
         <section className="table-wrap">
           <div className="error-state">{error ?? 'Invoice not found.'}</div>
@@ -122,7 +123,7 @@ export default function InvoiceDetail({ onNavigate, invoiceId }: Props) {
   const total = subtotal + vat;
 
   return (
-    <AppShell role="client" activePage="client-invoices" onNavigate={onNavigate}>
+    <AppShell role="client" activePage="client-invoices">
       <Topbar title="Invoice Detail" />
 
       <section className="table-wrap">
@@ -250,7 +251,7 @@ export default function InvoiceDetail({ onNavigate, invoiceId }: Props) {
         <section className="box" style={{ marginTop: 14, maxWidth: 860, margin: '14px auto 0' }}>
           <div className="table-head">
             <p><strong>Issue with this invoice?</strong> Our support team is here to help.</p>
-            <button className="btn primary" onClick={() => onNavigate('support')}>Contact Support</button>
+            <button className="btn primary" onClick={() => navigateTopLevel('support')}>Contact Support</button>
           </div>
         </section>
       </section>

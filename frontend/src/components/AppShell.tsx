@@ -9,7 +9,7 @@ interface Props {
   children: ReactNode;
 }
 
-export default function AppShell({ role, activePage, onNavigate, children }: Props) {
+export default function AppShell({ role, activePage, children }: Props) {
   const { goBack, canGoBack } = useNavigation();
   return (
     <div className="app-shell">

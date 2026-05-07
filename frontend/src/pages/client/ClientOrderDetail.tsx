@@ -2,9 +2,9 @@ import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
+import { useNavigation } from '../../context/NavigationContext';
 
 interface Props {
-  onNavigate: (page: string) => void;
   orderId: string;
 }
 
@@ -86,12 +86,13 @@ const ORDER_DATA: Record<string, any> = {
   },
 };
 
-export default function ClientOrderDetail({ onNavigate, orderId }: Props) {
+export default function ClientOrderDetail({ orderId }: Props) {
+  const { navigateTopLevel } = useNavigation();
   const order = ORDER_DATA[orderId];
 
   if (!order) {
     return (
-      <AppShell role="client" activePage="my-orders" onNavigate={onNavigate}>
+      <AppShell role="client" activePage="my-orders">
         <Topbar title="Order Detail" />
         <section className="table-wrap">
           <div className="error-state">Order not found.</div>
@@ -101,7 +102,7 @@ export default function ClientOrderDetail({ onNavigate, orderId }: Props) {
   }
 
   return (
-    <AppShell role="client" activePage="my-orders" onNavigate={onNavigate}>
+    <AppShell role="client" activePage="my-orders">
       <Topbar title={`Order ${order.id}`} />
 
       <section className="box" style={{ marginBottom: 14 }}>
@@ -162,9 +163,9 @@ export default function ClientOrderDetail({ onNavigate, orderId }: Props) {
         <div className="table-head">
           <p><strong>Need help with this order?</strong></p>
           <div style={{ display: 'flex', gap: 10 }}>
-            <button className="btn" onClick={() => onNavigate('track-order')}>Track Order</button>
-            {order.invoiceId && <button className="btn" onClick={() => onNavigate(order.invoiceId)}>View Invoice</button>}
-            <button className="btn primary" onClick={() => onNavigate('support')}>Contact Support</button>
+            <button className="btn" onClick={() => navigateTopLevel('track-order')}>Track Order</button>
+            {order.invoiceId && <button className="btn" onClick={() => navigateTopLevel(order.invoiceId)}>View Invoice</button>}
+            <button className="btn primary" onClick={() => navigateTopLevel('support')}>Contact Support</button>
           </div>
         </div>
       </section>

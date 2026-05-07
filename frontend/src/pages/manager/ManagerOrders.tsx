@@ -1,8 +1,9 @@
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
+import { useNavigation } from '../../context/NavigationContext';
 
-interface Props { onNavigate: (page: string) => void; role?: 'manager' | 'owner'; }
+interface Props { role?: 'manager' | 'owner'; }
 
 const PENDING = [
   { id: '#1033', status: 'UNPRICED',         client: 'Client Name' },
@@ -17,9 +18,11 @@ const COMPLETED = [
   { id: '#1020', status: 'COMPLETED', client: 'Ahmed Store',  completedAt: '26 Apr 2026, 4:45 PM' },
 ];
 
-export default function ManagerOrders({ onNavigate, role = 'manager' }: Props) {
+export default function ManagerOrders({ role = 'manager' }: Props) {
+  const { navigateTopLevel } = useNavigation();
+  
   return (
-    <AppShell role={role} activePage={role === 'owner' ? 'owner-dashboard' : 'manager-orders'} onNavigate={onNavigate}>
+    <AppShell role={role} activePage={role === 'owner' ? 'owner-dashboard' : 'manager-orders'}>
       <Topbar title="All Orders" />
 
       <section className="grid-2">
@@ -36,7 +39,7 @@ export default function ManagerOrders({ onNavigate, role = 'manager' }: Props) {
                   <td>
                     <button
                       className="btn"
-                      onClick={() => onNavigate(`manager-order-details-${o.id.replace('#', '')}`)}
+                      onClick={() => navigateTopLevel(`manager-order-details-${o.id.replace('#', '')}`)}
                     >
                       View
                     </button>
@@ -60,7 +63,7 @@ export default function ManagerOrders({ onNavigate, role = 'manager' }: Props) {
                   <td>
                     <button
                       className="btn"
-                      onClick={() => onNavigate(`work-view-${o.id.replace('#', '')}`)}
+                      onClick={() => navigateTopLevel(`work-view-${o.id.replace('#', '')}`)}
                     >
                       Work View
                     </button>
@@ -86,7 +89,7 @@ export default function ManagerOrders({ onNavigate, role = 'manager' }: Props) {
                 <td>
                   <button
                     className="btn"
-                    onClick={() => onNavigate(`manager-order-details-${o.id.replace('#', '')}`)}
+                    onClick={() => navigateTopLevel(`manager-order-details-${o.id.replace('#', '')}`)}
                   >
                     View
                   </button>

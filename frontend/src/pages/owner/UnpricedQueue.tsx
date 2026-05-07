@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatCard from '../../components/StatCard';
-
-interface Props { onNavigate: (page: string) => void; }
+import { useNavigation } from '../../context/NavigationContext';
 
 interface UnpricedJob {
   id: string;
@@ -27,7 +26,8 @@ interface PriceListRow {
   active: boolean;
 }
 
-export default function UnpricedQueue({ onNavigate }: Props) {
+export default function UnpricedQueue() {
+  const { navigateTopLevel } = useNavigation();
   const [jobs, setJobs] = useState<UnpricedJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +70,7 @@ export default function UnpricedQueue({ onNavigate }: Props) {
   const fmt = (n: number) => n.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const shell = (children: React.ReactNode) => (
-    <AppShell role="owner" activePage="unpriced-queue" onNavigate={onNavigate}>
+    <AppShell role="owner" activePage="unpriced-queue">
       <Topbar title="Unpriced Queue" />
       <section className="grid-4" style={{ marginBottom: 14 }}>
         <StatCard label="Total Unpriced"       value={jobs.length}  sub="Jobs waiting for pricing" />

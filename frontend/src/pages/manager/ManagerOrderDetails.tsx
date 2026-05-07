@@ -3,8 +3,9 @@ import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
+import { useNavigation } from '../../context/NavigationContext';
 
-interface Props { onNavigate: (page: string) => void; orderId?: string; }
+interface Props { orderId?: string; }
 
 interface OrderData {
   client: string; batch: string; product: string; status: string;
@@ -19,13 +20,14 @@ const ORDER_DATA: Record<string, OrderData> = {
   '1020': { client: 'Ahmed Store', batch: 'B-260420-A', product: 'Flyers',             status: 'COMPLETED',        qty: 200,  deadline: '26 Apr 2026', step: 'Done',          progress: 100, type: 'completed' },
 };
 
-export default function ManagerOrderDetails({ onNavigate, orderId }: Props) {
+export default function ManagerOrderDetails({ orderId }: Props) {
+  const { navigateTopLevel } = useNavigation();
   const [sentToAccounting, setSentToAccounting] = useState(false);
   const order = orderId ? ORDER_DATA[orderId] : null;
 
   if (!order) {
     return (
-      <AppShell role="manager" activePage="manager-orders" onNavigate={onNavigate}>
+      <AppShell role="manager" activePage="manager-orders">
         <Topbar title="Order Details" />
         <div className="error-state">Order not found.</div>
       </AppShell>
@@ -33,7 +35,7 @@ export default function ManagerOrderDetails({ onNavigate, orderId }: Props) {
   }
 
   return (
-    <AppShell role="manager" activePage="manager-orders" onNavigate={onNavigate}>
+    <AppShell role="manager" activePage="manager-orders">
       <Topbar title={`Order Details #${orderId}`} />
       <section className="order-layout">
         <article className="stack">
@@ -71,7 +73,7 @@ export default function ManagerOrderDetails({ onNavigate, orderId }: Props) {
           <h3>Manager Actions</h3>
           {order.type === 'pending' && (
             <>
-              <button className="btn primary block" onClick={() => onNavigate('edit-order')}>
+              <button className="btn primary block" onClick={() => navigateTopLevel('edit-order')}>
                 Edit Order
               </button>
               {sentToAccounting ? (
@@ -100,7 +102,7 @@ export default function ManagerOrderDetails({ onNavigate, orderId }: Props) {
                   View Invoice
                 </button>
               )}
-              <button className="btn block" style={{ marginTop: 8 }} onClick={() => onNavigate('delivery-list')}>
+              <button className="btn block" style={{ marginTop: 8 }} onClick={() => navigateTopLevel('delivery-list')}>
                 View Delivery
               </button>
             </>

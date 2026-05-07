@@ -5,10 +5,7 @@ import StatCard from '../../components/StatCard';
 import TableWrap from '../../components/TableWrap';
 import './DocumentManagement.css';
 import { downloadText } from '../../utils/download';
-
-interface Props {
-  onNavigate: (page: string) => void;
-}
+import { useNavigation } from '../../context/NavigationContext';
 
 interface Document {
   id: string;
@@ -26,7 +23,8 @@ interface ReorderOptions {
   size: string;
 }
 
-export default function DocumentManagement({ onNavigate }: Props) {
+export default function DocumentManagement() {
+  const { navigateTopLevel } = useNavigation();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -253,7 +251,7 @@ export default function DocumentManagement({ onNavigate }: Props) {
 
   if (loading) {
     return (
-      <AppShell role="client" activePage="documents" onNavigate={onNavigate}>
+      <AppShell role="client" activePage="documents">
         <Topbar title="My Documents" />
         <div className="loading-state">Loading your documents...</div>
       </AppShell>
@@ -262,7 +260,7 @@ export default function DocumentManagement({ onNavigate }: Props) {
 
   if (error) {
     return (
-      <AppShell role="client" activePage="documents" onNavigate={onNavigate}>
+      <AppShell role="client" activePage="documents">
         <Topbar title="My Documents" />
         <div className="error-state">{error}</div>
       </AppShell>
@@ -270,7 +268,7 @@ export default function DocumentManagement({ onNavigate }: Props) {
   }
 
   return (
-    <AppShell role="client" activePage="documents" onNavigate={onNavigate}>
+    <AppShell role="client" activePage="documents">
       <Topbar title="My Documents" />
 
       <div style={{ marginBottom: '8px' }}>

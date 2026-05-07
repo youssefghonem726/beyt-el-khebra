@@ -52,7 +52,7 @@ export default function OwnerDashboard() {
 
   if (loading) {
     return (
-      <AppShell role="owner" activePage="owner-dashboard" onNavigate={onNavigate}>
+      <AppShell role="owner" activePage="owner-dashboard" navigateTopLevel={navigateTopLevel}>
         <Topbar title="Owner Dashboard" />
         <section className="welcome">
           <h2>Operations snapshot</h2>
@@ -65,7 +65,7 @@ export default function OwnerDashboard() {
 
   if (error) {
     return (
-      <AppShell role="owner" activePage="owner-dashboard" onNavigate={onNavigate}>
+      <AppShell role="owner" activePage="owner-dashboard" navigateTopLevel={navigateTopLevel}>
         <Topbar title="Owner Dashboard" />
         <section className="welcome">
           <h2>Operations snapshot</h2>
@@ -77,7 +77,7 @@ export default function OwnerDashboard() {
   }
 
   return (
-    <AppShell role="owner" activePage="owner-dashboard" onNavigate={onNavigate}>
+    <AppShell role="owner" activePage="owner-dashboard" navigateTopLevel={navigateTopLevel}>
       <Topbar title="Owner Dashboard" />
 
       <section className="welcome">
@@ -96,8 +96,8 @@ export default function OwnerDashboard() {
           <div className="table-head">
             <h3>Manager Quick Lists</h3>
             <div className="actions-inline">
-              <button className="btn" onClick={() => onNavigate('owner-manager-orders')}>Open Manager Orders</button>
-              <button className="btn primary" onClick={() => onNavigate('accounting')}>Go to Accounting</button>
+              <button className="btn" onClick={() => navigateTopLevel('owner-manager-orders')}>Open Manager Orders</button>
+              <button className="btn primary" onClick={() => navigateTopLevel('accounting')}>Go to Accounting</button>
             </div>
           </div>
           <table>
@@ -117,7 +117,7 @@ export default function OwnerDashboard() {
                   <td>{r.count}</td>
                   <td><StatusBadge status={r.status} /></td>
                   <td>{r.action}</td>
-                  <td><button className="btn" onClick={() => onNavigate(r.page)}>Open</button></td>
+                  <td><button className="btn" onClick={() => navigateTopLevel(r.page)}>Open</button></td>
                 </tr>
               ))}
             </tbody>
@@ -127,9 +127,9 @@ export default function OwnerDashboard() {
         <div className="stack">
           <section className="box">
             <h3>Quick Actions</h3>
-            <button className="btn block" onClick={() => onNavigate('owner-manager-orders')}>Open Order Details</button>
-            <button className="btn block" style={{ marginTop: 8 }} onClick={() => onNavigate('owner-batch-lookup')}>Batch Lookup and Export</button>
-            <button className="btn block" style={{ marginTop: 8 }} onClick={() => onNavigate('owner-settings')}>Update Roles &amp; Notifications</button>
+            <button className="btn block" onClick={() => navigateTopLevel('owner-manager-orders')}>Open Order Details</button>
+            <button className="btn block" style={{ marginTop: 8 }} onClick={() => navigateTopLevel('owner-batch-lookup')}>Batch Lookup and Export</button>
+            <button className="btn block" style={{ marginTop: 8 }} onClick={() => navigateTopLevel('owner-settings')}>Update Roles &amp; Notifications</button>
           </section>
           <section className="box">
             <h3>Accounting Redirect</h3>

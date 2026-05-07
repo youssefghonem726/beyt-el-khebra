@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
-
-interface Props { onNavigate: (page: string) => void; }
+import { useNavigation } from '../../context/NavigationContext';
 
 type OrderType = 'package' | 'single' | null;
 type ItemType = 'book' | 'booklet' | 'card' | 'sticker' | 'poster';
@@ -116,7 +115,8 @@ function ItemEditor({ item, onChange, onRemove, hideHeader = false }: { item: Pa
   );
 }
 
-export default function PlaceNewOrder({ onNavigate }: Props) {
+export default function PlaceNewOrder() {
+  const { navigateTopLevel } = useNavigation();
   const [orderType, setOrderType] = useState<OrderType>(null);
   const [items, setItems] = useState<PackageItem[]>([]);
   const [singleType, setSingleType] = useState<ItemType | ''>('');
@@ -138,7 +138,7 @@ export default function PlaceNewOrder({ onNavigate }: Props) {
 
   if (submitted) {
     return (
-      <AppShell role="client" activePage="place-new-order" onNavigate={onNavigate}>
+      <AppShell role="client" activePage="place-new-order">
         <Topbar title="Place New Order" />
         <section className="box" style={{ textAlign: 'center', padding: 48 }}>
           <p style={{ fontSize: 40, marginBottom: 12 }}>✓</p>
@@ -147,7 +147,7 @@ export default function PlaceNewOrder({ onNavigate }: Props) {
             We've received your order and will send you a quote shortly.
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
-            <button className="btn primary" onClick={() => onNavigate('my-orders')}>View My Orders</button>
+            <button className="btn primary" onClick={() => navigateTopLevel('my-orders')}>View My Orders</button>
             <button className="btn" onClick={() => { setSubmitted(false); setOrderType(null); setItems([]); setSingleType(''); setSingleData({}); setNotes(''); }}>
               Place Another
             </button>
@@ -158,7 +158,7 @@ export default function PlaceNewOrder({ onNavigate }: Props) {
   }
 
   return (
-    <AppShell role="client" activePage="place-new-order" onNavigate={onNavigate}>
+    <AppShell role="client" activePage="place-new-order">
       <Topbar title="Place New Order" />
 
       {!orderType && (

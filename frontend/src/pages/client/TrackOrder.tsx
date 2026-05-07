@@ -4,11 +4,11 @@ import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
 
-interface Props { onNavigate: (page: string) => void; }
+interface Props { navigateTopLevel: (page: string) => void; }
 
 const KNOWN_ORDERS = ['1021', '#1021'];
 
-export default function TrackOrder({ onNavigate }: Props) {
+export default function TrackOrder({ navigateTopLevel }: Props) {
   const [orderId, setOrderId] = useState('');
   const [tracked, setTracked] = useState(false);
   const [notFound, setNotFound] = useState(false);
@@ -25,7 +25,7 @@ export default function TrackOrder({ onNavigate }: Props) {
   };
 
   return (
-    <AppShell role="client" activePage="my-orders" onNavigate={onNavigate}>
+    <AppShell role="client" activePage="my-orders" navigateTopLevel={navigateTopLevel}>
       <Topbar title="Track Order" />
 
       <section className="box center-card" style={{ marginBottom: 14 }}>
@@ -50,7 +50,7 @@ export default function TrackOrder({ onNavigate }: Props) {
         <div className="table-head" style={{ marginBottom: 14 }}>
           <h2>Order Status</h2>
           <div className="actions-inline">
-            <button className="btn" onClick={() => onNavigate('invoice-detail-INV-9021')}>Download Invoice</button>
+            <button className="btn" onClick={() => navigateTopLevel('invoice-detail-INV-9021')}>Download Invoice</button>
             <button className="btn" onClick={() => window.print()}>Print</button>
           </div>
         </div>
@@ -97,7 +97,7 @@ export default function TrackOrder({ onNavigate }: Props) {
       <section className="box">
         <div className="table-head">
           <p><strong>Need help?</strong> Our support team is here to help.</p>
-          <button className="btn primary" onClick={() => onNavigate('support')}>Contact Support</button>
+          <button className="btn primary" onClick={() => navigateTopLevel('support')}>Contact Support</button>
         </div>
       </section>
     </AppShell>

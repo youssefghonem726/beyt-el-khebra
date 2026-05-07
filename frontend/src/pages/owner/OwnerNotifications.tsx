@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
-
-interface Props { onNavigate: (page: string) => void; }
+import { useNavigation } from '../../context/NavigationContext';
 
 interface Notification {
   id: number;
@@ -10,7 +9,8 @@ interface Notification {
   body: string;
 }
 
-export default function OwnerNotifications({ onNavigate }: Props) {
+export default function OwnerNotifications() {
+  const { navigateTopLevel } = useNavigation();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +36,7 @@ export default function OwnerNotifications({ onNavigate }: Props) {
 
   if (loading) {
     return (
-      <AppShell role="owner" activePage="owner-notifications" onNavigate={onNavigate}>
+      <AppShell role="owner" activePage="owner-notifications">
         <Topbar title="Notifications" />
         <section className="stack">
           <div className="loading-state">Loading notifications...</div>
@@ -47,7 +47,7 @@ export default function OwnerNotifications({ onNavigate }: Props) {
 
   if (error) {
     return (
-      <AppShell role="owner" activePage="owner-notifications" onNavigate={onNavigate}>
+      <AppShell role="owner" activePage="owner-notifications">
         <Topbar title="Notifications" />
         <section className="stack">
           <div className="error-state">{error}</div>
@@ -57,7 +57,7 @@ export default function OwnerNotifications({ onNavigate }: Props) {
   }
 
   return (
-    <AppShell role="owner" activePage="owner-notifications" onNavigate={onNavigate}>
+    <AppShell role="owner" activePage="owner-notifications">
       <Topbar title="Notifications" />
       <section className="stack">
         {notifications.map((n) => (
