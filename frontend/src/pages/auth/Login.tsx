@@ -1,12 +1,11 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import AuthShell from '../../components/AuthShell';
-import  supabase  from '../../lib/supabase'; 
+import supabase from '../../lib/supabase';
+import { getRoleHomePage } from '../../App';
 
-interface Props {
-  onNavigate: (page: string) => void;
-}
-
-export default function Login({ onNavigate }: Props) {
+export default function Login() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(false);
@@ -16,24 +15,19 @@ export default function Login({ onNavigate }: Props) {
     e.preventDefault();
     setError('');
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email,
-      password: password,
-    });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
       setError(error.message);
       return;
     }
 
-
-    onNavigate('owner-dashboard');
+    const role = data.user?.app_metadata?.user_role ?? 'client';
+    navigate(getRoleHomePage(role));
   };
 
   const handleGoogleLogin = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-    });
+    await supabase.auth.signInWithOAuth({ provider: 'google' });
   };
 
   return (
@@ -80,14 +74,7 @@ export default function Login({ onNavigate }: Props) {
             Remember me
           </label>
 
-          <a
-            className="tiny"
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              onNavigate('support');
-            }}
-          >
+          <a className="tiny" href="#" onClick={(e) => { e.preventDefault(); }}>
             Forgot Password?
           </a>
         </div>
@@ -104,16 +91,21 @@ export default function Login({ onNavigate }: Props) {
 
         <p className="center tiny">
           Don't have an account?{' '}
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              onNavigate('create-account');
-            }}
-          >
+          <a href="#" onClick={(e) => { e.preventDefault(); navigate('/create-account'); }}>
             <strong>Create Account</strong>
           </a>
         </p>
+
+        {/* DEV ONLY — remove before production */}
+        {import.meta.env.DEV && (
+          <button
+            className="btn block center"
+            style={{ marginTop: '0.5rem', opacity: 0.6, fontSize: '0.75rem' }}
+            onClick={() => navigate('/test')}
+          >
+            [DEV] Skip to Testing Landing
+          </button>
+        )}
       </section>
     </AuthShell>
   );

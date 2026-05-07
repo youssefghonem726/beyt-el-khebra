@@ -3,8 +3,7 @@ import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatCard from '../../components/StatCard';
 import StatusBadge from '../../components/StatusBadge';
-
-interface Props { onNavigate: (page: string) => void; }
+import { useNavigation } from '../../context/NavigationContext';
 
 interface Stat {
   label: string;
@@ -20,7 +19,8 @@ interface QuickList {
   page: string;
 }
 
-export default function OwnerDashboard({ onNavigate }: Props) {
+export default function OwnerDashboard() {
+  const { navigateTopLevel } = useNavigation();
   const [stats, setStats] = useState<Stat[]>([]);
   const [quickLists, setQuickLists] = useState<QuickList[]>([]);
   const [loading, setLoading] = useState(true);
