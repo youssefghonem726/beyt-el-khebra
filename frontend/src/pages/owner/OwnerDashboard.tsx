@@ -27,7 +27,6 @@ export default function OwnerDashboard() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Fetch both stats and quick lists in parallel
     Promise.all([
       fetch('/data/dashboard-stats.json').then(res => {
         if (!res.ok) throw new Error(`Stats HTTP ${res.status}`);
