@@ -25,7 +25,7 @@ export default function MyOrders({ onNavigate }: Props) {
 
   return (
     <AppShell role="client" activePage="my-orders" onNavigate={onNavigate}>
-      <Topbar title="My Orders" userName="Client Name" />
+      <Topbar title="My Orders" />
       <section className="table-wrap">
         <div className="table-head">
           <h3>All Orders</h3>

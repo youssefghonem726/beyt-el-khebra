@@ -53,7 +53,7 @@ export default function Accounting({ onNavigate }: Props) {
   if (loading) {
     return (
       <AppShell role="owner" activePage="accounting" onNavigate={onNavigate}>
-        <Topbar title="Accounting Page" userName="Finance Team" />
+        <Topbar title="Accounting Page" />
         <section className="grid-4">
           {/* Show placeholders while loading */}
           <StatCard label="Revenue Snapshot" value="..." sub="Current month" />
@@ -71,7 +71,7 @@ export default function Accounting({ onNavigate }: Props) {
   if (error) {
     return (
       <AppShell role="owner" activePage="accounting" onNavigate={onNavigate}>
-        <Topbar title="Accounting Page" userName="Finance Team" />
+        <Topbar title="Accounting Page" />
         <section className="grid-4">
           <StatCard label="Revenue Snapshot" value="EGP 84K" sub="Current month" />
           <StatCard label="Pending Collection" value="EGP 22K" sub="Awaiting payment" />
@@ -87,7 +87,7 @@ export default function Accounting({ onNavigate }: Props) {
 
   return (
     <AppShell role="owner" activePage="accounting" onNavigate={onNavigate}>
-      <Topbar title="Accounting Page" userName="Finance Team" />
+      <Topbar title="Accounting Page" />
       <section className="grid-4">
         {stats.map((stat, idx) => (
           <StatCard key={idx} label={stat.label} value={stat.value} sub={stat.sub} />

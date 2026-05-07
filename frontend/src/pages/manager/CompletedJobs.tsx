@@ -21,7 +21,7 @@ const JOBS = [
 export default function CompletedJobs({ onNavigate, role = 'manager' }: Props) {
   return (
     <AppShell role={role} activePage={role === 'owner' ? 'owner-dashboard' : 'completed-jobs'} onNavigate={onNavigate}>
-      <Topbar title="Completed Jobs" userName="Production Summary" />
+      <Topbar title="Completed Jobs" />
       {JOBS.map((j) => (
         <section key={j.id} className="split" style={{ marginBottom: 14 }}>
           <article className="box">

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
@@ -19,12 +20,13 @@ const ORDER_DATA: Record<string, OrderData> = {
 };
 
 export default function ManagerOrderDetails({ onNavigate, orderId }: Props) {
+  const [sentToAccounting, setSentToAccounting] = useState(false);
   const order = orderId ? ORDER_DATA[orderId] : null;
 
   if (!order) {
     return (
       <AppShell role="manager" activePage="manager-orders" onNavigate={onNavigate}>
-        <Topbar title="Order Details" userName="Manager View" />
+        <Topbar title="Order Details" />
         <div className="error-state">Order not found.</div>
       </AppShell>
     );
@@ -32,7 +34,7 @@ export default function ManagerOrderDetails({ onNavigate, orderId }: Props) {
 
   return (
     <AppShell role="manager" activePage="manager-orders" onNavigate={onNavigate}>
-      <Topbar title={`Order Details #${orderId}`} userName="Manager View" />
+      <Topbar title={`Order Details #${orderId}`} />
       <section className="order-layout">
         <article className="stack">
           <section className="box">
@@ -72,16 +74,32 @@ export default function ManagerOrderDetails({ onNavigate, orderId }: Props) {
               <button className="btn primary block" onClick={() => onNavigate('edit-order')}>
                 Edit Order
               </button>
-              <button className="btn block" style={{ marginTop: 8 }} onClick={() => onNavigate('accounting')}>
-                Send to Accounting
-              </button>
+              {sentToAccounting ? (
+                <div style={{ marginTop: 10, padding: '10px 14px', background: '#f0faf4', border: '1px solid #a8ddb5', borderRadius: 8, fontSize: 13, color: '#2c7a4b' }}>
+                  Order <strong>#{orderId}</strong> has been forwarded to the accounting team for invoicing.
+                </div>
+              ) : (
+                <button
+                  className="btn block"
+                  style={{ marginTop: 8 }}
+                  onClick={() => setSentToAccounting(true)}
+                >
+                  Send to Accounting
+                </button>
+              )}
             </>
           )}
           {order.type === 'completed' && (
             <>
-              <button className="btn primary block" onClick={() => onNavigate('accounting')}>
-                View Invoice
-              </button>
+              {sentToAccounting ? (
+                <div style={{ marginTop: 10, padding: '10px 14px', background: '#f0faf4', border: '1px solid #a8ddb5', borderRadius: 8, fontSize: 13, color: '#2c7a4b' }}>
+                  Invoice for order <strong>#{orderId}</strong> has been sent to the accounting team.
+                </div>
+              ) : (
+                <button className="btn primary block" onClick={() => setSentToAccounting(true)}>
+                  View Invoice
+                </button>
+              )}
               <button className="btn block" style={{ marginTop: 8 }} onClick={() => onNavigate('delivery-list')}>
                 View Delivery
               </button>

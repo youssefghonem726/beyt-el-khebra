@@ -37,7 +37,7 @@ export default function OwnerNotifications({ onNavigate }: Props) {
   if (loading) {
     return (
       <AppShell role="owner" activePage="owner-notifications" onNavigate={onNavigate}>
-        <Topbar title="Notifications" userName="Ahmed Store" />
+        <Topbar title="Notifications" />
         <section className="stack">
           <div className="loading-state">Loading notifications...</div>
         </section>
@@ -48,7 +48,7 @@ export default function OwnerNotifications({ onNavigate }: Props) {
   if (error) {
     return (
       <AppShell role="owner" activePage="owner-notifications" onNavigate={onNavigate}>
-        <Topbar title="Notifications" userName="Ahmed Store" />
+        <Topbar title="Notifications" />
         <section className="stack">
           <div className="error-state">{error}</div>
         </section>
@@ -58,7 +58,7 @@ export default function OwnerNotifications({ onNavigate }: Props) {
 
   return (
     <AppShell role="owner" activePage="owner-notifications" onNavigate={onNavigate}>
-      <Topbar title="Notifications" userName="Ahmed Store" />
+      <Topbar title="Notifications" />
       <section className="stack">
         {notifications.map((n) => (
           <article key={n.id} className="box">

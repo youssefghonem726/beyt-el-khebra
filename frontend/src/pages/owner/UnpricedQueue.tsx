@@ -19,6 +19,14 @@ interface PricingState {
   notes: string;
 }
 
+interface PriceListRow {
+  id: string;
+  product: string;
+  paper: string;
+  pricePerUnit: number;
+  active: boolean;
+}
+
 export default function UnpricedQueue({ onNavigate }: Props) {
   const [jobs, setJobs] = useState<UnpricedJob[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,12 +34,20 @@ export default function UnpricedQueue({ onNavigate }: Props) {
   const [pricingId, setPricingId] = useState<string | null>(null);
   const [pricing, setPricing] = useState<PricingState>({ unitPrice: '', vatRate: '14', notes: '' });
   const [priced, setPriced] = useState<Set<string>>(new Set());
+  const [priceList, setPriceList] = useState<PriceListRow[]>([]);
 
   useEffect(() => {
     fetch('/data/unpriced-jobs.json')
       .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .then((data: UnpricedJob[]) => { setJobs(data); setLoading(false); })
       .catch(err => { console.error(err); setError('Could not load queue data.'); setLoading(false); });
+  }, []);
+
+  useEffect(() => {
+    fetch('/data/pricing.json')
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then((data: PriceListRow[]) => setPriceList(data.filter(p => p.active)))
+      .catch(() => {});
   }, []);
 
   const openPricing = (id: string) => {
@@ -55,7 +71,7 @@ export default function UnpricedQueue({ onNavigate }: Props) {
 
   const shell = (children: React.ReactNode) => (
     <AppShell role="owner" activePage="unpriced-queue" onNavigate={onNavigate}>
-      <Topbar title="Unpriced Queue" userName="Admin" />
+      <Topbar title="Unpriced Queue" />
       <section className="grid-4" style={{ marginBottom: 14 }}>
         <StatCard label="Total Unpriced"       value={jobs.length}  sub="Jobs waiting for pricing" />
         <StatCard label="Due Soon"             value={2}            sub="Due within 3 days"        />
@@ -112,6 +128,27 @@ export default function UnpricedQueue({ onNavigate }: Props) {
               {isOpen && (
                 <div style={{ marginTop: 14, padding: '16px', background: 'var(--surface-2, #f8f9fb)', borderRadius: 8, border: '1px solid var(--border)' }}>
                   <h4 style={{ marginBottom: 14, fontSize: 14 }}>Set Price for {j.id}</h4>
+
+                  {priceList.length > 0 && (
+                    <div className="field" style={{ marginBottom: 12 }}>
+                      <label>Pick from price list</label>
+                      <select
+                        className="select"
+                        defaultValue=""
+                        onChange={e => {
+                          if (!e.target.value) return;
+                          setPricing(p => ({ ...p, unitPrice: e.target.value }));
+                        }}
+                      >
+                        <option value="">— Select a product —</option>
+                        {priceList.map(row => (
+                          <option key={row.id} value={String(row.pricePerUnit)}>
+                            {row.product} · {row.paper} — EGP {row.pricePerUnit.toFixed(2)} / unit
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
                     <div className="field" style={{ margin: 0 }}>

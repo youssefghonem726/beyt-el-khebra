@@ -82,7 +82,7 @@ export default function ActiveJobs({ onNavigate }: Props) {
   if (loading) {
     return (
       <AppShell role="manager" activePage="active-jobs" onNavigate={onNavigate}>
-        <Topbar title="Production Dashboard" userName="Production Team" />
+        <Topbar title="Production Dashboard" />
         <div className="loading-state">Loading production data...</div>
       </AppShell>
     );
@@ -91,7 +91,7 @@ export default function ActiveJobs({ onNavigate }: Props) {
   if (error || jobs.length === 0) {
     return (
       <AppShell role="manager" activePage="active-jobs" onNavigate={onNavigate}>
-        <Topbar title="Production Dashboard" userName="Production Team" />
+        <Topbar title="Production Dashboard" />
         <div className="error-state">{error ?? 'No jobs available.'}</div>
       </AppShell>
     );
@@ -101,7 +101,7 @@ export default function ActiveJobs({ onNavigate }: Props) {
 
   return (
     <AppShell role="manager" activePage="active-jobs" onNavigate={onNavigate}>
-      <Topbar title="Production Dashboard" userName="Production Team" />
+      <Topbar title="Production Dashboard" />
 
       <section className="grid-4" style={{ marginBottom: 14 }}>
         <StatCard label="Active Jobs"  value={activeJobs} sub="Currently in queue"    />

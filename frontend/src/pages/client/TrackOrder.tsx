@@ -6,12 +6,27 @@ import ProgressBar from '../../components/ProgressBar';
 
 interface Props { onNavigate: (page: string) => void; }
 
+const KNOWN_ORDERS = ['1021', '#1021'];
+
 export default function TrackOrder({ onNavigate }: Props) {
   const [orderId, setOrderId] = useState('');
+  const [tracked, setTracked] = useState(false);
+  const [notFound, setNotFound] = useState(false);
+
+  const handleTrack = () => {
+    const normalized = orderId.replace('#', '').trim();
+    if (KNOWN_ORDERS.includes(orderId.trim()) || KNOWN_ORDERS.includes('#' + normalized) || normalized === '1021') {
+      setTracked(true);
+      setNotFound(false);
+    } else {
+      setTracked(false);
+      setNotFound(true);
+    }
+  };
 
   return (
     <AppShell role="client" activePage="my-orders" onNavigate={onNavigate}>
-      <Topbar title="Track Order" userName="Ahmed Store" />
+      <Topbar title="Track Order" />
 
       <section className="box center-card" style={{ marginBottom: 14 }}>
         <h2 style={{ marginBottom: 6 }}>Track Your Order</h2>
@@ -22,14 +37,16 @@ export default function TrackOrder({ onNavigate }: Props) {
             type="text"
             placeholder="Enter Order ID (e.g. #1021)"
             value={orderId}
-            onChange={(e) => setOrderId(e.target.value)}
+            onChange={(e) => { setOrderId(e.target.value); setTracked(false); setNotFound(false); }}
+            onKeyDown={(e) => e.key === 'Enter' && handleTrack()}
           />
-          <button className="btn primary">Track Order</button>
+          <button className="btn primary" onClick={handleTrack}>Track Order</button>
         </div>
+        {notFound && <p style={{ color: 'var(--accent)', fontSize: 13, marginTop: 8 }}>No order found for "{orderId}". Please check the ID and try again.</p>}
         <p className="tiny muted" style={{ marginTop: 8 }}>Your information is secure and will not be shared.</p>
       </section>
 
-      <section className="box" id="order-status" style={{ marginBottom: 14 }}>
+      {tracked && <section className="box" id="order-status" style={{ marginBottom: 14 }}>
         <div className="table-head" style={{ marginBottom: 14 }}>
           <h2>Order Status</h2>
           <div className="actions-inline">
@@ -75,7 +92,7 @@ export default function TrackOrder({ onNavigate }: Props) {
             </ul>
           </article>
         </div>
-      </section>
+      </section>}
 
       <section className="box">
         <div className="table-head">

@@ -194,7 +194,7 @@ export default function ClientDashboard({ onNavigate, clientIdentifier, dataUrls
   if (loading) {
     return (
       <AppShell role="client" activePage="client-dashboard" onNavigate={onNavigate}>
-        <Topbar title="Dashboard" userName="Loading..." />
+        <Topbar title="Dashboard" />
         <div className="loading-container">
           <div className="spinner"></div>
           <p>Loading your dashboard...</p>
@@ -205,7 +205,7 @@ export default function ClientDashboard({ onNavigate, clientIdentifier, dataUrls
 
   return (
     <AppShell role="client" activePage="client-dashboard" onNavigate={onNavigate}>
-      <Topbar title="Dashboard" userName={dashboardData.client?.name || 'Guest'} />
+      <Topbar title="Dashboard" />
 
       {error && (
         <div className="error-banner">

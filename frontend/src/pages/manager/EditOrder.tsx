@@ -11,7 +11,7 @@ export default function EditOrder({ onNavigate }: Props) {
 
   return (
     <AppShell role="manager" activePage="active-jobs" onNavigate={onNavigate}>
-      <Topbar title="Edit Order #1033" userName="Manager" />
+      <Topbar title="Edit Order #1033" />
       <section className="box">
         <div className="form-grid">
           <div className="field"><label>Client Name</label><input className="input" type="text" value={form.client} onChange={set('client')} /></div>

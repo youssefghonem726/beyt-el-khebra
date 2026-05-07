@@ -92,7 +92,7 @@ export default function ClientOrderDetail({ onNavigate, orderId }: Props) {
   if (!order) {
     return (
       <AppShell role="client" activePage="my-orders" onNavigate={onNavigate}>
-        <Topbar title="Order Detail" userName="Ahmed Store" />
+        <Topbar title="Order Detail" />
         <section className="table-wrap">
           <div className="error-state">Order not found.</div>
         </section>
@@ -102,7 +102,7 @@ export default function ClientOrderDetail({ onNavigate, orderId }: Props) {
 
   return (
     <AppShell role="client" activePage="my-orders" onNavigate={onNavigate}>
-      <Topbar title={`Order ${order.id}`} userName="Ahmed Store" />
+      <Topbar title={`Order ${order.id}`} />
 
       <section className="box" style={{ marginBottom: 14 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
@@ -163,7 +163,7 @@ export default function ClientOrderDetail({ onNavigate, orderId }: Props) {
           <p><strong>Need help with this order?</strong></p>
           <div style={{ display: 'flex', gap: 10 }}>
             <button className="btn" onClick={() => onNavigate('track-order')}>Track Order</button>
-            <button className="btn" onClick={() => onNavigate(order.invoiceId)}>View Invoice</button>
+            {order.invoiceId && <button className="btn" onClick={() => onNavigate(order.invoiceId)}>View Invoice</button>}
             <button className="btn primary" onClick={() => onNavigate('support')}>Contact Support</button>
           </div>
         </div>

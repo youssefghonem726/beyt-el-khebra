@@ -1,9 +1,10 @@
+import { useState } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 
 interface Props { onNavigate: (page: string) => void; }
 
-const NOTIFICATIONS = [
+const INITIAL_NOTIFICATIONS = [
   { id: 1, title: 'Order #1021 quote is ready', time: 'Today, 10:30 AM', body: 'Please review and confirm your quote to continue production. The quote is valid for 7 days.', unread: true, action: { label: 'Review Quote', page: 'quote-detail-Q-211' } },
   { id: 2, title: 'Order #1020 moved to production', time: 'Yesterday, 02:15 PM', body: 'Your order is now being printed. Estimated completion: 24 Apr 2025.', unread: true, action: { label: 'Track Order', page: 'track-order' } },
   { id: 3, title: 'Invoice INV-9021 paid', time: '21 Apr 2025, 11:00 AM', body: 'Payment received successfully. Thank you for your business.', unread: false, action: { label: 'View Invoice', page: 'invoice-detail-INV-9021' } },
@@ -12,11 +13,20 @@ const NOTIFICATIONS = [
 ];
 
 export default function ClientNotifications({ onNavigate }: Props) {
+  const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
+
+  const dismiss = (id: number) => setNotifications((prev) => prev.filter((n) => n.id !== id));
+
   return (
     <AppShell role="client" activePage="client-notifications" onNavigate={onNavigate}>
-      <Topbar title="Notifications" userName="Ahmed Store" />
+      <Topbar title="Notifications" />
       <section className="stack notifications-stack">
-        {NOTIFICATIONS.map((n) => (
+        {notifications.length === 0 && (
+          <div className="box" style={{ textAlign: 'center', color: 'var(--muted)', padding: 48 }}>
+            No notifications.
+          </div>
+        )}
+        {notifications.map((n) => (
           <article key={n.id} className={`box notification-card${n.unread ? ' unread' : ''}`}>
             <div className="notification-header" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
               <h3>{n.title}</h3>
@@ -25,7 +35,7 @@ export default function ClientNotifications({ onNavigate }: Props) {
             <p>{n.body}</p>
             <div className="notification-actions" style={{ marginTop: 10, display: 'flex', gap: 8 }}>
               <button className={`btn btn-sm${n.unread ? ' primary' : ''}`} onClick={() => onNavigate(n.action.page)}>{n.action.label}</button>
-              <button className="btn btn-sm btn-outline">Dismiss</button>
+              <button className="btn btn-sm btn-outline" onClick={() => dismiss(n.id)}>Dismiss</button>
             </div>
           </article>
         ))}

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
+import { downloadText } from '../../utils/download';
 
 interface Props { onNavigate: (page: string) => void; role?: 'manager' | 'owner'; }
 
@@ -21,7 +22,7 @@ export default function BatchLookup({ onNavigate, role = 'manager' }: Props) {
 
   return (
     <AppShell role={role} activePage={role === 'owner' ? 'owner-dashboard' : 'batch-lookup'} onNavigate={onNavigate}>
-      <Topbar title="Batch Lookup & Search" userName="Manager / Owner" />
+      <Topbar title="Batch Lookup & Search" />
       <section className="table-wrap">
         <div className="table-head">
           <div className="actions-inline" style={{ flex: 1 }}>
@@ -39,7 +40,11 @@ export default function BatchLookup({ onNavigate, role = 'manager' }: Props) {
               )}
             </div>
           </div>
-          <button className="btn">Export Search Query</button>
+          <button className="btn" onClick={() => {
+            const header = 'Batch Code,Order,Client,Status,Date';
+            const rows = filtered.map((b) => `${b.code},${b.order},${b.client},${b.status},${b.date}`);
+            downloadText('batch-export.csv', [header, ...rows]);
+          }}>Export Search Query</button>
         </div>
         <table>
           <thead><tr><th>Batch Code</th><th>Order</th><th>Client Name</th><th>Status</th><th>Date</th><th>Action</th></tr></thead>

@@ -20,7 +20,7 @@ const COMPLETED = [
 export default function ManagerOrders({ onNavigate, role = 'manager' }: Props) {
   return (
     <AppShell role={role} activePage={role === 'owner' ? 'owner-dashboard' : 'manager-orders'} onNavigate={onNavigate}>
-      <Topbar title="All Orders" userName="Manager" />
+      <Topbar title="All Orders" />
 
       <section className="grid-2">
         <article className="table-wrap">

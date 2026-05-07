@@ -53,7 +53,7 @@ export default function QuoteDetail({ onNavigate, quoteId }: Props) {
   if (!quote) {
     return (
       <AppShell role="client" activePage="quotes" onNavigate={onNavigate}>
-        <Topbar title="Quote Detail" userName="Ahmed Store" />
+        <Topbar title="Quote Detail" />
         <section className="table-wrap"><div className="error-state">Quote not found.</div></section>
       </AppShell>
     );
@@ -65,7 +65,7 @@ export default function QuoteDetail({ onNavigate, quoteId }: Props) {
 
   return (
     <AppShell role="client" activePage="quotes" onNavigate={onNavigate}>
-      <Topbar title={`Quote ${quote.id}`} userName="Ahmed Store" />
+      <Topbar title={`Quote ${quote.id}`} />
 
       <div className="box invoice-detail-card" style={{ maxWidth: 760, margin: '0 auto' }}>
         <div className="invoice-header">

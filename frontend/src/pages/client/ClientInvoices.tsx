@@ -53,7 +53,7 @@ export default function ClientInvoices({ onNavigate }: Props) {
   if (loading) {
     return (
       <AppShell role="client" activePage="client-invoices" onNavigate={onNavigate}>
-        <Topbar title="My Invoices" userName="Ahmed Store" />
+        <Topbar title="My Invoices" />
         <section className="table-wrap">
           <div className="loading-state">Loading your invoices...</div>
         </section>
@@ -64,7 +64,7 @@ export default function ClientInvoices({ onNavigate }: Props) {
   if (error) {
     return (
       <AppShell role="client" activePage="client-invoices" onNavigate={onNavigate}>
-        <Topbar title="My Invoices" userName="Ahmed Store" />
+        <Topbar title="My Invoices" />
         <section className="table-wrap">
           <div className="error-state">{error}</div>
         </section>
@@ -74,7 +74,7 @@ export default function ClientInvoices({ onNavigate }: Props) {
 
   return (
     <AppShell role="client" activePage="client-invoices" onNavigate={onNavigate}>
-      <Topbar title="My Invoices" userName="Ahmed Store" />
+      <Topbar title="My Invoices" />
       <section className="table-wrap">
         <div className="table-head">
           <h3>Invoice History</h3>

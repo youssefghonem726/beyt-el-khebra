@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { NavigationContext } from './context/NavigationContext';
+import { UserContext } from './context/UserContext';
 
 import TestLanding from './pages/TestLanding';
 
@@ -90,15 +91,32 @@ export default function App() {
     setNavHistory(h => h.slice(0, -1));
   };
 
+  const getDisplayName = (pg: string): string => {
+    // Owner pages — check before generic client- prefix
+    if (pg.startsWith('owner-') || pg.startsWith('client-detail-') ||
+      ['accounting','delivery-tracking','client-management','unpriced-queue'].includes(pg))
+      return 'Admin User';
+    // Client pages
+    if (pg.startsWith('client-') || pg.startsWith('invoice-detail-') || pg.startsWith('quote-detail-') ||
+      ['my-orders','place-new-order','track-order','client-invoices','client-notifications',
+       'profile-settings','quotes','support','document-management'].includes(pg))
+      return 'Ahmed Store';
+    // Manager pages
+    if (pg.startsWith('manager-') || pg.startsWith('work-view-') || pg.startsWith('delivery') ||
+      ['active-jobs','edit-order','order-work-view','completed-jobs','batch-lookup'].includes(pg))
+      return 'Production Manager';
+    return '';
+  };
+
   const p = (node: React.ReactNode) => <div key={page} className="page">{node}</div>;
 
   const renderPage = () => {
     switch (page) {
-      case 'test-landing': return p(<TestLanding onNavigate={navigate} />);
+      case 'test-landing': return p(<TestLanding onNavigate={navigateTopLevel} />);
 
       // Auth
-      case 'login':          return p(<Login onNavigate={navigate} />);
-      case 'create-account': return p(<CreateAccount onNavigate={navigate} />);
+      case 'login':          return p(<Login onNavigate={navigateTopLevel} />);
+      case 'create-account': return p(<CreateAccount onNavigate={navigateTopLevel} />);
 
       // Client
       case 'client-dashboard':     return p(<ClientDashboard onNavigate={navigate} />);
@@ -182,8 +200,10 @@ export default function App() {
   };
 
   return (
-    <NavigationContext.Provider value={{ goBack, canGoBack: navHistory.length > 0, navigateTopLevel }}>
-      {renderPage()}
-    </NavigationContext.Provider>
+    <UserContext.Provider value={{ name: getDisplayName(page) }}>
+      <NavigationContext.Provider value={{ goBack, canGoBack: navHistory.length > 0, navigateTopLevel }}>
+        {renderPage()}
+      </NavigationContext.Provider>
+    </UserContext.Provider>
   );
 }

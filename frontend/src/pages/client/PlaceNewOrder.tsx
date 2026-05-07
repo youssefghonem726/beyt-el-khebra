@@ -48,18 +48,20 @@ function NumberField({ label, value, onChange }: { label: string; value: string;
   );
 }
 
-function ItemEditor({ item, onChange, onRemove }: { item: PackageItem; onChange: (d: Record<string, any>) => void; onRemove: () => void }) {
+function ItemEditor({ item, onChange, onRemove, hideHeader = false }: { item: PackageItem; onChange: (d: Record<string, any>) => void; onRemove: () => void; hideHeader?: boolean }) {
   const d = item.data;
   const set = (k: string, v: any) => onChange({ ...d, [k]: v });
 
   const typeLabel = item.type.charAt(0).toUpperCase() + item.type.slice(1);
 
   return (
-    <article className="box" style={{ marginBottom: 12 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <h4>{typeLabel}</h4>
-        <button className="btn" style={{ fontSize: 12 }} onClick={onRemove}>Remove</button>
-      </div>
+    <article className={hideHeader ? undefined : 'box'} style={hideHeader ? undefined : { marginBottom: 12 }}>
+      {!hideHeader && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <h4>{typeLabel}</h4>
+          <button className="btn" style={{ fontSize: 12 }} onClick={onRemove}>Remove</button>
+        </div>
+      )}
 
       <NumberField label="Quantity" value={d.qty ?? '100'} onChange={(v) => set('qty', v)} />
       <FileField label="Print File (PDF)" value={d.pdf ?? null} onChange={(f) => set('pdf', f)} />
@@ -137,7 +139,7 @@ export default function PlaceNewOrder({ onNavigate }: Props) {
   if (submitted) {
     return (
       <AppShell role="client" activePage="place-new-order" onNavigate={onNavigate}>
-        <Topbar title="Place New Order" userName="Ahmed Store" />
+        <Topbar title="Place New Order" />
         <section className="box" style={{ textAlign: 'center', padding: 48 }}>
           <p style={{ fontSize: 40, marginBottom: 12 }}>✓</p>
           <h2 style={{ marginBottom: 8 }}>Order Submitted!</h2>
@@ -157,7 +159,7 @@ export default function PlaceNewOrder({ onNavigate }: Props) {
 
   return (
     <AppShell role="client" activePage="place-new-order" onNavigate={onNavigate}>
-      <Topbar title="Place New Order" userName="Ahmed Store" />
+      <Topbar title="Place New Order" />
 
       {!orderType && (
         <section style={{ maxWidth: 700, margin: '0 auto' }}>
@@ -259,39 +261,56 @@ export default function PlaceNewOrder({ onNavigate }: Props) {
           <button className="global-back-btn" style={{ marginBottom: 12 }} onClick={() => { setOrderType(null); setSingleType(''); setSingleData({}); }}>
             ← Back
           </button>
-          <h3 style={{ marginBottom: 12 }}>Individual Order</h3>
 
-          <div className="field" style={{ marginBottom: 16 }}>
-            <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Item Type</label>
-            <select className="select" value={singleType} onChange={(e) => { setSingleType(e.target.value as ItemType); setSingleData({}); }}>
-              <option value="">Select type…</option>
-              <option value="book">Book</option>
-              <option value="booklet">Booklet</option>
-              <option value="card">Business Card</option>
-              <option value="sticker">Sticker</option>
-              <option value="poster">Poster</option>
-            </select>
+          <div className="box">
+            <h3 style={{ marginBottom: 14 }}>Individual Order</h3>
+
+            <div className="field" style={{ marginBottom: singleType ? 0 : 4 }}>
+              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Item Type</label>
+              <select
+                className="select"
+                value={singleType}
+                onChange={(e) => { setSingleType(e.target.value as ItemType); setSingleData({}); }}
+              >
+                <option value="">Select type…</option>
+                <option value="book">Book</option>
+                <option value="booklet">Booklet</option>
+                <option value="card">Business Card</option>
+                <option value="sticker">Sticker</option>
+                <option value="poster">Poster</option>
+              </select>
+            </div>
+
+            {singleType && (
+              <>
+                <div className="line" style={{ margin: '14px 0' }} />
+                <ItemEditor
+                  item={{ id: 'single', type: singleType, data: singleData }}
+                  onChange={setSingleData}
+                  onRemove={() => { setSingleType(''); setSingleData({}); }}
+                  hideHeader
+                />
+                <div className="line" style={{ margin: '14px 0' }} />
+                <div className="field" style={{ marginBottom: 14 }}>
+                  <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Additional Notes</label>
+                  <textarea
+                    className="input"
+                    rows={3}
+                    placeholder="Any special instructions…"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    style={{ resize: 'vertical', width: '100%' }}
+                  />
+                </div>
+                <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 14 }}>
+                  Pricing will be sent to you after submission.
+                </p>
+                <button className="btn primary" onClick={() => setSubmitted(true)}>
+                  Submit Order
+                </button>
+              </>
+            )}
           </div>
-
-          {singleType && (
-            <>
-              <ItemEditor
-                item={{ id: 'single', type: singleType, data: singleData }}
-                onChange={setSingleData}
-                onRemove={() => { setSingleType(''); setSingleData({}); }}
-              />
-              <div className="field" style={{ marginBottom: 16 }}>
-                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Additional Notes</label>
-                <textarea className="input" rows={3} placeholder="Any special instructions…" value={notes} onChange={(e) => setNotes(e.target.value)} style={{ resize: 'vertical', width: '100%' }} />
-              </div>
-              <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>
-                Pricing will be sent to you after submission.
-              </p>
-              <button className="btn primary" onClick={() => setSubmitted(true)}>
-                Submit Order
-              </button>
-            </>
-          )}
         </section>
       )}
     </AppShell>

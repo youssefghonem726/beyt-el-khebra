@@ -126,7 +126,10 @@ export default function CreateAccount({ onNavigate }: Props) {
 
         <p className="center muted tiny">or</p>
 
-        <button className="btn block center">
+        <button className="btn block center" onClick={async () => {
+          const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
+          if (error) alert(error.message);
+        }}>
           Sign up with Google
         </button>
 

@@ -53,7 +53,7 @@ export default function OwnerDashboard({ onNavigate }: Props) {
   if (loading) {
     return (
       <AppShell role="owner" activePage="owner-dashboard" onNavigate={onNavigate}>
-        <Topbar title="Owner Dashboard" userName="Owner" />
+        <Topbar title="Owner Dashboard" />
         <section className="welcome">
           <h2>Operations snapshot</h2>
           <p>Monitor order flow, production load, and accounting status.</p>
@@ -66,7 +66,7 @@ export default function OwnerDashboard({ onNavigate }: Props) {
   if (error) {
     return (
       <AppShell role="owner" activePage="owner-dashboard" onNavigate={onNavigate}>
-        <Topbar title="Owner Dashboard" userName="Owner" />
+        <Topbar title="Owner Dashboard" />
         <section className="welcome">
           <h2>Operations snapshot</h2>
           <p>Monitor order flow, production load, and accounting status.</p>
@@ -78,7 +78,7 @@ export default function OwnerDashboard({ onNavigate }: Props) {
 
   return (
     <AppShell role="owner" activePage="owner-dashboard" onNavigate={onNavigate}>
-      <Topbar title="Owner Dashboard" userName="Owner" />
+      <Topbar title="Owner Dashboard" />
 
       <section className="welcome">
         <h2>Operations snapshot</h2>

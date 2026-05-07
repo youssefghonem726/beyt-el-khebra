@@ -98,7 +98,7 @@ export default function InvoiceDetail({ onNavigate, invoiceId }: Props) {
   if (loading) {
     return (
       <AppShell role="client" activePage="client-invoices" onNavigate={onNavigate}>
-        <Topbar title="Invoice Detail" userName="Ahmed Store" />
+        <Topbar title="Invoice Detail" />
         <section className="table-wrap">
           <div className="loading-state">Loading invoice...</div>
         </section>
@@ -109,7 +109,7 @@ export default function InvoiceDetail({ onNavigate, invoiceId }: Props) {
   if (error || !invoice) {
     return (
       <AppShell role="client" activePage="client-invoices" onNavigate={onNavigate}>
-        <Topbar title="Invoice Detail" userName="Ahmed Store" />
+        <Topbar title="Invoice Detail" />
         <section className="table-wrap">
           <div className="error-state">{error ?? 'Invoice not found.'}</div>
         </section>
@@ -123,7 +123,7 @@ export default function InvoiceDetail({ onNavigate, invoiceId }: Props) {
 
   return (
     <AppShell role="client" activePage="client-invoices" onNavigate={onNavigate}>
-      <Topbar title="Invoice Detail" userName="Ahmed Store" />
+      <Topbar title="Invoice Detail" />
 
       <section className="table-wrap">
         <div className={`box invoice-detail-card${invoice.status === 'Overdue' ? ' overdue' : ''}`}>

@@ -45,7 +45,7 @@ export default function DeliveryList({ onNavigate: _onNavigate }: Props) {
 
   return (
     <AppShell role="manager" activePage="delivery-list" onNavigate={_onNavigate}>
-      <Topbar title="Deliveries" userName="Manager" />
+      <Topbar title="Deliveries" />
 
       <section className="table-wrap">
         <div className="table-head"><h3>All Deliveries</h3></div>

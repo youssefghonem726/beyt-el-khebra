@@ -17,6 +17,19 @@ export default function OwnerSettings({ onNavigate }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [pricing, setPricing] = useState({ owner: 'Senior Manager', threshold: '5000' });
   const [whatsapp, setWhatsapp] = useState({ number: '+20 100 123 4455', template: 'Hello {{client_name}}, your order {{order_id}} is now {{status}}.' });
+  const [editEmail, setEditEmail] = useState<string | null>(null);
+  const [editRole, setEditRole] = useState('');
+  const [editStatus, setEditStatus] = useState('');
+  const [toast, setToast] = useState('');
+
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
+
+  const startEdit = (u: User) => { setEditEmail(u.email); setEditRole(u.role); setEditStatus(u.status); };
+  const saveEdit = () => {
+    setUsers((prev) => prev.map((u) => u.email === editEmail ? { ...u, role: editRole, status: editStatus } : u));
+    setEditEmail(null);
+    showToast('User updated.');
+  };
 
   useEffect(() => {
     fetch('/public/data/users.json')
@@ -40,7 +53,7 @@ export default function OwnerSettings({ onNavigate }: Props) {
   if (loading) {
     return (
       <AppShell role="owner" activePage="owner-settings" onNavigate={onNavigate}>
-        <Topbar title="Owner Settings" userName="Administration" />
+        <Topbar title="Owner Settings" />
         <section className="stack">
           <div className="loading-state">Loading settings...</div>
         </section>
@@ -51,7 +64,7 @@ export default function OwnerSettings({ onNavigate }: Props) {
   if (error) {
     return (
       <AppShell role="owner" activePage="owner-settings" onNavigate={onNavigate}>
-        <Topbar title="Owner Settings" userName="Administration" />
+        <Topbar title="Owner Settings" />
         <section className="stack">
           <div className="error-state">{error}</div>
         </section>
@@ -61,7 +74,7 @@ export default function OwnerSettings({ onNavigate }: Props) {
 
   return (
     <AppShell role="owner" activePage="owner-settings" onNavigate={onNavigate}>
-      <Topbar title="Owner Settings" userName="Administration" />
+      <Topbar title="Owner Settings" />
       <section className="stack">
         <article className="box">
           <h3>Pricing Roles</h3>
@@ -119,17 +132,41 @@ export default function OwnerSettings({ onNavigate }: Props) {
             </thead>
             <tbody>
               {users.map((u) => (
-                <tr key={u.email}>
-                  <td>{u.email}</td>
-                  <td>{u.role}</td>
-                  <td><StatusBadge status={u.status} /></td>
-                  <td><button className="btn">Edit</button></td>
-                </tr>
+                editEmail === u.email ? (
+                  <tr key={u.email}>
+                    <td>{u.email}</td>
+                    <td>
+                      <select className="select" value={editRole} onChange={(e) => setEditRole(e.target.value)}>
+                        <option>Owner</option>
+                        <option>Manager</option>
+                        <option>Staff</option>
+                      </select>
+                    </td>
+                    <td>
+                      <select className="select" value={editStatus} onChange={(e) => setEditStatus(e.target.value)}>
+                        <option>Active</option>
+                        <option>Inactive</option>
+                      </select>
+                    </td>
+                    <td style={{ display: 'flex', gap: 6 }}>
+                      <button className="btn primary" onClick={saveEdit}>Save</button>
+                      <button className="btn" onClick={() => setEditEmail(null)}>Cancel</button>
+                    </td>
+                  </tr>
+                ) : (
+                  <tr key={u.email}>
+                    <td>{u.email}</td>
+                    <td>{u.role}</td>
+                    <td><StatusBadge status={u.status} /></td>
+                    <td><button className="btn" onClick={() => startEdit(u)}>Edit</button></td>
+                  </tr>
+                )
               ))}
             </tbody>
           </table>
         </article>
       </section>
+      {toast && <div className="success-toast">{toast}</div>}
     </AppShell>
   );
 }

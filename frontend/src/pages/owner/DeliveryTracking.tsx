@@ -84,7 +84,7 @@ export default function DeliveryTracking({ onNavigate }: Props) {
   if (loading) {
     return (
       <AppShell role="owner" activePage="delivery-tracking" onNavigate={onNavigate}>
-        <Topbar title="Delivery Tracking" userName="Admin User" />
+        <Topbar title="Delivery Tracking" />
         <div className="loading-state">Loading deliveries...</div>
       </AppShell>
     );
@@ -93,7 +93,7 @@ export default function DeliveryTracking({ onNavigate }: Props) {
   if (error) {
     return (
       <AppShell role="owner" activePage="delivery-tracking" onNavigate={onNavigate}>
-        <Topbar title="Delivery Tracking" userName="Admin User" />
+        <Topbar title="Delivery Tracking" />
         <div className="error-state">{error}</div>
       </AppShell>
     );
@@ -103,7 +103,7 @@ export default function DeliveryTracking({ onNavigate }: Props) {
 
   return (
     <AppShell role="owner" activePage="delivery-tracking" onNavigate={onNavigate}>
-      <Topbar title="Delivery Tracking" userName="Admin User" />
+      <Topbar title="Delivery Tracking" />
 
       <section className="grid-4" style={{ marginBottom: 14 }}>
         <StatCard label="Total Deliveries" value={deliveries.length} sub="All active deliveries"  />

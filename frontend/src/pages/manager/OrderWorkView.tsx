@@ -56,7 +56,7 @@ export default function OrderWorkView({ onNavigate, jobId, role = 'manager' }: P
   if (jobId && displayed.length === 0) {
     return (
       <AppShell role={role} activePage={role === 'owner' ? 'owner-production' : 'order-work-view'} onNavigate={onNavigate}>
-        <Topbar title="Work View" userName="Production" />
+        <Topbar title="Work View" />
         <div className="error-state">Job not found.</div>
       </AppShell>
     );
@@ -64,7 +64,7 @@ export default function OrderWorkView({ onNavigate, jobId, role = 'manager' }: P
 
   return (
     <AppShell role={role} activePage={role === 'owner' ? 'owner-production' : 'order-work-view'} onNavigate={onNavigate}>
-      <Topbar title={title} userName="Production" />
+      <Topbar title={title} />
       {displayed.map((j) => (
         <section key={j.id} className="split" style={{ marginBottom: 14 }}>
           <article className="box">
