@@ -15,8 +15,8 @@ interface PricingRow {
 }
 
 const QUOTES = [
-  { id: 'Q-211', order: '#1021', status: 'Awaiting Confirmation', amount: 'EGP 1,200.00', action: { label: 'Review Quote',  page: 'quote-detail-Q-211'       } },
-  { id: 'Q-208', order: '#1018', status: 'Approved',              amount: 'EGP 950.00',   action: { label: 'View Invoice',  page: 'invoice-detail-INV-9018'  } },
+  { id: 'Q-211', order: '#1021', status: 'Awaiting Confirmation', amount: 'EGP 1,200.00', action: { label: 'Review Quote', page: 'quote-detail-Q-211' } },
+  { id: 'Q-208', order: '#1018', status: 'Approved', amount: 'EGP 950.00', action: { label: 'View Invoice', page: 'invoice-detail-INV-9018' } },
 ];
 
 function fmt(n: number) {
@@ -25,7 +25,7 @@ function fmt(n: number) {
 
 export default function Quotes() {
   const { navigateTopLevel } = useNavigation();
-  const [pricing, setPricing]   = useState<PricingRow[]>([]);
+  const [pricing, setPricing] = useState<PricingRow[]>([]);
   const [showPricing, setShowPricing] = useState(false);
 
   useEffect(() => {
@@ -39,7 +39,6 @@ export default function Quotes() {
     <AppShell role="client" activePage="quotes">
       <Topbar title="Quotes" />
 
-      {/* ── My quotes ── */}
       <section className="table-wrap" style={{ marginBottom: 16 }}>
         <div className="table-head" style={{ marginBottom: 10 }}>
           <h3>My Quotes</h3>
@@ -47,7 +46,7 @@ export default function Quotes() {
             Request New Quote
           </button>
         </div>
-        <tr>
+        <table>
           <thead>
             <tr>
               <th>Quote ID</th>
@@ -75,7 +74,6 @@ export default function Quotes() {
         </table>
       </section>
 
-      {/* ── Standard pricing reference ── */}
       <section className="table-wrap">
         <div className="table-head" style={{ marginBottom: showPricing ? 14 : 0 }}>
           <div>
@@ -93,7 +91,7 @@ export default function Quotes() {
           pricing.length === 0 ? (
             <p style={{ color: 'var(--muted)', fontSize: 13 }}>Pricing not available.</p>
           ) : (
-            </table>
+            <table>
               <thead>
                 <tr>
                   <th>Product</th>
