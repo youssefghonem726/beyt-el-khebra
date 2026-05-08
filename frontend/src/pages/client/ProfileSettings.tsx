@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import { useNavigation } from '../../context/NavigationContext';
@@ -34,10 +34,22 @@ export default function ProfileSettings() {
         <article className="box">
           <h3>Account Information</h3>
           <div className="form-grid-2">
-            <div className="field"><label>Store Name</label><input className="input" type="text" value={info.name} onChange={setField('name')} /></div>
-            <div className="field"><label>Email</label><input className="input" type="email" value={info.email} onChange={setField('email')} /></div>
-            <div className="field"><label>Phone</label><input className="input" type="text" value={info.phone} onChange={setField('phone')} /></div>
-            <div className="field"><label>Address</label><input className="input" type="text" value={info.address} onChange={setField('address')} /></div>
+            <div className="field">
+              <label>Store Name</label>
+              <input className="input" type="text" value={info.name} onChange={setField('name')} />
+            </div>
+            <div className="field">
+              <label>Email</label>
+              <input className="input" type="email" value={info.email} onChange={setField('email')} />
+            </div>
+            <div className="field">
+              <label>Phone</label>
+              <input className="input" type="text" value={info.phone} onChange={setField('phone')} />
+            </div>
+            <div className="field">
+              <label>Address</label>
+              <input className="input" type="text" value={info.address} onChange={setField('address')} />
+            </div>
           </div>
           <button className="btn primary" style={{ marginTop: 10 }} onClick={handleSave}>Save Changes</button>
         </article>

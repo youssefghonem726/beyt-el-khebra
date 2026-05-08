@@ -1,0 +1,30 @@
+-- Enable RLS
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE files ENABLE ROW LEVEL SECURITY;
+ALTER TABLE packages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE Pricing ENABLE ROW LEVEL SECURITY;
+
+-- USERS POLICIES
+CREATE POLICY "users_select_own"
+ON users
+FOR SELECT
+USING (auth.uid() = supabase_uid);
+
+CREATE POLICY "users_insert_own"
+ON users
+FOR INSERT
+WITH CHECK (auth.uid() = supabase_uid);
+
+-- ORDERS (basic)
+CREATE POLICY "orders_select_own"
+ON orders
+FOR SELECT
+USING (true);
+
+-- FILES (basic)
+CREATE POLICY "files_select"
+ON files
+FOR SELECT
+USING (true);

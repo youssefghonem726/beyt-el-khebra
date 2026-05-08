@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
@@ -90,6 +91,15 @@ export default function Quotes() {
           </button>
         </div>
         <table>
+          <thead>
+            <tr>
+              <th>Quote ID</th>
+              <th>Order</th>
+              <th>Status</th>
+              <th>Amount</th>
+              <th>Action</th>
+            </tr>
+          </thead>
           <thead>
             <tr>
               <th>Quote ID</th>
