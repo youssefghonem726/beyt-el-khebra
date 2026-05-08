@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
@@ -6,40 +5,22 @@ import { useNavigation } from '../../context/NavigationContext';
 
 interface Props { role?: 'manager' | 'owner'; }
 
-interface Order {
-  id: string;
-  status: string;
-  client: string;
-  completedAt?: string;
-}
-
-interface OrdersData {
-  pending: Order[];
-  working: Order[];
-  completed: Order[];
-}
+const PENDING = [
+  { id: '#1033', status: 'UNPRICED',         client: 'Client Name' },
+  { id: '#1031', status: 'PENDING APPROVAL', client: 'Design Hub'  },
+];
+const WORKING = [
+  { id: '#1029', status: 'IN_PROGRESS', client: 'Retail Plus'   },
+  { id: '#1026', status: 'FINISHING',   client: 'Marketing Co.' },
+];
+const COMPLETED = [
+  { id: '#1024', status: 'COMPLETED', client: 'Client Name', completedAt: '26 Apr 2026, 6:10 PM' },
+  { id: '#1020', status: 'COMPLETED', client: 'Ahmed Store',  completedAt: '26 Apr 2026, 4:45 PM' },
+];
 
 export default function ManagerOrders({ role = 'manager' }: Props) {
   const { navigateTopLevel } = useNavigation();
-  const [data, setData] = useState<OrdersData | null>(null);
-
-  useEffect(() => {
-    fetch('/data/manager-orders.json')
-      .then((res) => {
-        if (!res.ok) throw new Error(`Failed to load orders: ${res.status}`);
-        return res.json() as Promise<OrdersData>;
-      })
-      .then(setData)
-      .catch(console.error);
-  }, []);
-
-  if (!data) return (
-    <AppShell role={role} activePage={role === 'owner' ? 'owner-dashboard' : 'manager-orders'}>
-      <Topbar title="All Orders" />
-      <div className="loading-state">Loading orders…</div>
-    </AppShell>
-  );
-
+  
   return (
     <AppShell role={role} activePage={role === 'owner' ? 'owner-dashboard' : 'manager-orders'}>
       <Topbar title="All Orders" />
@@ -50,7 +31,7 @@ export default function ManagerOrders({ role = 'manager' }: Props) {
           <table>
             <thead><tr><th>Order</th><th>Status</th><th>Client</th><th>Action</th></tr></thead>
             <tbody>
-              {data.pending.map((o) => (
+              {PENDING.map((o) => (
                 <tr key={o.id}>
                   <td>{o.id}</td>
                   <td><StatusBadge status={o.status} /></td>
@@ -74,7 +55,7 @@ export default function ManagerOrders({ role = 'manager' }: Props) {
           <table>
             <thead><tr><th>Order</th><th>Status</th><th>Client</th><th>Action</th></tr></thead>
             <tbody>
-              {data.working.map((o) => (
+              {WORKING.map((o) => (
                 <tr key={o.id}>
                   <td>{o.id}</td>
                   <td><StatusBadge status={o.status} /></td>
@@ -99,7 +80,7 @@ export default function ManagerOrders({ role = 'manager' }: Props) {
         <table>
           <thead><tr><th>Order</th><th>Status</th><th>Client</th><th>Completed At</th><th>Action</th></tr></thead>
           <tbody>
-            {data.completed.map((o) => (
+            {COMPLETED.map((o) => (
               <tr key={o.id}>
                 <td>{o.id}</td>
                 <td><StatusBadge status={o.status} /></td>

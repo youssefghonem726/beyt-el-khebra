@@ -1,76 +1,27 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
 import { useNavigation } from '../../context/NavigationContext';
 
-interface Order {
-  id: string;
-  batch: string;
-  product: string;
-  status: string;
-  delivery: string;
-  progress: number;
-  color: 'green' | 'orange' | 'red';
-  date: string;
-  total: string;
-  payment: string;
-  paid: string;
-}
+const ORDERS = [
+  { id: '#1021', batch: 'B-240421-A', product: 'Business Cards', status: 'PRICED_PENDING_CONFIRMATION', delivery: 'ON TIME', progress: 75, color: 'green' as const, date: '21 Apr 2025', total: 'EGP 1,200.00', payment: 'Bank Transfer', paid: 'EGP 1,200.00' },
+  { id: '#1020', batch: 'B-240418-C', product: 'Flyers A5', status: 'IN_PROGRESS', delivery: 'DELAYED', progress: 55, color: 'orange' as const, date: '18 Apr 2025', total: 'EGP 2,400.00', payment: 'Cash', paid: 'EGP 1,000.00' },
+];
 
 export default function MyOrders() {
   const { navigateTopLevel } = useNavigation();
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
-  useEffect(() => {
-    fetch('/data/my-orders.json')
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-      })
-      .then((data: Order[]) => {
-        setOrders(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error('Failed to load orders:', err);
-        setError('Could not load your orders. Please try again later.');
-        setLoading(false);
-      });
-  }, []);
-
-  const filtered = orders.filter((o) => {
+  const filtered = ORDERS.filter((o) => {
     const q = query.toLowerCase();
     const matchQ = !q || o.id.toLowerCase().includes(q) || o.batch.toLowerCase().includes(q) || o.product.toLowerCase().includes(q);
     const matchS = !filterStatus || o.status.toLowerCase().includes(filterStatus.toLowerCase());
     return matchQ && matchS;
   });
-
-  if (loading) {
-    return (
-      <AppShell role="client" activePage="my-orders">
-        <Topbar title="My Orders" />
-        <div className="loading-state">Loading orders...</div>
-      </AppShell>
-    );
-  }
-
-  if (error) {
-    return (
-      <AppShell role="client" activePage="my-orders">
-        <Topbar title="My Orders" />
-        <div className="error-state">{error}</div>
-      </AppShell>
-    );
-  }
 
   return (
     <AppShell role="client" activePage="my-orders">
@@ -80,13 +31,7 @@ export default function MyOrders() {
           <h3>All Orders</h3>
           <div className="actions-inline">
             <div className="search-container">
-              <input
-                className="input"
-                type="search"
-                placeholder="Batch lookup by code, order ID, or product..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
+              <input className="input" type="search" placeholder="Batch lookup by code, order ID, or product..." value={query} onChange={(e) => setQuery(e.target.value)} />
               <button className="filter-icon" type="button" onClick={() => setDropdownOpen((o) => !o)}>▼</button>
               {dropdownOpen && (
                 <div className="filter-dropdown show">
@@ -108,9 +53,7 @@ export default function MyOrders() {
         </div>
         <table className="orders-table">
           <thead>
-            <tr>
-              <th>Order</th><th>Batch Code</th><th>Product</th><th>Status</th><th>Delivery Progress</th><th>Date</th><th>Total</th><th>Payment Method</th><th>Paid Amount</th><th>Action</th>
-            </tr>
+            <tr><th>Order</th><th>Batch Code</th><th>Product</th><th>Status</th><th>Delivery Progress</th><th>Date</th><th>Total</th><th>Payment Method</th><th>Paid Amount</th><th>Action</th></tr>
           </thead>
           <tbody>
             {filtered.length === 0
@@ -129,7 +72,7 @@ export default function MyOrders() {
                   <td>{o.total}</td>
                   <td>{o.payment}</td>
                   <td>{o.paid}</td>
-                  <td><button className="btn" onClick={() => navigateTopLevel(`/client/orders/${o.id.replace('#', '')}`)}>View</button></td>
+                  <td><button className="btn" onClick={() => navigateTopLevel(`/client/orders/${o.id.replace('#','')}`)}>View</button></td>
                 </tr>
               ))}
           </tbody>

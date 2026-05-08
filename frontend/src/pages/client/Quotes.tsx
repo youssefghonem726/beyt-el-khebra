@@ -14,16 +14,10 @@ interface PricingRow {
   active: boolean;
 }
 
-interface Quote {
-  id: string;
-  order: string;
-  status: string;
-  amount: string;
-  action: {
-    label: string;
-    page: string;
-  };
-}
+const QUOTES = [
+  { id: 'Q-211', order: '#1021', status: 'Awaiting Confirmation', amount: 'EGP 1,200.00', action: { label: 'Review Quote', page: '/client/quotes/Q-211' } },
+  { id: 'Q-208', order: '#1018', status: 'Approved', amount: 'EGP 950.00', action: { label: 'View Invoice', page: '/client/invoices/INV-9018' } },
+];
 
 function fmt(n: number) {
   return n.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -31,52 +25,15 @@ function fmt(n: number) {
 
 export default function Quotes() {
   const { navigateTopLevel } = useNavigation();
-  const [quotes, setQuotes] = useState<Quote[]>([]);
   const [pricing, setPricing] = useState<PricingRow[]>([]);
   const [showPricing, setShowPricing] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([
-      fetch('/data/quotes.json').then(res => {
-        if (!res.ok) throw new Error('Failed to load quotes');
-        return res.json();
-      }),
-      fetch('/data/pricing.json').then(res => {
-        if (!res.ok) throw new Error('Failed to load pricing');
-        return res.json();
-      })
-    ])
-      .then(([quotesData, pricingData]) => {
-        setQuotes(quotesData);
-        setPricing(pricingData.filter((p: PricingRow) => p.active));
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error('Error loading data:', err);
-        setError('Could not load quotes or pricing. Please try again later.');
-        setLoading(false);
-      });
+    fetch('/data/pricing.json')
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then((data: PricingRow[]) => setPricing(data.filter(p => p.active)))
+      .catch(() => {});
   }, []);
-
-  if (loading) {
-    return (
-      <AppShell role="client" activePage="quotes">
-        <Topbar title="Quotes" />
-        <div className="loading-state">Loading quotes...</div>
-      </AppShell>
-    );
-  }
-
-  if (error) {
-    return (
-      <AppShell role="client" activePage="quotes">
-        <Topbar title="Quotes" />
-        <div className="error-state">{error}</div>
-      </AppShell>
-    );
-  }
 
   return (
     <AppShell role="client" activePage="quotes">
@@ -100,7 +57,7 @@ export default function Quotes() {
             </tr>
           </thead>
           <tbody>
-            {quotes.map(q => (
+            {QUOTES.map(q => (
               <tr key={q.id}>
                 <td>{q.id}</td>
                 <td>{q.order}</td>

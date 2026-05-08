@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
@@ -15,57 +15,44 @@ interface Batch {
   clientInfo: { address: string; phone: string; taxId: string; };
 }
 
+const BATCHES: Batch[] = [
+  {
+    code: 'B-260426-P', order: '#1033', client: 'Client Name', status: 'UNPRICED', date: '26 Apr 2026',
+    product: 'Packaging Sleeves', qty: 2500, progress: 0, priority: 'Normal',
+    assignedTo: 'Unassigned', deadline: '30 Apr 2026',
+    notes: 'Awaiting pricing approval before production can start.',
+    stages: [
+      { stage: 'Prepress',  status: 'PENDING',      updatedAt: '—' },
+      { stage: 'Printing',  status: 'NOT STARTED',  updatedAt: '—' },
+      { stage: 'Finishing', status: 'NOT STARTED',  updatedAt: '—' },
+    ],
+    clientInfo: { address: '45 El Hegaz St, Heliopolis, Cairo', phone: '+20 100 123 4567', taxId: 'TAX-20045' },
+  },
+  {
+    code: 'B-260425-M', order: '#1032', client: 'Ahmed Store', status: 'IN_PROGRESS', date: '25 Apr 2026',
+    product: 'Business Cards', qty: 1000, progress: 600, priority: 'High',
+    assignedTo: 'Production Team A', deadline: '28 Apr 2026',
+    notes: 'Standard business cards, double-sided, matte finish.',
+    stages: [
+      { stage: 'Prepress',  status: 'DONE',        updatedAt: '26 Apr 2026, 9:00 AM'  },
+      { stage: 'Printing',  status: 'IN_PROGRESS', updatedAt: '26 Apr 2026, 4:20 PM'  },
+      { stage: 'Finishing', status: 'WAITING',     updatedAt: '—'                      },
+    ],
+    clientInfo: { address: '12 El Nasr St, Cairo, Egypt', phone: '+20 112 987 6543', taxId: 'TAX-10023' },
+  },
+];
+
 export default function BatchLookup({ role = 'manager' }: Props) {
-  const [batches, setBatches] = useState<Batch[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [selected, setSelected] = useState<Batch | null>(null);
 
-  useEffect(() => {
-    fetch('/data/batches.json')
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-      })
-      .then((data: Batch[]) => {
-        setBatches(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error('Failed to load batches:', err);
-        setError('Could not load batch data. Please try again later.');
-        setLoading(false);
-      });
-  }, []);
-
-  const filtered = batches.filter((b) => {
+  const filtered = BATCHES.filter((b) => {
     const q = query.toLowerCase();
     return !q || b.code.toLowerCase().includes(q) || b.order.toLowerCase().includes(q) || b.client.toLowerCase().includes(q);
   });
 
   const pct = (b: Batch) => b.qty > 0 ? Math.round((b.progress / b.qty) * 100) : 0;
-
-  if (loading) {
-    return (
-      <AppShell role={role} activePage={role === 'owner' ? 'owner-dashboard' : 'batch-lookup'}>
-        <Topbar title="Batch Lookup & Search" />
-        <div className="loading-state">Loading batches...</div>
-      </AppShell>
-    );
-  }
-
-  if (error) {
-    return (
-      <AppShell role={role} activePage={role === 'owner' ? 'owner-dashboard' : 'batch-lookup'}>
-        <Topbar title="Batch Lookup & Search" />
-        <div className="error-state">{error}</div>
-      </AppShell>
-    );
-  }
 
   return (
     <AppShell role={role} activePage={role === 'owner' ? 'owner-dashboard' : 'batch-lookup'}>
@@ -74,63 +61,42 @@ export default function BatchLookup({ role = 'manager' }: Props) {
         <div className="table-head">
           <div className="actions-inline" style={{ flex: 1 }}>
             <div className="search-container">
-              <input
-                className="input"
-                type="search"
-                placeholder="Search by batch code, order ID, client..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
+              <input className="input" type="search" placeholder="Search by batch code, order ID, client..." value={query} onChange={(e) => setQuery(e.target.value)} />
               <button className="filter-icon" type="button" onClick={() => setDropdownOpen((o) => !o)}>▼</button>
               {dropdownOpen && (
                 <div className="filter-dropdown show">
                   <div className="field">
                     <label>Status</label>
-                    <select className="select">
-                      <option value="">All Status</option>
-                      <option>Active</option>
-                      <option>Completed</option>
-                    </select>
+                    <select className="select"><option value="">All Status</option><option>Active</option><option>Completed</option></select>
                   </div>
                   <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>Apply</button>
                 </div>
               )}
             </div>
           </div>
-          <button
-            className="btn"
-            onClick={() => {
-              const header = 'Batch Code,Order,Client,Status,Date';
-              const rows = filtered.map((b) => `${b.code},${b.order},${b.client},${b.status},${b.date}`);
-              downloadText('batch-export.csv', [header, ...rows]);
-            }}
-          >
-            Export Search Query
-          </button>
+          <button className="btn" onClick={() => {
+            const header = 'Batch Code,Order,Client,Status,Date';
+            const rows = filtered.map((b) => `${b.code},${b.order},${b.client},${b.status},${b.date}`);
+            downloadText('batch-export.csv', [header, ...rows]);
+          }}>Export Search Query</button>
         </div>
-        <div className="table-responsive">
-          <table className="orders-table">
-            <thead>
-              <tr>
-                <th>Batch Code</th><th>Order</th><th>Client Name</th><th>Status</th><th>Date</th><th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0
-                ? <tr><td colSpan={6} className="no-results">No matching results</td></tr>
-                : filtered.map((b) => (
-                  <tr key={b.code}>
-                    <td>{b.code}</td>
-                    <td>{b.order}</td>
-                    <td>{b.client}</td>
-                    <td><StatusBadge status={b.status} /></td>
-                    <td>{b.date}</td>
-                    <td><button className="btn" onClick={() => setSelected(b)}>View</button></td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
+        <table>
+          <thead><tr><th>Batch Code</th><th>Order</th><th>Client Name</th><th>Status</th><th>Date</th><th>Action</th></tr></thead>
+          <tbody>
+            {filtered.length === 0
+              ? <tr><td colSpan={6} className="no-results">No matching results</td></tr>
+              : filtered.map((b) => (
+                <tr key={b.code}>
+                  <td>{b.code}</td>
+                  <td>{b.order}</td>
+                  <td>{b.client}</td>
+                  <td><StatusBadge status={b.status} /></td>
+                  <td>{b.date}</td>
+                  <td><button className="btn" onClick={() => setSelected(b)}>View</button></td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
       </section>
 
       {selected && (

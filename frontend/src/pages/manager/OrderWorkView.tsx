@@ -1,86 +1,59 @@
-import { useEffect, useState } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
 import { useNavigation } from '../../context/NavigationContext';
 
-interface Stage {
-  stage: string;
-  status: string;
-  updated: string;
-}
-
-interface JobInfo {
-  client: string;
-  batch: string;
-  product: string;
-  qty: number;
-  status: string;
-  priority: string;
-  deadline: string;
-  team: string;
-  notes: string;
-}
-
-interface Job {
-  id: string;
-  done: number;
-  total: number;
-  percent: number;
-  stages: Stage[];
-  info: JobInfo;
-}
-
 interface Props { jobId?: string; role?: 'manager' | 'owner'; }
+
+const JOBS = [
+  {
+    id: 'Job #1022', done: 600, total: 1000, percent: 60,
+    stages: [
+      { stage: 'Prepress',  status: 'DONE',        updated: '26 Apr 2026, 9:00 AM'  },
+      { stage: 'Printing',  status: 'IN_PROGRESS',  updated: '26 Apr 2026, 4:20 PM'  },
+      { stage: 'Finishing', status: 'WAITING',      updated: '-'                      },
+    ],
+    info: { client: 'Client Name', batch: 'B-260425-M', product: 'Business Cards', qty: 1000, status: 'In Progress', priority: 'High', deadline: '28 Apr 2026', team: 'Production Team A', notes: 'Standard business cards, double-sided' },
+  },
+  {
+    id: 'Job #1021', done: 1200, total: 2000, percent: 60,
+    stages: [
+      { stage: 'Prepress',  status: 'DONE',        updated: '25 Apr 2026, 8:00 AM'  },
+      { stage: 'Printing',  status: 'IN_PROGRESS',  updated: '25 Apr 2026, 3:00 PM'  },
+      { stage: 'Finishing', status: 'WAITING',      updated: '-'                      },
+    ],
+    info: { client: 'Design Hub', batch: 'B-260425-D', product: 'Flyers', qty: 2000, status: 'In Progress', priority: 'High', deadline: '25 Apr 2026', team: 'Production Team B', notes: 'A5 flyers, full color' },
+  },
+  {
+    id: 'Job #1029', done: 150, total: 300, percent: 50,
+    stages: [
+      { stage: 'Prepress',  status: 'DONE',        updated: '27 Apr 2026, 9:00 AM'  },
+      { stage: 'Printing',  status: 'IN_PROGRESS',  updated: '27 Apr 2026, 1:00 PM'  },
+      { stage: 'Finishing', status: 'WAITING',      updated: '-'                      },
+    ],
+    info: { client: 'Retail Plus', batch: 'B-260427-R', product: 'Catalogs', qty: 300, status: 'In Progress', priority: 'Medium', deadline: '29 Apr 2026', team: 'Production Team A', notes: 'Full color catalog, A4 format' },
+  },
+  {
+    id: 'Job #1026', done: 800, total: 1000, percent: 80,
+    stages: [
+      { stage: 'Prepress',  status: 'DONE',        updated: '26 Apr 2026, 11:00 AM' },
+      { stage: 'Printing',  status: 'DONE',        updated: '26 Apr 2026, 5:00 PM'  },
+      { stage: 'Finishing', status: 'IN_PROGRESS',  updated: '27 Apr 2026, 8:00 AM'  },
+    ],
+    info: { client: 'Marketing Co.', batch: 'B-260426-MK', product: 'Posters', qty: 1000, status: 'Finishing', priority: 'High', deadline: '27 Apr 2026', team: 'Production Team C', notes: 'A2 posters, glossy finish' },
+  },
+];
 
 export default function OrderWorkView({ jobId, role = 'manager' }: Props) {
   const { navigateTopLevel } = useNavigation();
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch('/data/work-jobs.json')
-      .then((res) => {
-        if (!res.ok) throw new Error(`Failed to load jobs: ${res.status}`);
-        return res.json() as Promise<Job[]>;
-      })
-      .then((data) => {
-        setJobs(data);
-        setLoading(false);
-      })
-      .catch((err: Error) => {
-        setError(err.message);
-        setLoading(false);
-      });
-  }, []);
-
   const displayed = jobId
-    ? jobs.filter((j) => j.id === `Job #${jobId}`)
-    : jobs;
+    ? JOBS.filter(j => j.id === `Job #${jobId}`)
+    : JOBS;
 
   const title = displayed.length === 1
     ? `Work View — ${displayed[0].id}`
     : 'Order Work View';
-
-  if (loading) {
-    return (
-      <AppShell role={role} activePage={role === 'owner' ? 'owner-production' : 'order-work-view'}>
-        <Topbar title="Work View" />
-        <div className="loading-state">Loading jobs…</div>
-      </AppShell>
-    );
-  }
-
-  if (error) {
-    return (
-      <AppShell role={role} activePage={role === 'owner' ? 'owner-production' : 'order-work-view'}>
-        <Topbar title="Work View" />
-        <div className="error-state">{error}</div>
-      </AppShell>
-    );
-  }
 
   if (jobId && displayed.length === 0) {
     return (
