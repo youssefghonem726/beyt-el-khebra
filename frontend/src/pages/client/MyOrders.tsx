@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useState, useEffect } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
@@ -29,26 +28,6 @@ export default function MyOrders() {
   const [filterStatus, setFilterStatus] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
-  useEffect(() => {
-    fetch('/data/my-orders.json')
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-      })
-      .then((data: Order[]) => {
-        setOrders(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error('Failed to load orders:', err);
-        setError('Could not load your orders. Please try again later.');
-        setLoading(false);
-      });
-  }, []);
-
-  const filtered = orders.filter((o) => {
   useEffect(() => {
     fetch('/data/my-orders.json')
       .then((response) => {
@@ -132,9 +111,6 @@ export default function MyOrders() {
             <tr>
               <th>Order</th><th>Batch Code</th><th>Product</th><th>Status</th><th>Delivery Progress</th><th>Date</th><th>Total</th><th>Payment Method</th><th>Paid Amount</th><th>Action</th>
             </tr>
-            <tr>
-              <th>Order</th><th>Batch Code</th><th>Product</th><th>Status</th><th>Delivery Progress</th><th>Date</th><th>Total</th><th>Payment Method</th><th>Paid Amount</th><th>Action</th>
-            </tr>
           </thead>
           <tbody>
             {filtered.length === 0
@@ -148,7 +124,7 @@ export default function MyOrders() {
                   <td>
                     <StatusBadge status={o.delivery} />
                     <ProgressBar percent={o.progress} color={o.color} style={{ marginTop: 6 }} />
-                   </td>
+                  </td>
                   <td>{o.date}</td>
                   <td>{o.total}</td>
                   <td>{o.payment}</td>
