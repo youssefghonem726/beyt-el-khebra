@@ -16,7 +16,7 @@ export default function OwnerNotifications() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch('/public/data/notifications.json')
+    fetch('/public/data/notifications-client.json')
       .then((response) => {
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);

@@ -26,7 +26,7 @@ export default function ClientInvoices() {
   const [paidSet, setPaidSet] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    fetch('/data/client-invoices.json')
+    fetch('/data/client-invoices-detail.json')
       .then((response) => {
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
