@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
@@ -5,95 +6,84 @@ import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
 import { useNavigation } from '../../context/NavigationContext';
 
-const ORDER_DATA: Record<string, any> = {
-  '1021': {
-    id: '#1021', batch: 'B-240421-A', product: 'Business Cards', status: 'PRICED_PENDING_CONFIRMATION',
-    delivery: 'ON TIME', progress: 75, color: 'green', date: '21 Apr 2025', deliveryDate: '25 Apr 2025',
-    total: 'EGP 1,200.00', payment: 'Bank Transfer', paid: 'EGP 1,200.00', invoiceId: 'INV-9021',
-    specs: { size: '9 × 5.5 cm', paper: 'Matte 350gsm', color: 'Full Color', finish: 'Matte', qty: 500 },
-    timeline: [
-      { label: 'Order Submitted',       date: '21 Apr 2025, 10:00 AM', done: true  },
-      { label: 'Pricing Confirmed',     date: '21 Apr 2025, 10:30 AM', done: true  },
-      { label: 'Order Confirmed',       date: '21 Apr 2025, 11:15 AM', done: true  },
-      { label: 'In Production',         date: '23 Apr 2025, 01:00 PM', done: true  },
-      { label: 'Quality Check',         date: 'Pending',               done: false },
-      { label: 'Ready for Delivery',    date: 'Pending',               done: false },
-      { label: 'Delivered',             date: 'Pending',               done: false },
-    ],
-  },
-  '1020': {
-    id: '#1020', batch: 'B-240418-C', product: 'Flyers A5', status: 'IN_PROGRESS',
-    delivery: 'DELAYED', progress: 55, color: 'orange', date: '18 Apr 2025', deliveryDate: '23 Apr 2025',
-    total: 'EGP 2,400.00', payment: 'Cash', paid: 'EGP 1,000.00', invoiceId: 'INV-9018',
-    specs: { size: 'A5', paper: 'Glossy 150gsm', color: 'Full Color', finish: 'Glossy', qty: 200 },
-    timeline: [
-      { label: 'Order Submitted',    date: '18 Apr 2025, 09:00 AM', done: true  },
-      { label: 'Pricing Confirmed',  date: '18 Apr 2025, 09:45 AM', done: true  },
-      { label: 'Order Confirmed',    date: '18 Apr 2025, 10:30 AM', done: true  },
-      { label: 'In Production',      date: '20 Apr 2025, 02:00 PM', done: true  },
-      { label: 'Quality Check',      date: 'Pending',               done: false },
-      { label: 'Ready for Delivery', date: 'Pending',               done: false },
-      { label: 'Delivered',          date: 'Pending',               done: false },
-    ],
-  },
-  '1018': {
-    id: '#1018', batch: 'B-240415-B', product: 'Posters A3', status: 'UNPRICED_PENDING',
-    delivery: '—', progress: 0, color: 'orange', date: '15 Apr 2025', deliveryDate: '—',
-    total: '—', payment: '—', paid: '—', invoiceId: '',
-    specs: { size: 'A3', paper: 'Glossy 200gsm', color: 'Full Color', finish: 'Glossy', qty: 50 },
-    timeline: [
-      { label: 'Order Submitted',    date: '15 Apr 2025, 11:00 AM', done: true  },
-      { label: 'Pricing Confirmed',  date: 'Pending',               done: false },
-      { label: 'Order Confirmed',    date: 'Pending',               done: false },
-      { label: 'In Production',      date: 'Pending',               done: false },
-      { label: 'Quality Check',      date: 'Pending',               done: false },
-      { label: 'Ready for Delivery', date: 'Pending',               done: false },
-      { label: 'Delivered',          date: 'Pending',               done: false },
-    ],
-  },
-  '1015': {
-    id: '#1015', batch: 'B-240410-S', product: 'Stickers', status: 'COMPLETED',
-    delivery: 'ON TIME', progress: 100, color: 'green', date: '10 Apr 2025', deliveryDate: '14 Apr 2025',
-    total: 'EGP 850.00', payment: 'Bank Transfer', paid: 'EGP 850.00', invoiceId: 'INV-9015',
-    specs: { size: '5 × 5 cm', paper: 'Vinyl', color: 'Full Color', finish: 'Glossy', qty: 300 },
-    timeline: [
-      { label: 'Order Submitted',    date: '10 Apr 2025, 09:00 AM', done: true },
-      { label: 'Pricing Confirmed',  date: '10 Apr 2025, 10:00 AM', done: true },
-      { label: 'Order Confirmed',    date: '10 Apr 2025, 10:45 AM', done: true },
-      { label: 'In Production',      date: '11 Apr 2025, 08:00 AM', done: true },
-      { label: 'Quality Check',      date: '13 Apr 2025, 02:00 PM', done: true },
-      { label: 'Ready for Delivery', date: '14 Apr 2025, 09:00 AM', done: true },
-      { label: 'Delivered',          date: '14 Apr 2025, 03:00 PM', done: true },
-    ],
-  },
-  '1012': {
-    id: '#1012', batch: 'B-240405-N', product: 'Banners', status: 'CANCELED',
-    delivery: '—', progress: 0, color: 'red', date: '05 Apr 2025', deliveryDate: '—',
-    total: '—', payment: '—', paid: '—', invoiceId: '',
-    specs: { size: '200 × 80 cm', paper: 'PVC', color: 'Full Color', finish: 'Matte', qty: 5 },
-    timeline: [
-      { label: 'Order Submitted',    date: '05 Apr 2025, 10:00 AM', done: true  },
-      { label: 'Pricing Confirmed',  date: '05 Apr 2025, 11:00 AM', done: true  },
-      { label: 'Order Canceled',     date: '06 Apr 2025, 09:00 AM', done: true  },
-      { label: 'In Production',      date: '—',                     done: false },
-      { label: 'Quality Check',      date: '—',                     done: false },
-      { label: 'Ready for Delivery', date: '—',                     done: false },
-      { label: 'Delivered',          date: '—',                     done: false },
-    ],
-  },
-};
+interface TimelineItem {
+  label: string;
+  date: string;
+  done: boolean;
+}
+
+interface Specs {
+  size: string;
+  paper: string;
+  color: string;
+  finish: string;
+  qty: number;
+}
+
+interface Order {
+  id: string;
+  batch: string;
+  product: string;
+  status: string;
+  delivery: string;
+  progress: number;
+  color: 'green' | 'orange' | 'red';
+  date: string;
+  deliveryDate: string;
+  total: string;
+  payment: string;
+  paid: string;
+  invoiceId: string;
+  specs: Specs;
+  timeline: TimelineItem[];
+}
 
 export default function ClientOrderDetail() {
   const { id: orderId = '' } = useParams<{ id: string }>();
   const { navigateTopLevel, goBack } = useNavigation();
-  const order = ORDER_DATA[orderId];
+  const [order, setOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  if (!order) {
+  useEffect(() => {
+    fetch('/data/client-orders-detail.json')
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then((data: Record<string, Order>) => {
+        const found = data[orderId];
+        if (found) {
+          setOrder(found);
+        } else {
+          setError(`Order #${orderId} not found.`);
+        }
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error('Failed to load order details:', err);
+        setError('Could not load order details. Please try again later.');
+        setLoading(false);
+      });
+  }, [orderId]);
+
+  if (loading) {
+    return (
+      <AppShell role="client" activePage="my-orders">
+        <Topbar title="Order Detail" />
+        <div className="loading-state">Loading order details...</div>
+      </AppShell>
+    );
+  }
+
+  if (error || !order) {
     return (
       <AppShell role="client" activePage="my-orders">
         <Topbar title="Order Detail" />
         <section className="table-wrap">
-          <div className="error-state">Order not found.</div>
+          <div className="error-state">{error || 'Order not found.'}</div>
         </section>
       </AppShell>
     );
@@ -142,7 +132,7 @@ export default function ClientOrderDetail() {
         <section className="box">
           <h3 style={{ marginBottom: 12 }}>Timeline</h3>
           <ul style={{ listStyle: 'none', display: 'grid', gap: 10 }}>
-            {order.timeline.map((t: any, i: number) => (
+            {order.timeline.map((t, i) => (
               <li key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 13 }}>
                 <span style={{ color: t.done ? '#2c9a4b' : 'var(--muted)', fontSize: 16, lineHeight: 1 }}>
                   {t.done ? '✓' : '○'}

@@ -1,0 +1,50 @@
+[
+  {
+    "code": "B-260426-P",
+    "order": "#1033",
+    "client": "Client Name",
+    "status": "UNPRICED",
+    "date": "26 Apr 2026",
+    "product": "Packaging Sleeves",
+    "qty": 2500,
+    "progress": 0,
+    "priority": "Normal",
+    "assignedTo": "Unassigned",
+    "deadline": "30 Apr 2026",
+    "notes": "Awaiting pricing approval before production can start.",
+    "stages": [
+      { "stage": "Prepress", "status": "PENDING", "updatedAt": "—" },
+      { "stage": "Printing", "status": "NOT STARTED", "updatedAt": "—" },
+      { "stage": "Finishing", "status": "NOT STARTED", "updatedAt": "—" }
+    ],
+    "clientInfo": {
+      "address": "45 El Hegaz St, Heliopolis, Cairo",
+      "phone": "+20 100 123 4567",
+      "taxId": "TAX-20045"
+    }
+  },
+  {
+    "code": "B-260425-M",
+    "order": "#1032",
+    "client": "Ahmed Store",
+    "status": "IN_PROGRESS",
+    "date": "25 Apr 2026",
+    "product": "Business Cards",
+    "qty": 1000,
+    "progress": 600,
+    "priority": "High",
+    "assignedTo": "Production Team A",
+    "deadline": "28 Apr 2026",
+    "notes": "Standard business cards, double-sided, matte finish.",
+    "stages": [
+      { "stage": "Prepress", "status": "DONE", "updatedAt": "26 Apr 2026, 9:00 AM" },
+      { "stage": "Printing", "status": "IN_PROGRESS", "updatedAt": "26 Apr 2026, 4:20 PM" },
+      { "stage": "Finishing", "status": "WAITING", "updatedAt": "—" }
+    ],
+    "clientInfo": {
+      "address": "12 El Nasr St, Cairo, Egypt",
+      "phone": "+20 112 987 6543",
+      "taxId": "TAX-10023"
+    }
+  }
+]
