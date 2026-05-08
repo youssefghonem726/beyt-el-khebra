@@ -7,6 +7,12 @@ interface Props {
   activePage: string;
 }
 
+const ROLE_LABEL: Record<Role, string> = {
+  owner:   'Owner Dashboard',
+  manager: 'Manager Dashboard',
+  client:  'Client Dashboard',
+};
+
 export default function Sidebar({ role, activePage }: Props) {
   const { navigateTopLevel } = useNavigation();
   const links = NAVS[role];
@@ -16,7 +22,7 @@ export default function Sidebar({ role, activePage }: Props) {
       <h2 className="logo">
         <span className="logo-mark">Logo</span>
         <span className="logo-name">Bayt El Khebra</span>
-        <span className="logo-sub">Bayt El Khebra</span>
+        <span className="logo-sub">{ROLE_LABEL[role]}</span>
       </h2>
       <nav>
         {links.map((item) => (

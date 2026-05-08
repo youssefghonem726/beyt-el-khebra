@@ -117,6 +117,7 @@ export default function App() {
             <Route path="/client/quotes" element={<Page><Quotes /></Page>} />
             <Route path="/client/support" element={<Page><Support /></Page>} />
             <Route path="/client/track-order/:id" element={<Page><TrackOrder /></Page>} />
+            <Route path="/client/track-order" element={<Page><TrackOrder /></Page>} />
           </Route>
 
           {/* MANAGER — manager and owner only */}

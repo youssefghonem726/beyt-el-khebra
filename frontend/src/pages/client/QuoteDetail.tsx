@@ -1,12 +1,9 @@
 import { useState } from 'react';
+import { useParams } from 'react-router-dom';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import { useNavigation } from '../../context/NavigationContext';
-
-interface Props {
-  quoteId: string;
-}
 
 interface LineItem { description: string; qty: number; unitPrice: number; }
 
@@ -41,8 +38,9 @@ function fmt(n: number) {
   return n.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-export default function QuoteDetail({ quoteId }: Props) {
-  const { navigateTopLevel } = useNavigation();
+export default function QuoteDetail() {
+  const { id: quoteId = '' } = useParams<{ id: string }>();
+  const { navigateTopLevel, goBack } = useNavigation();
   const quote = QUOTE_DATA[quoteId];
 
   const [confirming, setConfirming] = useState(false);
@@ -66,7 +64,7 @@ export default function QuoteDetail({ quoteId }: Props) {
 
   return (
     <AppShell role="client" activePage="quotes">
-      <Topbar title={`Quote ${quote.id}`} />
+      <Topbar title={`Quote ${quote.id}`} onBack={goBack} backLabel="Quotes" />
 
       <div className="box invoice-detail-card" style={{ maxWidth: 760, margin: '0 auto' }}>
         <div className="invoice-header">

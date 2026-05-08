@@ -86,9 +86,7 @@ export default function ClientInvoices() {
               value={query} 
               onChange={(e) => setQuery(e.target.value)} 
             />
-            <button className="filter-icon" type="button" onClick={() => setDropdownOpen((o) => !o)}>
-              ▼
-            </button>
+            <button className="filter-icon" type="button" onClick={() => setDropdownOpen((o) => !o)}>▼</button>
             {dropdownOpen && (
               <div className="filter-dropdown show">
                 <div className="field">
@@ -100,9 +98,7 @@ export default function ClientInvoices() {
                     <option>Overdue</option>
                   </select>
                 </div>
-                <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>
-                  Apply Filters
-                </button>
+                <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>Apply</button>
               </div>
             )}
           </div>
@@ -138,7 +134,7 @@ export default function ClientInvoices() {
                         )}
                         <button
                           className="btn btn-sm"
-                          onClick={() => navigateTopLevel(`invoice-detail-${inv.id}`)}>View
+                          onClick={() => navigateTopLevel(`/client/invoices/${inv.id}`)}>View
                         </button>
                         {(inv.status === 'Paid' || paidSet.has(inv.id)) && (
                           <button className="btn btn-sm btn-outline" onClick={() => downloadText(`invoice-${inv.id}.txt`, [

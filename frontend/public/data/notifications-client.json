@@ -7,7 +7,7 @@
     "unread": true,
     "action": {
       "label": "Review Quote",
-      "page": "quote-detail-Q-211"
+      "page": "/client/quotes/Q-211"
     }
   },
   {
@@ -18,7 +18,7 @@
     "unread": true,
     "action": {
       "label": "Track Order",
-      "page": "track-order"
+      "page": "/client/track-order/1020"
     }
   },
   {
@@ -29,7 +29,7 @@
     "unread": false,
     "action": {
       "label": "View Invoice",
-      "page": "invoice-detail-INV-9021"
+      "page": "/client/invoices/INV-9021"
     }
   },
   {
@@ -40,7 +40,7 @@
     "unread": false,
     "action": {
       "label": "Track Delivery",
-      "page": "track-order"
+      "page": "/client/track-order/1015"
     }
   },
   {
@@ -51,7 +51,7 @@
     "unread": false,
     "action": {
       "label": "View Order",
-      "page": "my-orders"
+      "page": "/client/orders/1012"
     }
   }
 ]

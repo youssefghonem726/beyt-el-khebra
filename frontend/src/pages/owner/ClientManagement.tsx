@@ -128,7 +128,7 @@ export default function ClientManagement() {
                   <label>Type</label>
                   <select className="select"><option>All Types</option><option>Individual</option><option>Business</option></select>
                 </div>
-                <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>Apply Filters</button>
+                <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>Apply</button>
               </div>
             )}
           </div>
@@ -139,7 +139,7 @@ export default function ClientManagement() {
               key={c.name}
               className="client-card-link"
               href="#"
-              onClick={e => { e.preventDefault(); if (c.page) navigateTopLevel(c.page); }}
+              onClick={e => { e.preventDefault(); if (c.page) navigateTopLevel(`/owner/clients/${c.page}`); }}
             >
               <h3>{c.name}</h3>
               <p>{c.email}</p>

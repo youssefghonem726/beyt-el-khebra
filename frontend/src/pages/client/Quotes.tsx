@@ -15,8 +15,8 @@ interface PricingRow {
 }
 
 const QUOTES = [
-  { id: 'Q-211', order: '#1021', status: 'Awaiting Confirmation', amount: 'EGP 1,200.00', action: { label: 'Review Quote', page: 'quote-detail-Q-211' } },
-  { id: 'Q-208', order: '#1018', status: 'Approved', amount: 'EGP 950.00', action: { label: 'View Invoice', page: 'invoice-detail-INV-9018' } },
+  { id: 'Q-211', order: '#1021', status: 'Awaiting Confirmation', amount: 'EGP 1,200.00', action: { label: 'Review Quote', page: '/client/quotes/Q-211' } },
+  { id: 'Q-208', order: '#1018', status: 'Approved', amount: 'EGP 950.00', action: { label: 'View Invoice', page: '/client/invoices/INV-9018' } },
 ];
 
 function fmt(n: number) {

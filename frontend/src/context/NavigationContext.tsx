@@ -23,6 +23,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
   const goBack = () => navigate(-1);
 
   const navigateTopLevel = (target: string) => {
+    if (target.startsWith('/')) { navigate(target); return; }
     const path = PAGE_TO_PATH[target] ?? `/${target}`;
     navigate(path);
   };

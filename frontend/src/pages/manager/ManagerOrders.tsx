@@ -39,7 +39,7 @@ export default function ManagerOrders({ role = 'manager' }: Props) {
                   <td>
                     <button
                       className="btn"
-                      onClick={() => navigateTopLevel(`manager-order-details-${o.id.replace('#', '')}`)}
+                      onClick={() => navigateTopLevel(`/manager/orders/${o.id.replace('#', '')}`)}
                     >
                       View
                     </button>
@@ -63,7 +63,7 @@ export default function ManagerOrders({ role = 'manager' }: Props) {
                   <td>
                     <button
                       className="btn"
-                      onClick={() => navigateTopLevel(`work-view-${o.id.replace('#', '')}`)}
+                      onClick={() => navigateTopLevel('/manager/work-view')}
                     >
                       Work View
                     </button>
@@ -89,7 +89,7 @@ export default function ManagerOrders({ role = 'manager' }: Props) {
                 <td>
                   <button
                     className="btn"
-                    onClick={() => navigateTopLevel(`manager-order-details-${o.id.replace('#', '')}`)}
+                    onClick={() => navigateTopLevel(`/manager/orders/${o.id.replace('#', '')}`)}
                   >
                     View
                   </button>

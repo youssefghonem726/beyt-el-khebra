@@ -235,14 +235,15 @@ export default function DocumentManagement() {
   // Actions for the TableWrap (search + upload button)
   const tableActions = (
     <>
-      <input
-        type="text"
-        className="input"
-        style={{ width: 220 }}
-        placeholder="Search by file name..."
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-      />
+      <div className="search-container">
+        <input
+          type="search"
+          className="input"
+          placeholder="Search by file name..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </div>
       <button className="btn primary" onClick={() => setUploadModalOpen(true)}>
         + Upload New
       </button>

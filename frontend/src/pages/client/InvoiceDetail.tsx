@@ -1,14 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import './InvoiceDetail.css';
 import { downloadText } from '../../utils/download';
 import { useNavigation } from '../../context/NavigationContext';
-
-interface Props {
-  invoiceId: string;
-}
 
 interface LineItem {
   description: string;
@@ -38,8 +35,9 @@ function formatEGP(value: number): string {
   return value.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-export default function InvoiceDetail({ invoiceId }: Props) {
-  const { navigateTopLevel } = useNavigation();
+export default function InvoiceDetail() {
+  const { id: invoiceId = '' } = useParams<{ id: string }>();
+  const { navigateTopLevel, goBack } = useNavigation();
   const [invoice, setInvoice] = useState<InvoiceDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -124,7 +122,7 @@ export default function InvoiceDetail({ invoiceId }: Props) {
 
   return (
     <AppShell role="client" activePage="client-invoices">
-      <Topbar title="Invoice Detail" />
+      <Topbar title="Invoice Detail" onBack={goBack} backLabel="Invoices" />
 
       <section className="table-wrap">
         <div className={`box invoice-detail-card${invoice.status === 'Overdue' ? ' overdue' : ''}`}>

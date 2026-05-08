@@ -6,8 +6,17 @@
     "qty": 1000,
     "status": "IN PROGRESS",
     "progress": 600,
-    "dueDate": "24 Apr 2025",
-    "paper": "Matte 350gsm"
+    "dueDate": "28 Apr 2026",
+    "paper": "Matte 350gsm",
+    "batchCode": "B-260425-M",
+    "priority": "High",
+    "assignedTo": "Production Team A",
+    "notes": "Standard business cards, double-sided.",
+    "stages": [
+      { "stage": "Prepress",  "status": "DONE",        "updatedAt": "26 Apr 2026, 9:00 AM"  },
+      { "stage": "Printing",  "status": "IN_PROGRESS", "updatedAt": "26 Apr 2026, 4:20 PM"  },
+      { "stage": "Finishing", "status": "WAITING",     "updatedAt": "-"                     }
+    ]
   },
   {
     "id": "Job #1021",
@@ -16,8 +25,17 @@
     "qty": 2000,
     "status": "IN PROGRESS",
     "progress": 1200,
-    "dueDate": "25 Apr 2025",
-    "paper": "Glossy 130gsm"
+    "dueDate": "25 Apr 2026",
+    "paper": "Glossy 130gsm",
+    "batchCode": "B-260424-D",
+    "priority": "Medium",
+    "assignedTo": "Production Team B",
+    "notes": "A5 flyers, full colour both sides.",
+    "stages": [
+      { "stage": "Prepress",  "status": "DONE",        "updatedAt": "24 Apr 2026, 10:00 AM" },
+      { "stage": "Printing",  "status": "IN_PROGRESS", "updatedAt": "25 Apr 2026, 2:00 PM"  },
+      { "stage": "Finishing", "status": "WAITING",     "updatedAt": "-"                     }
+    ]
   },
   {
     "id": "Job #1020",
@@ -26,8 +44,17 @@
     "qty": 500,
     "status": "ON HOLD",
     "progress": 0,
-    "dueDate": "28 Apr 2025",
-    "paper": "Satin 170gsm"
+    "dueDate": "28 Apr 2026",
+    "paper": "Satin 170gsm",
+    "batchCode": "B-260423-C",
+    "priority": "Low",
+    "assignedTo": "Production Team A",
+    "notes": "Waiting on client to approve final file.",
+    "stages": [
+      { "stage": "Prepress",  "status": "WAITING", "updatedAt": "-" },
+      { "stage": "Printing",  "status": "WAITING", "updatedAt": "-" },
+      { "stage": "Finishing", "status": "WAITING", "updatedAt": "-" }
+    ]
   },
   {
     "id": "Job #1019",
@@ -36,7 +63,16 @@
     "qty": 1000,
     "status": "COMPLETED",
     "progress": 1000,
-    "dueDate": "20 Apr 2025",
-    "paper": "Vinyl Matte"
+    "dueDate": "20 Apr 2026",
+    "paper": "Vinyl Matte",
+    "batchCode": "B-260420-R",
+    "priority": "High",
+    "assignedTo": "Production Team B",
+    "notes": "Die-cut vinyl stickers. Completed on schedule.",
+    "stages": [
+      { "stage": "Prepress",  "status": "DONE", "updatedAt": "18 Apr 2026, 9:00 AM"  },
+      { "stage": "Printing",  "status": "DONE", "updatedAt": "19 Apr 2026, 1:00 PM"  },
+      { "stage": "Finishing", "status": "DONE", "updatedAt": "20 Apr 2026, 11:00 AM" }
+    ]
   }
 ]

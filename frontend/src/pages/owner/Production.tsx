@@ -4,7 +4,8 @@ import Topbar from '../../components/Topbar';
 import StatCard from '../../components/StatCard';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
-import { useNavigation } from '../../context/NavigationContext';
+
+interface Stage { stage: string; status: string; updatedAt: string; }
 
 interface Job {
   id: string;
@@ -15,6 +16,11 @@ interface Job {
   progress: number;
   dueDate: string;
   paper: string;
+  batchCode: string;
+  priority: string;
+  assignedTo: string;
+  notes: string;
+  stages: Stage[];
 }
 
 const STEPS = [
@@ -35,7 +41,6 @@ function currentStep(pct: number): number {
 }
 
 export default function Production() {
-  const { navigateTopLevel } = useNavigation();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +48,7 @@ export default function Production() {
   const [filterStatus, setFilterStatus] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const [showWorkView, setShowWorkView] = useState(false);
 
   useEffect(() => {
     fetch('/data/jobs.json')
@@ -166,7 +172,7 @@ export default function Production() {
                   <div className="card-actions">
                     <button
                       className="btn"
-                      onClick={(e) => { e.stopPropagation(); navigateTopLevel(`owner-work-view-${j.id.replace('Job #', '')}`); }}
+                      onClick={(e) => { e.stopPropagation(); setSelectedJob(j); setShowWorkView(true); }}
                     >
                       Open Work View
                     </button>
@@ -236,12 +242,87 @@ export default function Production() {
 
             <div className="line" />
 
-            <button className="btn primary block" style={{ marginTop: 4 }} onClick={() => navigateTopLevel(`owner-work-view-${selectedJob.id.replace('Job #', '')}`)}>
+            <button className="btn primary block" style={{ marginTop: 4 }} onClick={() => setShowWorkView(true)}>
               Open Work View
             </button>
           </aside>
         )}
       </section>
+
+      {showWorkView && selectedJob && (() => {
+        const p = pct(selectedJob);
+        const s = currentStep(p);
+        return (
+          <div
+            style={{
+              position: 'fixed', inset: 0, zIndex: 300,
+              background: 'rgba(0,0,0,0.55)',
+              display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+              padding: '32px 16px', overflowY: 'auto',
+            }}
+            onClick={(e) => { if (e.target === e.currentTarget) setShowWorkView(false); }}
+          >
+            <div style={{
+              background: 'var(--surface, #fff)', borderRadius: 12,
+              width: '100%', maxWidth: 680,
+              boxShadow: '0 25px 50px rgba(0,0,0,0.35)', overflow: 'hidden',
+            }}>
+              <div style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '14px 20px', borderBottom: '1px solid var(--border, #e4e6eb)',
+                position: 'sticky', top: 0, background: 'var(--surface, #fff)', zIndex: 1,
+              }}>
+                <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>Work View — {selectedJob.id}</h2>
+                <button
+                  onClick={() => setShowWorkView(false)}
+                  style={{
+                    padding: '5px 14px', background: '#2f3640', color: '#fff',
+                    border: 'none', borderRadius: 7, cursor: 'pointer', fontWeight: 600, fontSize: 13,
+                  }}
+                >
+                  ✕ Close
+                </button>
+              </div>
+              <div style={{ padding: 20 }}>
+                {/* Work Progress */}
+                <h3 style={{ marginBottom: 8 }}>Work Progress — {selectedJob.id}</h3>
+                <ProgressBar percent={p} color={p === 100 ? 'green' : p >= 50 ? 'orange' : undefined} />
+                <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 6, marginBottom: 16 }}>
+                  {selectedJob.progress} / {selectedJob.qty} completed ({p}%)
+                </p>
+                <table style={{ marginBottom: 24 }}>
+                  <thead>
+                    <tr><th>Stage</th><th>Status</th><th>Updated At</th></tr>
+                  </thead>
+                  <tbody>
+                    {selectedJob.stages.map(st => (
+                      <tr key={st.stage}>
+                        <td>{st.stage}</td>
+                        <td><StatusBadge status={st.status} /></td>
+                        <td>{st.updatedAt}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                {/* Job Info */}
+                <h3 style={{ marginBottom: 12 }}>Job Info</h3>
+                <div className="form-grid-2" style={{ fontSize: 14, gap: 8 }}>
+                  <p><strong>Client:</strong> {selectedJob.client}</p>
+                  <p><strong>Batch Code:</strong> {selectedJob.batchCode}</p>
+                  <p><strong>Product:</strong> {selectedJob.product}</p>
+                  <p><strong>Quantity:</strong> {selectedJob.qty}</p>
+                  <p><strong>Status:</strong> <StatusBadge status={selectedJob.status} /></p>
+                  <p><strong>Priority:</strong> {selectedJob.priority}</p>
+                  <p><strong>Deadline:</strong> {selectedJob.dueDate}</p>
+                  <p><strong>Assigned To:</strong> {selectedJob.assignedTo}</p>
+                  <p style={{ gridColumn: '1 / -1' }}><strong>Notes:</strong> {selectedJob.notes}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </AppShell>
   );
 }

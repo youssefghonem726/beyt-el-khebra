@@ -244,7 +244,7 @@ export default function ClientDashboard({ clientIdentifier, dataUrls, fallbackDa
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
-              <button className="filter-icon" type="button" onClick={() => setDropdownOpen((o) => !o)}>🔽</button>
+              <button className="filter-icon" type="button" onClick={() => setDropdownOpen((o) => !o)}>▼</button>
               {dropdownOpen && (
                 <div className="filter-dropdown show">
                   <div className="field">
@@ -261,9 +261,7 @@ export default function ClientDashboard({ clientIdentifier, dataUrls, fallbackDa
                       ))}
                     </select>
                   </div>
-                  <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>
-                    Apply Filters
-                  </button>
+                  <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>Apply</button>
                 </div>
               )}
             </div>
@@ -290,7 +288,7 @@ export default function ClientDashboard({ clientIdentifier, dataUrls, fallbackDa
                     <td>{o.total}</td>
                     <td>
                       <div className="action-buttons">
-                        <button className="btn btn-sm" onClick={() => navigateTopLevel(`client-order-${o.id.replace('#', '')}`)}>View</button>
+                        <button className="btn btn-sm" onClick={() => navigateTopLevel(`/client/orders/${o.id.replace('#', '')}`)}>View</button>
                         <button className="btn btn-sm" onClick={() => navigateTopLevel('track-order')}>Track</button>
                       </div>
                     </td>

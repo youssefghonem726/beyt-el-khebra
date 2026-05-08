@@ -3,7 +3,7 @@ import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatCard from '../../components/StatCard';
 import StatusBadge from '../../components/StatusBadge';
-import { useNavigation } from '../../context/NavigationContext';
+import { BatchLookupPanel, AccountingPanel, SettingsPanel, ProductionPanel, CompletedJobsPanel, ManagerOrdersPanel } from './OwnerPanels';
 
 interface Stat {
   label: string;
@@ -19,12 +19,15 @@ interface QuickList {
   page: string;
 }
 
+type FloatingView = 'accounting' | 'batch-lookup' | 'settings' | 'production' | 'completed-jobs' | 'manager-orders';
+
+
 export default function OwnerDashboard() {
-  const { navigateTopLevel } = useNavigation();
   const [stats, setStats] = useState<Stat[]>([]);
   const [quickLists, setQuickLists] = useState<QuickList[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [floatingView, setFloatingView] = useState<FloatingView | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -49,9 +52,15 @@ export default function OwnerDashboard() {
       });
   }, []);
 
+  const handleQuickListOpen = (page: string) => {
+    if (page === 'owner-manager-orders') { setFloatingView('manager-orders'); return; }
+    if (page === 'owner-production')     { setFloatingView('production'); return; }
+    if (page === 'owner-completed-jobs') { setFloatingView('completed-jobs'); return; }
+  };
+
   if (loading) {
     return (
-      <AppShell role="owner" activePage="owner-dashboard" navigateTopLevel={navigateTopLevel}>
+      <AppShell role="owner" activePage="owner-dashboard">
         <Topbar title="Owner Dashboard" />
         <section className="welcome">
           <h2>Operations snapshot</h2>
@@ -64,7 +73,7 @@ export default function OwnerDashboard() {
 
   if (error) {
     return (
-      <AppShell role="owner" activePage="owner-dashboard" navigateTopLevel={navigateTopLevel}>
+      <AppShell role="owner" activePage="owner-dashboard">
         <Topbar title="Owner Dashboard" />
         <section className="welcome">
           <h2>Operations snapshot</h2>
@@ -76,7 +85,7 @@ export default function OwnerDashboard() {
   }
 
   return (
-    <AppShell role="owner" activePage="owner-dashboard" navigateTopLevel={navigateTopLevel}>
+    <AppShell role="owner" activePage="owner-dashboard">
       <Topbar title="Owner Dashboard" />
 
       <section className="welcome">
@@ -95,8 +104,13 @@ export default function OwnerDashboard() {
           <div className="table-head">
             <h3>Manager Quick Lists</h3>
             <div className="actions-inline">
-              <button className="btn" onClick={() => navigateTopLevel('owner-manager-orders')}>Open Manager Orders</button>
-              <button className="btn primary" onClick={() => navigateTopLevel('accounting')}>Go to Accounting</button>
+              <button
+                className="btn"
+                onClick={() => setFloatingView('manager-orders')}
+              >
+                Open Manager Orders
+              </button>
+              <button className="btn primary" onClick={() => setFloatingView('accounting')}>Go to Accounting</button>
             </div>
           </div>
           <table>
@@ -116,7 +130,7 @@ export default function OwnerDashboard() {
                   <td>{r.count}</td>
                   <td><StatusBadge status={r.status} /></td>
                   <td>{r.action}</td>
-                  <td><button className="btn" onClick={() => navigateTopLevel(r.page)}>Open</button></td>
+                  <td><button className="btn" onClick={() => handleQuickListOpen(r.page)}>Open</button></td>
                 </tr>
               ))}
             </tbody>
@@ -126,12 +140,17 @@ export default function OwnerDashboard() {
         <div className="stack">
           <section className="box">
             <h3>Quick Actions</h3>
-            <button className="btn block" onClick={() => navigateTopLevel('owner-manager-orders')}>Open Order Details</button>
-            <button className="btn block" style={{ marginTop: 8 }} onClick={() => navigateTopLevel('owner-batch-lookup')}>Batch Lookup and Export</button>
-            <button className="btn block" style={{ marginTop: 8 }} onClick={() => navigateTopLevel('owner-settings')}>Update Roles &amp; Notifications</button>
+            <button
+              className="btn block"
+              onClick={() => setFloatingView('manager-orders')}
+            >
+              Open Order Details
+            </button>
+            <button className="btn block" style={{ marginTop: 8 }} onClick={() => setFloatingView('batch-lookup')}>Batch Lookup and Export</button>
+            <button className="btn block" style={{ marginTop: 8 }} onClick={() => setFloatingView('settings')}>Update Roles &amp; Notifications</button>
           </section>
           <section className="box">
-            <h3>Accounting Redirect</h3>
+            <h3>Accounting</h3>
             <ul>
               <li>Revenue section links directly to the accounting page.</li>
               <li>Invoices are managed under accounting records.</li>
@@ -140,6 +159,76 @@ export default function OwnerDashboard() {
           </section>
         </div>
       </section>
+
+      {floatingView && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 300,
+            background: 'rgba(0,0,0,0.55)',
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'center',
+            padding: '32px 16px',
+            overflowY: 'auto',
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) setFloatingView(null); }}
+        >
+          <div style={{
+            background: 'var(--surface, #fff)',
+            borderRadius: 12,
+            width: '100%',
+            maxWidth: 980,
+            boxShadow: '0 25px 50px rgba(0,0,0,0.35)',
+            overflow: 'hidden',
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '14px 20px',
+              borderBottom: '1px solid var(--border, #e4e6eb)',
+              position: 'sticky',
+              top: 0,
+              background: 'var(--surface, #fff)',
+              zIndex: 1,
+            }}>
+              <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>
+                {floatingView === 'accounting'     && 'Accounting'}
+                {floatingView === 'batch-lookup'   && 'Batch Lookup & Export'}
+                {floatingView === 'settings'       && 'Roles & Notifications'}
+                {floatingView === 'production'     && 'Production Overview'}
+                {floatingView === 'completed-jobs' && 'Completed Jobs'}
+                {floatingView === 'manager-orders' && 'Manager Orders'}
+              </h2>
+              <button
+                onClick={() => setFloatingView(null)}
+                style={{
+                  padding: '5px 14px',
+                  background: '#2f3640',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 7,
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  fontSize: 13,
+                }}
+              >
+                ✕ Close
+              </button>
+            </div>
+            <div style={{ padding: 20 }}>
+              {floatingView === 'accounting'     && <AccountingPanel />}
+              {floatingView === 'batch-lookup'   && <BatchLookupPanel />}
+              {floatingView === 'settings'       && <SettingsPanel />}
+              {floatingView === 'production'     && <ProductionPanel />}
+              {floatingView === 'completed-jobs' && <CompletedJobsPanel />}
+              {floatingView === 'manager-orders' && <ManagerOrdersPanel />}
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }

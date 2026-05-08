@@ -32,7 +32,7 @@ export default function MyOrders() {
           <div className="actions-inline">
             <div className="search-container">
               <input className="input" type="search" placeholder="Batch lookup by code, order ID, or product..." value={query} onChange={(e) => setQuery(e.target.value)} />
-              <button className="filter-icon" type="button" onClick={() => setDropdownOpen((o) => !o)}>🔽</button>
+              <button className="filter-icon" type="button" onClick={() => setDropdownOpen((o) => !o)}>▼</button>
               {dropdownOpen && (
                 <div className="filter-dropdown show">
                   <div className="field">
@@ -44,7 +44,7 @@ export default function MyOrders() {
                       <option value="COMPLETED">Completed</option>
                     </select>
                   </div>
-                  <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>Apply Filters</button>
+                  <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>Apply</button>
                 </div>
               )}
             </div>
@@ -72,7 +72,7 @@ export default function MyOrders() {
                   <td>{o.total}</td>
                   <td>{o.payment}</td>
                   <td>{o.paid}</td>
-                  <td><button className="btn" onClick={() => navigateTopLevel(`client-order-${o.id.replace('#','')}`)}>View</button></td>
+                  <td><button className="btn" onClick={() => navigateTopLevel(`/client/orders/${o.id.replace('#','')}`)}>View</button></td>
                 </tr>
               ))}
           </tbody>

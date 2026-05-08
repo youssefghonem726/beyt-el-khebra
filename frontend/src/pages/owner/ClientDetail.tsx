@@ -1,11 +1,8 @@
 import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import AppShell from '../../components/AppShell';
 import StatusBadge from '../../components/StatusBadge';
 import { useNavigation } from '../../context/NavigationContext';
-
-interface Props {
-  clientId?: string;
-}
 interface ClientDetail {
   id: string;                  
   name: string;
@@ -22,7 +19,8 @@ interface ClientDetail {
   }[];
 }
 
-export default function ClientDetail({ clientId = 'client-detail-ahmed' }: Props) {
+export default function ClientDetail() {
+  const { id: clientId = 'client-detail-ahmed' } = useParams<{ id: string }>();
   const { navigateTopLevel } = useNavigation();
   const [client, setClient] = useState<ClientDetail | null>(null);
   const [loading, setLoading] = useState(true);

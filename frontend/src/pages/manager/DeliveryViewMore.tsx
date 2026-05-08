@@ -76,7 +76,7 @@ export default function DeliveryViewMore() {
 
           <div className="actions-inline" style={{ marginTop: 16 }}>
             <button className="btn" onClick={() => { setAction(null); setDate(''); setAddress(''); }}>Reset</button>
-            <button className="btn primary" onClick={() => navigateTopLevel('delivery-tracking')}>Done</button>
+            <button className="btn primary" onClick={() => navigateTopLevel('delivery-list')}>Done</button>
           </div>
         </section>
       </main>

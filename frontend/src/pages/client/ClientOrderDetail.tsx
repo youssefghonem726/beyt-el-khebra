@@ -1,18 +1,15 @@
+import { useParams } from 'react-router-dom';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
 import { useNavigation } from '../../context/NavigationContext';
 
-interface Props {
-  orderId: string;
-}
-
 const ORDER_DATA: Record<string, any> = {
   '1021': {
     id: '#1021', batch: 'B-240421-A', product: 'Business Cards', status: 'PRICED_PENDING_CONFIRMATION',
     delivery: 'ON TIME', progress: 75, color: 'green', date: '21 Apr 2025', deliveryDate: '25 Apr 2025',
-    total: 'EGP 1,200.00', payment: 'Bank Transfer', paid: 'EGP 1,200.00', invoiceId: 'invoice-detail-INV-9021',
+    total: 'EGP 1,200.00', payment: 'Bank Transfer', paid: 'EGP 1,200.00', invoiceId: 'INV-9021',
     specs: { size: '9 × 5.5 cm', paper: 'Matte 350gsm', color: 'Full Color', finish: 'Matte', qty: 500 },
     timeline: [
       { label: 'Order Submitted',       date: '21 Apr 2025, 10:00 AM', done: true  },
@@ -27,7 +24,7 @@ const ORDER_DATA: Record<string, any> = {
   '1020': {
     id: '#1020', batch: 'B-240418-C', product: 'Flyers A5', status: 'IN_PROGRESS',
     delivery: 'DELAYED', progress: 55, color: 'orange', date: '18 Apr 2025', deliveryDate: '23 Apr 2025',
-    total: 'EGP 2,400.00', payment: 'Cash', paid: 'EGP 1,000.00', invoiceId: 'invoice-detail-INV-9018',
+    total: 'EGP 2,400.00', payment: 'Cash', paid: 'EGP 1,000.00', invoiceId: 'INV-9018',
     specs: { size: 'A5', paper: 'Glossy 150gsm', color: 'Full Color', finish: 'Glossy', qty: 200 },
     timeline: [
       { label: 'Order Submitted',    date: '18 Apr 2025, 09:00 AM', done: true  },
@@ -57,7 +54,7 @@ const ORDER_DATA: Record<string, any> = {
   '1015': {
     id: '#1015', batch: 'B-240410-S', product: 'Stickers', status: 'COMPLETED',
     delivery: 'ON TIME', progress: 100, color: 'green', date: '10 Apr 2025', deliveryDate: '14 Apr 2025',
-    total: 'EGP 850.00', payment: 'Bank Transfer', paid: 'EGP 850.00', invoiceId: 'invoice-detail-INV-9015',
+    total: 'EGP 850.00', payment: 'Bank Transfer', paid: 'EGP 850.00', invoiceId: 'INV-9015',
     specs: { size: '5 × 5 cm', paper: 'Vinyl', color: 'Full Color', finish: 'Glossy', qty: 300 },
     timeline: [
       { label: 'Order Submitted',    date: '10 Apr 2025, 09:00 AM', done: true },
@@ -86,8 +83,9 @@ const ORDER_DATA: Record<string, any> = {
   },
 };
 
-export default function ClientOrderDetail({ orderId }: Props) {
-  const { navigateTopLevel } = useNavigation();
+export default function ClientOrderDetail() {
+  const { id: orderId = '' } = useParams<{ id: string }>();
+  const { navigateTopLevel, goBack } = useNavigation();
   const order = ORDER_DATA[orderId];
 
   if (!order) {
@@ -103,7 +101,7 @@ export default function ClientOrderDetail({ orderId }: Props) {
 
   return (
     <AppShell role="client" activePage="my-orders">
-      <Topbar title={`Order ${order.id}`} />
+      <Topbar title={`Order ${order.id}`} onBack={goBack} backLabel="My Orders" />
 
       <section className="box" style={{ marginBottom: 14 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
@@ -163,8 +161,8 @@ export default function ClientOrderDetail({ orderId }: Props) {
         <div className="table-head">
           <p><strong>Need help with this order?</strong></p>
           <div style={{ display: 'flex', gap: 10 }}>
-            <button className="btn" onClick={() => navigateTopLevel('track-order')}>Track Order</button>
-            {order.invoiceId && <button className="btn" onClick={() => navigateTopLevel(order.invoiceId)}>View Invoice</button>}
+            <button className="btn" onClick={() => navigateTopLevel(`/client/track-order/${orderId}`)}>Track Order</button>
+            {order.invoiceId && <button className="btn" onClick={() => navigateTopLevel(`/client/invoices/${order.invoiceId}`)}>View Invoice</button>}
             <button className="btn primary" onClick={() => navigateTopLevel('support')}>Contact Support</button>
           </div>
         </div>

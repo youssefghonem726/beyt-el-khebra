@@ -47,7 +47,7 @@ export const PAGE_TO_PATH: Record<string, string> = Object.values(NAVS)
     'testing':        '/test',
     // owner extras (used in buttons but not in sidebar)
     'owner-manager-orders': '/manager/orders',
-    'owner-batch-lookup':   '/owner/unpriced-queue',
+    'owner-batch-lookup':   '/manager/batch-lookup',
     'client-detail':        '/owner/clients',
     // manager extras
     'delivery-view-more':   '/manager/deliveries',
@@ -57,5 +57,5 @@ export const PAGE_TO_PATH: Record<string, string> = Object.values(NAVS)
     'client-order-detail':  '/client/orders',
     'invoice-detail':       '/client/invoices',
     'quote-detail':         '/client/quotes',
-    'track-order':          '/client/orders',
+    'track-order':          '/client/track-order',
   } as Record<string, string>);
