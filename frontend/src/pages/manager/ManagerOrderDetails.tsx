@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
@@ -20,34 +20,6 @@ interface InvoiceData {
   vatRate: number; notes?: string;
 }
 
-const ORDER_DATA: Record<string, OrderData> = {
-  '1033': { client: 'Client Name', batch: 'B-260426-P', product: 'Packaging Sleeves', status: 'UNPRICED',         qty: 2500, deadline: '30 Apr 2026', step: 'File review',   progress: 10,  type: 'pending'   },
-  '1031': { client: 'Design Hub',  batch: 'B-260425-D', product: 'Brochures',          status: 'PENDING APPROVAL', qty: 500,  deadline: '27 Apr 2026', step: 'Awaiting quote', progress: 0,   type: 'pending'   },
-  '1024': { client: 'Client Name', batch: 'B-260423-C', product: 'Business Cards',     status: 'COMPLETED',        qty: 1000, deadline: '26 Apr 2026', step: 'Done',          progress: 100, type: 'completed', invoiceId: 'INV-1024' },
-  '1020': { client: 'Ahmed Store', batch: 'B-260420-A', product: 'Flyers',             status: 'COMPLETED',        qty: 200,  deadline: '26 Apr 2026', step: 'Done',          progress: 100, type: 'completed', invoiceId: 'INV-1020' },
-};
-
-const INVOICE_DATA: Record<string, InvoiceData> = {
-  'INV-1024': {
-    id: 'INV-1024', issued: '26 Apr 2026', due: '3 May 2026', paidDate: '26 Apr 2026', status: 'Paid',
-    billedTo: { name: 'Client Name', address: '45 El Hegaz St, Heliopolis, Cairo', taxId: 'TAX-20045' },
-    items: [
-      { description: 'Business Cards (Matte 350gsm) — 1000 pcs', quantity: 1000, unitPrice: 1.20 },
-    ],
-    vatRate: 0.14,
-    notes: 'Payment received on 26 Apr 2026. Thank you for your business.',
-  },
-  'INV-1020': {
-    id: 'INV-1020', issued: '26 Apr 2026', due: '3 May 2026', paidDate: '26 Apr 2026', status: 'Paid',
-    billedTo: { name: 'Ahmed Store', address: '12 El Nasr St, Cairo, Egypt', taxId: 'TAX-10023' },
-    items: [
-      { description: 'Flyers A5 (Glossy 150gsm, Full Colour) — 200 pcs', quantity: 200, unitPrice: 2.10 },
-    ],
-    vatRate: 0.14,
-    notes: 'Payment received on 26 Apr 2026. Thank you for your business.',
-  },
-};
-
 function fmt(n: number) { return n.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
 export default function ManagerOrderDetails() {
@@ -55,8 +27,56 @@ export default function ManagerOrderDetails() {
   const { navigateTopLevel, goBack } = useNavigation();
   const [sentToAccounting, setSentToAccounting] = useState(false);
   const [showInvoice, setShowInvoice] = useState(false);
-  const order = orderId ? ORDER_DATA[orderId] : null;
-  const invoice = order?.invoiceId ? INVOICE_DATA[order.invoiceId] : null;
+  
+  // Data state
+  const [orderData, setOrderData] = useState<Record<string, OrderData>>({});
+  const [invoiceData, setInvoiceData] = useState<Record<string, InvoiceData>>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/data/work-orders.json').then(res => {
+        if (!res.ok) throw new Error(`Orders HTTP ${res.status}`);
+        return res.json();
+      }),
+      fetch('/data/manager-invoices.json').then(res => {
+        if (!res.ok) throw new Error(`Invoices HTTP ${res.status}`);
+        return res.json();
+      })
+    ])
+      .then(([orders, invoices]) => {
+        setOrderData(orders);
+        setInvoiceData(invoices);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error('Failed to load order/invoice data:', err);
+        setError('Could not load order details. Please try again later.');
+        setLoading(false);
+      });
+  }, []);
+
+  const order = orderId ? orderData[orderId] : null;
+  const invoice = order?.invoiceId ? invoiceData[order.invoiceId] : null;
+
+  if (loading) {
+    return (
+      <AppShell role="manager" activePage="manager-orders">
+        <Topbar title="Order Details" />
+        <div className="loading-state">Loading order details...</div>
+      </AppShell>
+    );
+  }
+
+  if (error) {
+    return (
+      <AppShell role="manager" activePage="manager-orders">
+        <Topbar title="Order Details" />
+        <div className="error-state">{error}</div>
+      </AppShell>
+    );
+  }
 
   if (!order) {
     return (
