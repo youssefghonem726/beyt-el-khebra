@@ -9,6 +9,7 @@ export interface NavItem {
 export const NAVS: Record<Role, NavItem[]> = {
   owner: [
     { label: 'Dashboard',         page: 'owner-dashboard',     path: '/owner' },
+    { label: 'Place Order',       page: 'owner-place-order',   path: '/owner/place-order' },
     { label: 'Unpriced Queue',    page: 'unpriced-queue',      path: '/owner/unpriced-queue' },
     { label: 'Production',        page: 'owner-production',    path: '/owner/production' },
     { label: 'Client Management', page: 'client-management',   path: '/owner/clients' },
