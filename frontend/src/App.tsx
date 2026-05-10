@@ -31,6 +31,7 @@ import ClientManagement from "./pages/owner/ClientManagement";
 import OwnerNotifications from "./pages/owner/OwnerNotifications";
 import OwnerSettings from "./pages/owner/OwnerSettings";
 import UnpricedQueue from "./pages/owner/UnpricedQueue";
+import OwnerPlaceOrder from "./pages/owner/OwnerPlaceOrder";
 
 // Manager Pages
 import ActiveJobs from "./pages/manager/ActiveJobs";
@@ -144,6 +145,7 @@ export default function App() {
             <Route path="/owner/notifications" element={<Page><OwnerNotifications /></Page>} />
             <Route path="/owner/settings" element={<Page><OwnerSettings /></Page>} />
             <Route path="/owner/unpriced-queue" element={<Page><UnpricedQueue /></Page>} />
+            <Route path="/owner/place-order" element={<Page><OwnerPlaceOrder /></Page>} />
           </Route>
 
           {/* FALLBACK */}
