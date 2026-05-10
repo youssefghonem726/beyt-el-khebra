@@ -88,10 +88,17 @@ export default function OwnerPlaceOrder() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  const clientDocs: ClientDocument[] = selectedClient ? (allDocs[selectedClient] ?? []) : [];
+  const effectiveClient = selectedClient.trim();
+
+  // Only show client info card if the typed name exactly matches a known client
+  const chosenClient = clients.find(c => c.name === selectedClient);
+
+  const clientDocs: ClientDocument[] = chosenClient
+    ? (allDocs[selectedClient] ?? [])
+    : [];
+
   const activeProducts = products.filter(p => p.active);
   const chosenProduct  = activeProducts.find(p => p.id === selectedProduct);
-  const chosenClient   = clients.find(c => c.name === selectedClient);
   const chosenDoc      = clientDocs.find(d => d.id === selectedDocId);
 
   const qty      = parseInt(quantity, 10);
@@ -99,11 +106,14 @@ export default function OwnerPlaceOrder() {
     ? chosenProduct.pricePerUnit * qty
     : 0;
 
+  // Document required only when a known client with docs is selected
+  const docRequirementMet = !chosenClient || clientDocs.length === 0 || !!selectedDocId;
+
   const canSubmit =
-    !!selectedClient &&
+    !!effectiveClient &&
     !!selectedProduct &&
     !isNaN(qty) && qty > 0 &&
-    !!selectedDocId;
+    docRequirementMet;
 
   function handleSubmit() {
     if (!canSubmit) return;
@@ -127,7 +137,7 @@ export default function OwnerPlaceOrder() {
           <div style={{ fontSize: 48, marginBottom: 12, color: 'var(--primary)' }}>✓</div>
           <h2 style={{ marginBottom: 8 }}>Order Placed!</h2>
           <p style={{ color: 'var(--muted)', marginBottom: 6, fontSize: 14 }}>
-            Order assigned to <strong>{selectedClient}</strong>
+            Order assigned to <strong>{effectiveClient}</strong>
           </p>
           <p style={{ color: 'var(--muted)', marginBottom: 24, fontSize: 14 }}>
             Product: <strong>{chosenProduct?.product}</strong> &nbsp;·&nbsp; Qty: <strong>{quantity}</strong>
@@ -154,17 +164,29 @@ export default function OwnerPlaceOrder() {
             <h3 style={{ marginBottom: 14 }}>1. Select Client</h3>
 
             <div className="field" style={{ marginBottom: 0 }}>
-              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Client</label>
-              <select
-                className="select"
+              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>
+                Client
+              </label>
+              <input
+                className="input"
+                type="text"
+                list="clients-list"
+                placeholder="Type or search for a client…"
                 value={selectedClient}
                 onChange={e => { setSelectedClient(e.target.value); setSelectedDocId(''); }}
-              >
-                <option value="">— Choose a client —</option>
+                style={{ width: '100%' }}
+                autoComplete="off"
+              />
+              <datalist id="clients-list">
                 {clients.map(c => (
-                  <option key={c.name} value={c.name}>{c.name}</option>
+                  <option key={c.name} value={c.name} />
                 ))}
-              </select>
+              </datalist>
+              {selectedClient && !chosenClient && (
+                <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4, fontStyle: 'italic' }}>
+                  New client — no existing record found.
+                </p>
+              )}
             </div>
 
             {chosenClient && (
@@ -180,8 +202,8 @@ export default function OwnerPlaceOrder() {
             )}
           </section>
 
-          {/* Step 2 — Client Documents */}
-          {selectedClient && (
+          {/* Step 2 — Client Documents (only for known clients with docs) */}
+          {chosenClient && (
             <section className="box">
               <h3 style={{ marginBottom: 4 }}>2. Choose Client Document</h3>
               <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 14 }}>
@@ -208,7 +230,6 @@ export default function OwnerPlaceOrder() {
                           transition: 'border-color .15s, background .15s',
                         }}
                       >
-                        {/* File type badge */}
                         <div style={{
                           width: 42, height: 42, borderRadius: 8, flexShrink: 0,
                           background: fileTypeColor(doc.type),
@@ -217,8 +238,6 @@ export default function OwnerPlaceOrder() {
                         }}>
                           {doc.type}
                         </div>
-
-                        {/* Info */}
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {doc.name}
@@ -227,8 +246,6 @@ export default function OwnerPlaceOrder() {
                             {doc.fileName} &nbsp;·&nbsp; {fmtSize(doc.sizeKB)} &nbsp;·&nbsp; {doc.uploadedDate}
                           </div>
                         </div>
-
-                        {/* Selected indicator */}
                         {selected && (
                           <div style={{
                             width: 22, height: 22, borderRadius: '50%',
@@ -249,7 +266,9 @@ export default function OwnerPlaceOrder() {
 
           {/* Step 3 — Product & Quantity */}
           <section className="box">
-            <h3 style={{ marginBottom: 14 }}>3. Order Details</h3>
+            <h3 style={{ marginBottom: 14 }}>
+              {chosenClient ? '3.' : '2.'} Order Details
+            </h3>
 
             <div className="field" style={{ marginBottom: 12 }}>
               <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Product</label>
@@ -320,7 +339,7 @@ export default function OwnerPlaceOrder() {
           <div style={{ display: 'grid', gap: 10, fontSize: 13, marginBottom: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--muted)' }}>Client</span>
-              <span style={{ fontWeight: 600 }}>{selectedClient || '—'}</span>
+              <span style={{ fontWeight: 600 }}>{effectiveClient || '—'}</span>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -355,8 +374,10 @@ export default function OwnerPlaceOrder() {
           {/* Validation hints */}
           {!canSubmit && (
             <ul style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 14, paddingLeft: 16 }}>
-              {!selectedClient   && <li>Select a client</li>}
-              {!selectedDocId    && selectedClient && clientDocs.length > 0 && <li>Choose a document</li>}
+              {!effectiveClient && <li>Enter or select a client</li>}
+              {chosenClient && clientDocs.length > 0 && !selectedDocId && (
+                <li>Choose a document</li>
+              )}
               {!selectedProduct  && <li>Choose a product</li>}
               {(!quantity || isNaN(qty) || qty <= 0) && <li>Enter a valid quantity</li>}
               {chosenProduct && !isNaN(qty) && qty > 0 && qty < chosenProduct.minQty && (

@@ -99,15 +99,6 @@ export default function Quotes() {
               <th>Action</th>
             </tr>
           </thead>
-          <thead>
-            <tr>
-              <th>Quote ID</th>
-              <th>Order</th>
-              <th>Status</th>
-              <th>Amount</th>
-              <th>Action</th>
-            </tr>
-          </thead>
           <tbody>
             {quotes.map(q => (
               <tr key={q.id}>
