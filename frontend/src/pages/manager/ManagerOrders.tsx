@@ -1,42 +1,68 @@
+import { useEffect, useState } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
+import { useNavigation } from '../../context/NavigationContext';
 
-interface Props { onNavigate: (page: string) => void; }
+interface Props { role?: 'manager' | 'owner'; }
 
-const PENDING = [
-  { id: '#1033', status: 'UNPRICED', client: 'Client Name' },
-  { id: '#1031', status: 'PENDING APPROVAL', client: 'Design Hub' },
-];
-const WORKING = [
-  { id: '#1029', status: 'IN_PROGRESS', client: 'Retail Plus' },
-  { id: '#1026', status: 'FINISHING', client: 'Marketing Co.' },
-];
-const COMPLETED = [
-  { id: '#1024', status: 'COMPLETED', client: 'Client Name', completedAt: '26 Apr 2026, 6:10 PM' },
-  { id: '#1020', status: 'COMPLETED', client: 'Client Name', completedAt: '26 Apr 2026, 4:45 PM' },
-];
+interface Order {
+  id: string;
+  status: string;
+  client: string;
+  completedAt?: string;
+}
 
-export default function ManagerOrders({ onNavigate }: Props) {
+interface OrdersData {
+  pending: Order[];
+  working: Order[];
+  completed: Order[];
+}
+
+export default function ManagerOrders({ role = 'manager' }: Props) {
+  const { navigateTopLevel } = useNavigation();
+  const [data, setData] = useState<OrdersData | null>(null);
+
+  useEffect(() => {
+    fetch('/data/manager-orders.json')
+      .then((res) => {
+        if (!res.ok) throw new Error(`Failed to load orders: ${res.status}`);
+        return res.json() as Promise<OrdersData>;
+      })
+      .then(setData)
+      .catch(console.error);
+  }, []);
+
+  if (!data) return (
+    <AppShell role={role} activePage={role === 'owner' ? 'owner-dashboard' : 'manager-orders'}>
+      <Topbar title="All Orders" />
+      <div className="loading-state">Loading orders…</div>
+    </AppShell>
+  );
+
   return (
-    <AppShell role="manager" activePage="active-jobs" onNavigate={onNavigate}>
-      <Topbar title="All Orders (Manager Only)" userName="Manager" />
+    <AppShell role={role} activePage={role === 'owner' ? 'owner-dashboard' : 'manager-orders'}>
+      <Topbar title="All Orders" />
 
       <section className="grid-2">
         <article className="table-wrap">
-          <div className="table-head">
-            <h3>Pending Orders</h3>
-            <button className="btn" onClick={() => onNavigate('manager-order-details')}>Open Details</button>
-          </div>
+          <div className="table-head"><h3>Pending Orders</h3></div>
           <table>
-            <thead><tr><th>Order</th><th>Status</th><th>Client Name</th><th>Action</th></tr></thead>
+            <thead><tr><th>Order</th><th>Status</th><th>Client</th><th>Action</th></tr></thead>
             <tbody>
-              {PENDING.map((o) => (
+              {data.pending.map((o) => (
                 <tr key={o.id}>
                   <td>{o.id}</td>
                   <td><StatusBadge status={o.status} /></td>
                   <td>{o.client}</td>
-                  <td><button className="btn" onClick={() => onNavigate('manager-order-details')}>View</button></td>
+                  <td>
+                    <button
+                      className="btn"
+                      onClick={() => navigateTopLevel(`/manager/orders/${o.id.replace('#', '')}`)}
+                    >
+                      View
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -44,19 +70,23 @@ export default function ManagerOrders({ onNavigate }: Props) {
         </article>
 
         <article className="table-wrap">
-          <div className="table-head">
-            <h3>Working Orders</h3>
-            <button className="btn" onClick={() => onNavigate('active-jobs')}>Production Board</button>
-          </div>
+          <div className="table-head"><h3>Working Orders</h3></div>
           <table>
-            <thead><tr><th>Order</th><th>Status</th><th>Client Name</th><th>Action</th></tr></thead>
+            <thead><tr><th>Order</th><th>Status</th><th>Client</th><th>Action</th></tr></thead>
             <tbody>
-              {WORKING.map((o) => (
+              {data.working.map((o) => (
                 <tr key={o.id}>
                   <td>{o.id}</td>
                   <td><StatusBadge status={o.status} /></td>
                   <td>{o.client}</td>
-                  <td><button className="btn" onClick={() => onNavigate('order-work-view')}>View</button></td>
+                  <td>
+                    <button
+                      className="btn"
+                      onClick={() => navigateTopLevel('/manager/work-view')}
+                    >
+                      Work View
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -65,20 +95,24 @@ export default function ManagerOrders({ onNavigate }: Props) {
       </section>
 
       <section className="table-wrap" style={{ marginTop: 12 }}>
-        <div className="table-head">
-          <h3>Completed Orders</h3>
-          <button className="btn" onClick={() => onNavigate('completed-jobs')}>Open Completed Jobs</button>
-        </div>
+        <div className="table-head"><h3>Completed Orders</h3></div>
         <table>
-          <thead><tr><th>Order</th><th>Status</th><th>Client Name</th><th>Completed At</th><th>Action</th></tr></thead>
+          <thead><tr><th>Order</th><th>Status</th><th>Client</th><th>Completed At</th><th>Action</th></tr></thead>
           <tbody>
-            {COMPLETED.map((o) => (
+            {data.completed.map((o) => (
               <tr key={o.id}>
                 <td>{o.id}</td>
                 <td><StatusBadge status={o.status} /></td>
                 <td>{o.client}</td>
                 <td>{o.completedAt}</td>
-                <td><button className="btn" onClick={() => onNavigate('manager-order-details')}>View</button></td>
+                <td>
+                  <button
+                    className="btn"
+                    onClick={() => navigateTopLevel(`/manager/orders/${o.id.replace('#', '')}`)}
+                  >
+                    View
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>

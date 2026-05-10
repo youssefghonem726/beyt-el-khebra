@@ -1,28 +1,86 @@
+import { useState, useEffect } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
+import { useNavigation } from '../../context/NavigationContext';
 
-interface Props { onNavigate: (page: string) => void; }
+interface Props { role?: 'manager' | 'owner'; }
 
-const JOBS = [
-  {
-    id: 'Order #1024', done: 1500, total: 1500,
-    stages: [{ stage: 'Prepress', status: 'DONE', updated: '26 Apr 2026, 9:00 AM' }, { stage: 'Printing', status: 'DONE', updated: '27 Apr 2026, 2:00 PM' }, { stage: 'Finishing', status: 'DONE', updated: '27 Apr 2026, 6:10 PM' }],
-    info: { client: 'Client Name', batch: 'B-260425-M', product: 'Packaging Sleeves', qty: 1500, status: 'Completed', priority: 'High', deadline: '28 Apr 2026', team: 'Production Team A', completion: '27 Apr 2026', notes: 'Completed on time' },
-  },
-  {
-    id: 'Order #1023', done: 800, total: 800,
-    stages: [{ stage: 'Prepress', status: 'DONE', updated: '26 Apr 2026, 10:00 AM' }, { stage: 'Printing', status: 'DONE', updated: '27 Apr 2026, 1:00 PM' }, { stage: 'Finishing', status: 'DONE', updated: '27 Apr 2026, 4:45 PM' }],
-    info: { client: 'Retail Plus', batch: 'B-260426-R', product: 'Stickers', qty: 800, status: 'Completed', priority: 'Medium', deadline: '27 Apr 2026', team: 'Production Team B', completion: '27 Apr 2026', notes: 'Completed ahead of schedule' },
-  },
-];
+interface Stage {
+  stage: string;
+  status: string;
+  updated: string;
+}
 
-export default function CompletedJobs({ onNavigate }: Props) {
+interface JobInfo {
+  client: string;
+  batch: string;
+  product: string;
+  qty: number;
+  status: string;
+  priority: string;
+  deadline: string;
+  team: string;
+  completion: string;
+  notes: string;
+}
+
+interface Job {
+  id: string;
+  done: number;
+  total: number;
+  stages: Stage[];
+  info: JobInfo;
+}
+
+export default function CompletedJobs({ role = 'manager' }: Props) {
+  const { navigateTopLevel } = useNavigation();
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/data/completed-jobs.json')
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then((data: Job[]) => {
+        setJobs(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error('Failed to load completed jobs:', err);
+        setError('Could not load completed jobs data. Please try again later.');
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) {
+    return (
+      <AppShell role={role} activePage={role === 'owner' ? 'owner-dashboard' : 'completed-jobs'}>
+        <Topbar title="Completed Jobs" />
+        <div className="loading-state">Loading completed jobs...</div>
+      </AppShell>
+    );
+  }
+
+  if (error) {
+    return (
+      <AppShell role={role} activePage={role === 'owner' ? 'owner-dashboard' : 'completed-jobs'}>
+        <Topbar title="Completed Jobs" />
+        <div className="error-state">{error}</div>
+      </AppShell>
+    );
+  }
+
   return (
-    <AppShell role="manager" activePage="completed-jobs" onNavigate={onNavigate}>
-      <Topbar title="Completed Jobs" userName="Production Summary" />
-      {JOBS.map((j) => (
+    <AppShell role={role} activePage={role === 'owner' ? 'owner-dashboard' : 'completed-jobs'}>
+      <Topbar title="Completed Jobs" />
+      {jobs.map((j) => (
         <section key={j.id} className="split" style={{ marginBottom: 14 }}>
           <article className="box">
             <h3>Work Progress - {j.id}</h3>
@@ -32,7 +90,11 @@ export default function CompletedJobs({ onNavigate }: Props) {
               <thead><tr><th>Stage</th><th>Status</th><th>Updated At</th></tr></thead>
               <tbody>
                 {j.stages.map((s) => (
-                  <tr key={s.stage}><td>{s.stage}</td><td><StatusBadge status={s.status} /></td><td>{s.updated}</td></tr>
+                  <tr key={s.stage}>
+                    <td>{s.stage}</td>
+                    <td><StatusBadge status={s.status} /></td>
+                    <td>{s.updated}</td>
+                  </tr>
                 ))}
               </tbody>
             </table>

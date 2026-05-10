@@ -1,10 +1,10 @@
-interface Props {
-  onNavigate: (page: string) => void;
-}
+import { useNavigation } from '../context/NavigationContext';
 
-export default function PublicNav({ onNavigate }: Props) {
+export default function PublicNav() {
+  const { navigateTopLevel } = useNavigation();
+  
   const link = (page: string, label: string, bold?: boolean) => (
-    <a href="#" onClick={(e) => { e.preventDefault(); onNavigate(page); }}>
+    <a href="#" onClick={(e) => { e.preventDefault(); navigateTopLevel(page); }}>
       {bold ? <strong>{label}</strong> : label}
     </a>
   );
@@ -19,7 +19,7 @@ export default function PublicNav({ onNavigate }: Props) {
         {link('support', 'Services')}
         {link('support', 'Contact Us')}
       </nav>
-      <a href="#" onClick={(e) => { e.preventDefault(); onNavigate('login'); }}>Login</a>
+      <a href="#" onClick={(e) => { e.preventDefault(); navigateTopLevel('login'); }}>Login</a>
     </header>
   );
 }

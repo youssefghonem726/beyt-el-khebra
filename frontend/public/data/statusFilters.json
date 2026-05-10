@@ -1,0 +1,7 @@
+[
+  { "label": "Unpriced Pending", "value": "unpriced_pending" },
+  { "label": "Priced Pending Confirmation", "value": "priced_pending_confirmation" },
+  { "label": "In Progress", "value": "in_progress" },
+  { "label": "Completed", "value": "completed" },
+  { "label": "Canceled", "value": "canceled" }
+]

@@ -1,12 +1,10 @@
 import { useState } from 'react';
 import AuthShell from '../../components/AuthShell';
-import  supabase  from '../../lib/supabase';
+import supabase from '../../lib/supabase';
+import { useNavigation } from '../../context/NavigationContext';
 
-interface Props {
-  onNavigate: (page: string) => void;
-}
-
-export default function CreateAccount({ onNavigate }: Props) {
+export default function CreateAccount() {
+  const { navigateTopLevel } = useNavigation();
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -16,45 +14,79 @@ export default function CreateAccount({ onNavigate }: Props) {
 
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
-  console.log('URL:', import.meta.env.VITE_SUPABASE_URL)
 
   const handleSignup = async () => {
-    // basic validation
+    // Reset error
+    setError('');
+    
+    // Basic validation
     if (!form.email || !form.password) {
-      alert('Email and password are required');
+      setError('Email and password are required');
       return;
     }
 
     if (form.password !== form.confirm) {
-      alert('Passwords do not match');
+      setError('Passwords do not match');
+      return;
+    }
+
+    if (form.password.length < 6) {
+      setError('Password must be at least 6 characters');
       return;
     }
 
     if (!agreed) {
-      alert('You must agree to terms');
+      setError('You must agree to the terms');
       return;
     }
 
     setLoading(true);
 
-    const { error } = await supabase.auth.signUp({
+    // Sign up with metadata including name
+    const { data, error } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
+      options: {
+        data: {
+          full_name: form.name,
+          user_role: 'client' // Default role for new signups
+        }
+      }
     });
 
     setLoading(false);
 
     if (error) {
-      alert(error.message);
+      setError(error.message);
       return;
     }
 
-    alert('Account created successfully');
+    // After successful signup, redirect to login
+    if (data?.user) {
+      alert('Account created successfully! Please login.');
+      navigateTopLevel('login');
+    }
+  };
 
-    onNavigate('login');
+  const handleGoogleSignup = async () => {
+    setError('');
+    setLoading(true);
+    
+    const { error } = await supabase.auth.signInWithOAuth({ 
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`
+      }
+    });
+    
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+    }
   };
 
   return (
@@ -62,6 +94,12 @@ export default function CreateAccount({ onNavigate }: Props) {
       <section className="auth-card">
         <h1 className="center">Create Account</h1>
         <p className="center muted">Register to get started</p>
+
+        {error && (
+          <p style={{ color: '#d32f2f', textAlign: 'center', marginBottom: 15 }}>
+            {error}
+          </p>
+        )}
 
         <div className="field">
           <label>Full Name</label>
@@ -90,7 +128,7 @@ export default function CreateAccount({ onNavigate }: Props) {
           <input
             className="input"
             type="password"
-            placeholder="Create a password"
+            placeholder="Create a password (min. 6 characters)"
             value={form.password}
             onChange={set('password')}
           />
@@ -126,7 +164,11 @@ export default function CreateAccount({ onNavigate }: Props) {
 
         <p className="center muted tiny">or</p>
 
-        <button className="btn block center">
+        <button 
+          className="btn block center" 
+          onClick={handleGoogleSignup}
+          disabled={loading}
+        >
           Sign up with Google
         </button>
 
@@ -136,12 +178,23 @@ export default function CreateAccount({ onNavigate }: Props) {
             href="#"
             onClick={(e) => {
               e.preventDefault();
-              onNavigate('login');
+              navigateTopLevel('login');
             }}
           >
             <strong>Login</strong>
           </a>
         </p>
+
+        {/* DEV ONLY — remove before production */}
+        {import.meta.env.DEV && (
+          <button
+            className="btn block center"
+            style={{ marginTop: '0.5rem', opacity: 0.6, fontSize: '0.75rem' }}
+            onClick={() => navigateTopLevel('test')}
+          >
+            [DEV] Skip to Testing Landing
+          </button>
+        )}
       </section>
     </AuthShell>
   );

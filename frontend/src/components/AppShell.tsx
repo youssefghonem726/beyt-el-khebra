@@ -5,15 +5,16 @@ import type { Role } from '../data/navData';
 interface Props {
   role: Role;
   activePage: string;
-  onNavigate: (page: string) => void;
   children: ReactNode;
 }
 
-export default function AppShell({ role, activePage, onNavigate, children }: Props) {
+export default function AppShell({ role, activePage, children }: Props) {
   return (
     <div className="app-shell">
-      <Sidebar role={role} activePage={activePage} onNavigate={onNavigate} />
-      <main className="main">{children}</main>
+      <Sidebar role={role} activePage={activePage} />
+      <main className="main">
+        {children}
+      </main>
     </div>
   );
 }

@@ -1,43 +1,158 @@
+import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import AppShell from '../../components/AppShell';
 import StatusBadge from '../../components/StatusBadge';
+import { useNavigation } from '../../context/NavigationContext';
 
-interface Props {
-  onNavigate: (page: string) => void;
-  clientId?: string;
+// ── Types ──────────────────────────────────────────────────────────────────
+
+interface BasePricingRow {
+  id: string;
+  product: string;
+  size: string;
+  paper: string;
+  pricePerUnit: number;
+  minQty: number;
+  active: boolean;
 }
 
-const CLIENTS: Record<string, {
-  name: string; phone: string; address: string; email: string;
-  stats: { label: string; value: string }[];
-  orders: { id: string; product: string; status: string; date: string; total: string }[];
-}> = {
-  'client-detail-ahmed': {
-    name: 'Client Name', phone: '+20 101 000 1021', address: '15 Tahrir Street, Cairo, Egypt', email: 'ahmed@store.com',
-    stats: [{ label: 'Total Number of Orders', value: '24' }, { label: 'Average Order Price', value: 'EGP 1,850' }, { label: 'Customer Since', value: '2 years, 4 months' }, { label: 'Total Amount Spent', value: 'EGP 44,400' }],
-    orders: [{ id: '#1021', product: 'Business Cards', status: 'PRICED_PENDING_CONFIRMATION', date: '21 Apr 2025', total: 'EGP 1,200.00' }, { id: '#1020', product: 'Flyers A5', status: 'IN_PROGRESS', date: '18 Apr 2025', total: 'EGP 2,400.00' }, { id: '#1018', product: 'Stickers', status: 'COMPLETED', date: '15 Apr 2025', total: 'EGP 950.00' }],
-  },
-  'client-detail-design-hub': {
-    name: 'Design Hub', phone: '+20 100 222 3100', address: '7 Smart Village, Giza, Egypt', email: 'info@designhub.com',
-    stats: [{ label: 'Total Number of Orders', value: '16' }, { label: 'Average Order Price', value: 'EGP 2,050' }, { label: 'Customer Since', value: '1 year, 8 months' }, { label: 'Total Amount Spent', value: 'EGP 32,800' }],
-    orders: [{ id: '#1112', product: 'Catalogs', status: 'COMPLETED', date: '10 Apr 2025', total: 'EGP 3,000.00' }, { id: '#1101', product: 'Posters A3', status: 'COMPLETED', date: '2 Apr 2025', total: 'EGP 1,500.00' }],
-  },
-  'client-detail-retail-plus': {
-    name: 'Retail Plus', phone: '+20 122 777 4400', address: '42 Corniche Road, Alexandria, Egypt', email: 'contact@retailplus.com',
-    stats: [{ label: 'Total Number of Orders', value: '11' }, { label: 'Average Order Price', value: 'EGP 1,420' }, { label: 'Customer Since', value: '11 months' }, { label: 'Total Amount Spent', value: 'EGP 15,620' }],
-    orders: [{ id: '#1096', product: 'Shelf Labels', status: 'IN_PROGRESS', date: '20 Apr 2025', total: 'EGP 1,800.00' }, { id: '#1090', product: 'Price Stickers', status: 'COMPLETED', date: '10 Apr 2025', total: 'EGP 950.00' }],
-  },
-};
+interface ClientPricingOverride {
+  id: string;        // matches BasePricingRow.id
+  pricePerUnit: number;
+  active: boolean;
+}
 
-export default function ClientDetail({ onNavigate, clientId = 'client-detail-ahmed' }: Props) {
-  const client = CLIENTS[clientId] ?? CLIENTS['client-detail-ahmed'];
+interface ClientDetail {
+  id: string;
+  name: string;
+  phone: string;
+  address: string;
+  email: string;
+  stats: { label: string; value: string }[];
+  pricingOverrides?: ClientPricingOverride[];
+  orders: {
+    id: string;
+    product: string;
+    status: string;
+    date: string;
+    total: string;
+  }[];
+}
+
+interface MergedPricingRow extends BasePricingRow {
+  pricePerUnit: number;
+  active: boolean;
+}
+
+// ── Helper ─────────────────────────────────────────────────────────────────
+
+function fmt(n: number) {
+  return n.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// ── Component ──────────────────────────────────────────────────────────────
+
+export default function ClientDetail() {
+  const { id: clientId = 'client-detail-ahmed' } = useParams<{ id: string }>();
+  const { navigateTopLevel } = useNavigation();
+
+  const [client, setClient]           = useState<ClientDetail | null>(null);
+  const [pricing, setPricing]         = useState<MergedPricingRow[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [error, setError]             = useState<string | null>(null);
+  const [editId, setEditId]           = useState<string | null>(null);
+  const [editPrice, setEditPrice]     = useState('');
+  const [editMinQty, setEditMinQty]   = useState('');
+  const [toast, setToast]             = useState<string | null>(null);
+
+  // Load base pricing + client data in parallel
+  useEffect(() => {
+    Promise.all([
+      fetch('/data/pricing.json').then(r => { if (!r.ok) throw new Error(); return r.json() as Promise<BasePricingRow[]>; }),
+      fetch('/data/clients-detail.json').then(r => { if (!r.ok) throw new Error(); return r.json() as Promise<ClientDetail[]>; }),
+    ])
+      .then(([basePricing, clients]) => {
+        const found = clients.find(c => c.id === clientId);
+        if (!found) { setError(`Client with ID "${clientId}" not found.`); setLoading(false); return; }
+
+        // Merge: start from base, apply any per-client overrides
+        const merged: MergedPricingRow[] = basePricing.map(base => {
+          const override = found.pricingOverrides?.find(o => o.id === base.id);
+          return override
+            ? { ...base, pricePerUnit: override.pricePerUnit, active: override.active }
+            : { ...base };
+        });
+
+        setClient(found);
+        setPricing(merged);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('Failed to load data:', err);
+        setError('Could not load client data. Please try again later.');
+        setLoading(false);
+      });
+  }, [clientId]);
+
+  // Toast auto-dismiss
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 2500);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  // Pricing actions
+  const startEdit = (row: MergedPricingRow) => {
+    setEditId(row.id);
+    setEditPrice(String(row.pricePerUnit));
+    setEditMinQty(String(row.minQty));
+  };
+
+  const saveEdit = (rowId: string) => {
+    const price = parseFloat(editPrice);
+    const qty   = parseInt(editMinQty, 10);
+    if (isNaN(price) || price <= 0 || isNaN(qty) || qty <= 0) return;
+    setPricing(ps => ps.map(p => p.id === rowId ? { ...p, pricePerUnit: price, minQty: qty } : p));
+    setEditId(null);
+    setToast('Price updated.');
+  };
+
+  const toggleActive = (rowId: string) => {
+    setPricing(ps => ps.map(p => p.id === rowId ? { ...p, active: !p.active } : p));
+  };
+
+  // ── Loading / error states ─────────────────────────────────────────────
+
+  if (loading) {
+    return (
+      <AppShell role="owner" activePage="client-management">
+        <header className="topbar"><h1>Client Details</h1></header>
+        <section className="box"><div className="loading-state">Loading client details...</div></section>
+      </AppShell>
+    );
+  }
+
+  if (error || !client) {
+    return (
+      <AppShell role="owner" activePage="client-management">
+        <header className="topbar"><h1>Client Details</h1></header>
+        <section className="box"><div className="error-state">{error || 'Client data unavailable.'}</div></section>
+      </AppShell>
+    );
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────────
 
   return (
-    <AppShell role="owner" activePage="client-management" onNavigate={onNavigate}>
+    <AppShell role="owner" activePage="client-management">
       <header className="topbar">
         <h1>Client Details - {client.name}</h1>
-        <button className="btn" onClick={() => onNavigate('client-management')}>Back to Client Management</button>
+        <button className="btn" onClick={() => navigateTopLevel('client-management')}>
+          Back to Client Management
+        </button>
       </header>
 
+      {/* ── Info ── */}
       <section className="box">
         <div className="form-grid-2">
           <p><strong>Name:</strong> {client.name}</p>
@@ -47,7 +162,7 @@ export default function ClientDetail({ onNavigate, clientId = 'client-detail-ahm
         </div>
         <div className="line" />
         <div className="stats-grid">
-          {client.stats.map((s) => (
+          {client.stats.map(s => (
             <div key={s.label} className="stat-item">
               <p>{s.label}</p>
               <h4>{s.value}</h4>
@@ -56,12 +171,124 @@ export default function ClientDetail({ onNavigate, clientId = 'client-detail-ahm
         </div>
       </section>
 
+      {/* ── Client Pricing ── */}
+      <section className="box" style={{ marginTop: 14 }}>
+        <div className="table-head" style={{ marginBottom: 14 }}>
+          <h3>Client Pricing</h3>
+          <p style={{ fontSize: 13, color: 'var(--muted)' }}>
+            Overrides default pricing for this client. Click Edit to change a row.
+          </p>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Size</th>
+              <th>Paper / Material</th>
+              <th style={{ textAlign: 'right' }}>Price / Unit (EGP)</th>
+              <th style={{ textAlign: 'center' }}>Min Qty</th>
+              <th style={{ textAlign: 'center' }}>Status</th>
+              <th style={{ textAlign: 'center' }}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pricing.map(row => (
+              <tr key={row.id} style={{ opacity: row.active ? 1 : 0.5 }}>
+                <td style={{ fontWeight: 500 }}>{row.product}</td>
+                <td>{row.size}</td>
+                <td>{row.paper}</td>
+
+                {editId === row.id ? (
+                  <>
+                    <td style={{ textAlign: 'right' }}>
+                      <input
+                        className="input"
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        value={editPrice}
+                        onChange={e => setEditPrice(e.target.value)}
+                        style={{ width: 90, textAlign: 'right', padding: '4px 8px' }}
+                      />
+                    </td>
+                    <td style={{ textAlign: 'center' }}>
+                      <input
+                        className="input"
+                        type="number"
+                        min="1"
+                        value={editMinQty}
+                        onChange={e => setEditMinQty(e.target.value)}
+                        style={{ width: 70, textAlign: 'center', padding: '4px 8px' }}
+                      />
+                    </td>
+                  </>
+                ) : (
+                  <>
+                    <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(row.pricePerUnit)}</td>
+                    <td style={{ textAlign: 'center' }}>{row.minQty}</td>
+                  </>
+                )}
+
+                <td style={{ textAlign: 'center' }}>
+                  <span
+                    className={`status ${row.active ? 'done' : 'canceled'}`}
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => toggleActive(row.id)}
+                    title="Click to toggle"
+                  >
+                    {row.active ? 'Active' : 'Inactive'}
+                  </span>
+                </td>
+
+                <td style={{ textAlign: 'center' }}>
+                  {editId === row.id ? (
+                    <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+                      <button
+                        className="btn primary"
+                        style={{ padding: '4px 12px', fontSize: 12 }}
+                        onClick={() => saveEdit(row.id)}
+                      >
+                        Save
+                      </button>
+                      <button
+                        className="btn"
+                        style={{ padding: '4px 12px', fontSize: 12 }}
+                        onClick={() => setEditId(null)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      className="btn"
+                      style={{ padding: '4px 12px', fontSize: 12 }}
+                      onClick={() => startEdit(row)}
+                    >
+                      Edit
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+
+      {/* ── Past Orders ── */}
       <section className="table-wrap" style={{ marginTop: 14 }}>
         <h3>Past Orders</h3>
         <table>
-          <thead><tr><th>Order ID</th><th>Product</th><th>Status</th><th>Date</th><th>Total</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Order ID</th>
+              <th>Product</th>
+              <th>Status</th>
+              <th>Date</th>
+              <th>Total</th>
+            </tr>
+          </thead>
           <tbody>
-            {client.orders.map((o) => (
+            {client.orders.map(o => (
               <tr key={o.id}>
                 <td>{o.id}</td>
                 <td>{o.product}</td>
@@ -73,6 +300,17 @@ export default function ClientDetail({ onNavigate, clientId = 'client-detail-ahm
           </tbody>
         </table>
       </section>
+
+      {/* ── Toast ── */}
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+          background: '#2f3640', color: '#fff', padding: '10px 20px', borderRadius: 8,
+          fontSize: 13, zIndex: 1000, boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+        }}>
+          {toast}
+        </div>
+      )}
     </AppShell>
   );
 }

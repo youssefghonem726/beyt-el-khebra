@@ -1,0 +1,234 @@
+/* ── Document Management ── */
+
+.documents-table {
+  width: 100%;
+}
+
+.documents-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.file-type-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+  letter-spacing: 0.3px;
+}
+
+/* Reorder expand row */
+.reorder-expand-row td {
+  padding: 0;
+  border-bottom: none;
+}
+
+.reorder-expand-row.expanded td {
+  border-bottom: 1px solid var(--border);
+}
+
+.reorder-panel {
+  display: none;
+  padding: 14px 16px;
+  background: var(--surface-soft);
+  border-top: 1px solid var(--border);
+}
+
+.reorder-expand-row.expanded .reorder-panel {
+  display: block;
+}
+
+.reorder-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Quantity stepper */
+.quantity-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.qty-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  font-size: 16px;
+  cursor: pointer;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.qty-btn:hover {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.qty-input {
+  width: 60px;
+  height: 32px;
+  border: none;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  text-align: center;
+  font-size: 13px;
+  background: #fff;
+}
+
+.qty-input:focus {
+  outline: none;
+}
+
+/* Spec selects */
+.spec-select {
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+/* Empty row */
+.empty-row td {
+  text-align: center;
+  color: var(--muted);
+  padding: 32px 8px;
+  font-size: 14px;
+}
+
+/* Modal */
+.modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 999;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal.active {
+  display: flex;
+}
+
+.modal-content {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 22px;
+  width: 100%;
+  max-width: 460px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.14);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.modal-header h3 {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.icon-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--muted);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-btn:hover {
+  background: var(--primary-soft);
+  color: var(--text);
+}
+
+/* Form group */
+.form-group {
+  display: grid;
+  gap: 6px;
+}
+
+.form-group label {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+/* Upload zone */
+.upload-zone {
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.upload-zone:hover {
+  border-color: var(--primary-light);
+  background: var(--primary-soft);
+}
+
+/* Search input */
+.search-input {
+  width: 220px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 12px;
+  background: #fff;
+  font-size: 13px;
+}
+
+/* Toast */
+.success-toast {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  background: #1e2530;
+  color: #fff;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-size: 13px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+  z-index: 1100;
+  max-width: 380px;
+  animation: toastIn 0.25s ease;
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Loading / error states */
+.loading-state,
+.error-state {
+  padding: 48px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.error-state {
+  color: #c0392b;
+}
