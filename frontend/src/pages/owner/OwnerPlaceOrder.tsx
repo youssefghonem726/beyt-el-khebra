@@ -230,7 +230,7 @@ function ItemEditor({ item, onChange, onRemove, libraryDoc, onClearLibraryDoc }:
   const set = (k: string, v: any) => onChange({ ...d, [k]: v });
   const typeInfo = ITEM_TYPES.find(t => t.id === item.type)!;
 
-  // ── Local file preview inside this item ──
+  // ── Local file preview for main PDF inside this item ──
   const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null);
   const [localFileForPreview, setLocalFileForPreview] = useState<File | null>(null);
 
@@ -249,6 +249,25 @@ function ItemEditor({ item, onChange, onRemove, libraryDoc, onClearLibraryDoc }:
     }
   }, [d.pdf]);
 
+  // ── Local file preview for COVER file (only for books) ──
+  const [localCoverPreviewUrl, setLocalCoverPreviewUrl] = useState<string | null>(null);
+  const [localCoverFileForPreview, setLocalCoverFileForPreview] = useState<File | null>(null);
+
+  useEffect(() => {
+    const coverFile = d.cover;
+    if (coverFile instanceof File) {
+      const url = URL.createObjectURL(coverFile);
+      setLocalCoverPreviewUrl(url);
+      setLocalCoverFileForPreview(coverFile);
+      return () => {
+        URL.revokeObjectURL(url);
+      };
+    } else {
+      setLocalCoverPreviewUrl(null);
+      setLocalCoverFileForPreview(null);
+    }
+  }, [d.cover]);
+
   const previewDoc: ClientDocument | null = localFileForPreview
     ? {
         id: item.id,
@@ -260,6 +279,18 @@ function ItemEditor({ item, onChange, onRemove, libraryDoc, onClearLibraryDoc }:
         url: localPreviewUrl!,
       }
     : libraryDoc || null;
+
+  const coverPreviewDoc: ClientDocument | null = localCoverFileForPreview
+    ? {
+        id: `${item.id}-cover`,
+        name: localCoverFileForPreview.name,
+        fileName: localCoverFileForPreview.name,
+        type: (localCoverFileForPreview.name.split('.').pop() ?? 'PDF').toUpperCase(),
+        sizeKB: Math.round(localCoverFileForPreview.size / 1024),
+        uploadedDate: new Date().toLocaleDateString(),
+        url: localCoverPreviewUrl!,
+      }
+    : null;
 
   return (
     <div className="box">
@@ -286,6 +317,7 @@ function ItemEditor({ item, onChange, onRemove, libraryDoc, onClearLibraryDoc }:
         <div className="line" style={{ margin: '0 0 16px' }} />
         <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--muted)', marginBottom: 12 }}>{SPEC_LABEL.book}</p>
         <FileField label="Cover File" value={d.cover ?? null} onChange={f => set('cover', f)} />
+        {coverPreviewDoc && <PdfPreviewPanel doc={coverPreviewDoc} height={200} />}
         <div className="form-grid-2" style={{ marginTop: 4 }}>
           <SelectField label="Cover Finish" options={['Matte', 'Shiny', 'Transparent']} value={d.coverFinish ?? 'Matte'} onChange={v => set('coverFinish', v)} />
           <SelectField label="Colors" options={['B&W', 'Colors']} value={d.colors ?? 'Colors'} onChange={v => set('colors', v)} />
@@ -335,7 +367,7 @@ function ItemEditor({ item, onChange, onRemove, libraryDoc, onClearLibraryDoc }:
         </div>
       </>)}
 
-      {/* ── Item-level preview ── */}
+      {/* ── Item-level preview for main PDF ── */}
       {previewDoc && (
         <PdfPreviewPanel doc={previewDoc} height={200} />
       )}
@@ -405,9 +437,13 @@ export default function OwnerPlaceOrder() {
   const [notes, setNotes]                   = useState('');
   const [submitted, setSubmitted]           = useState(false);
 
-  // Global local‑file preview for SINGLE order only
+  // Global local‑file preview for SINGLE order main PDF
   const [localPreviewFile, setLocalPreviewFile] = useState<File | null>(null);
   const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null);
+
+  // Global local‑file preview for SINGLE order COVER file (book only)
+  const [localCoverPreviewFile, setLocalCoverPreviewFile] = useState<File | null>(null);
+  const [localCoverPreviewUrl, setLocalCoverPreviewUrl] = useState<string | null>(null);
 
   const handleLocalFilePreview = useCallback((file: File | null) => {
     if (localPreviewUrl) {
@@ -423,12 +459,27 @@ export default function OwnerPlaceOrder() {
     }
   }, [localPreviewUrl]);
 
-  // Cleanup object URL on unmount
+  const handleLocalCoverPreview = useCallback((file: File | null) => {
+    if (localCoverPreviewUrl) {
+      URL.revokeObjectURL(localCoverPreviewUrl);
+    }
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setLocalCoverPreviewUrl(url);
+      setLocalCoverPreviewFile(file);
+    } else {
+      setLocalCoverPreviewUrl(null);
+      setLocalCoverPreviewFile(null);
+    }
+  }, [localCoverPreviewUrl]);
+
+  // Cleanup object URLs on unmount
   useEffect(() => {
     return () => {
       if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
+      if (localCoverPreviewUrl) URL.revokeObjectURL(localCoverPreviewUrl);
     };
-  }, [localPreviewUrl]);
+  }, [localPreviewUrl, localCoverPreviewUrl]);
 
   useEffect(() => {
     fetch('/data/clients.json').then(r => r.json()).then(setClients).catch(() => {});
@@ -449,11 +500,16 @@ export default function OwnerPlaceOrder() {
     setSingleData({});
     setSelectedDocId('');
     setNotes('');
-    // Clear single global preview
+    // Clear single global previews
     setLocalPreviewFile(null);
     if (localPreviewUrl) {
       URL.revokeObjectURL(localPreviewUrl);
       setLocalPreviewUrl(null);
+    }
+    setLocalCoverPreviewFile(null);
+    if (localCoverPreviewUrl) {
+      URL.revokeObjectURL(localCoverPreviewUrl);
+      setLocalCoverPreviewUrl(null);
     }
   }
 
@@ -688,7 +744,22 @@ export default function OwnerPlaceOrder() {
                   {singleType === 'book' && (<>
                     <div className="line" style={{ margin: '0 0 16px' }} />
                     <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--muted)', marginBottom: 12 }}>Book Specifications</p>
-                    <FileField label="Cover File" value={singleData.cover ?? null} onChange={f => setSingleData(d => ({ ...d, cover: f }))} onFilePreview={handleLocalFilePreview} />
+                    <FileField label="Cover File" value={singleData.cover ?? null} onChange={f => setSingleData(d => ({ ...d, cover: f }))} onFilePreview={handleLocalCoverPreview} />
+                    {/* Cover preview right beneath the browse button */}
+                    {localCoverPreviewFile && (
+                      <PdfPreviewPanel
+                        doc={{
+                          id: 'single-cover-preview',
+                          name: localCoverPreviewFile.name,
+                          fileName: localCoverPreviewFile.name,
+                          type: (localCoverPreviewFile.name.split('.').pop() ?? 'PDF').toUpperCase(),
+                          sizeKB: Math.round(localCoverPreviewFile.size / 1024),
+                          uploadedDate: new Date().toLocaleDateString(),
+                          url: localCoverPreviewUrl!,
+                        }}
+                        height={200}
+                      />
+                    )}
                     <div className="form-grid-2" style={{ marginTop: 4 }}>
                       <SelectField label="Cover Finish" options={['Matte', 'Shiny', 'Transparent']} value={singleData.coverFinish ?? 'Matte'} onChange={v => setSingleData(d => ({ ...d, coverFinish: v }))} />
                       <SelectField label="Colors" options={['B&W', 'Colors']} value={singleData.colors ?? 'Colors'} onChange={v => setSingleData(d => ({ ...d, colors: v }))} />
@@ -782,7 +853,7 @@ export default function OwnerPlaceOrder() {
                   Place Order
                 </button>
               </div>
-              {/* Single‑order preview in sidebar */}
+              {/* Single‑order preview in sidebar (main PDF only) */}
               {(selectedDoc || localPreviewFile) && (
                 <PdfPreviewPanel
                   doc={
