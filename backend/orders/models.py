@@ -32,12 +32,13 @@ class Order(models.Model):
         blank=True
     )
     approved_by = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='approved_orders'
-    )
+    User,
+    on_delete=models.SET_NULL,
+    null=True,
+    blank=True,
+    related_name='approved_orders',
+    db_column='approved_by'
+)
     created_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
 

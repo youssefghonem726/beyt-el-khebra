@@ -5,8 +5,8 @@
     "status": "Awaiting Confirmation",
     "amount": "EGP 1,200.00",
     "action": {
-      "label": "Review",
-      "page": "unpriced-queue"
+      "label": "Review Quote",
+      "page": "/client/quotes/Q-211"
     }
   },
   {
@@ -15,8 +15,8 @@
     "status": "Approved",
     "amount": "EGP 950.00",
     "action": {
-      "label": "Invoice",
-      "page": "client-invoices"
+      "label": "View Invoice",
+      "page": "/client/invoices/INV-9018"
     }
   }
 ]

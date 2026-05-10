@@ -1,27 +1,18 @@
 import type { ReactNode } from 'react';
 import Sidebar from './Sidebar';
 import type { Role } from '../data/navData';
-import { useNavigation } from '../context/NavigationContext';
 
 interface Props {
   role: Role;
   activePage: string;
-  onNavigate: (page: string) => void;
   children: ReactNode;
 }
 
-export default function AppShell({ role, activePage, onNavigate, children }: Props) {
-  const { goBack, canGoBack } = useNavigation();
-
+export default function AppShell({ role, activePage, children }: Props) {
   return (
     <div className="app-shell">
-      <Sidebar role={role} activePage={activePage} onNavigate={onNavigate} />
+      <Sidebar role={role} activePage={activePage} />
       <main className="main">
-        {canGoBack && (
-          <button className="global-back-btn" onClick={goBack}>
-            ← Back
-          </button>
-        )}
         {children}
       </main>
     </div>

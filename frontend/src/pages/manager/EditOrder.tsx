@@ -1,17 +1,19 @@
 import { useState } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
+import { useNavigation } from '../../context/NavigationContext';
+import { useParams } from 'react-router-dom';
 
-interface Props { onNavigate: (page: string) => void; }
-
-export default function EditOrder({ onNavigate }: Props) {
+export default function EditOrder() {
+  const { id: orderId } = useParams<{ id: string }>();
+  const { goBack } = useNavigation();
   const [form, setForm] = useState({ client: 'Client Name', batch: 'B-260426-P', status: 'UNPRICED', product: 'Packaging Sleeves', qty: '2500', deadline: '' });
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
   return (
-    <AppShell role="manager" activePage="active-jobs" onNavigate={onNavigate}>
-      <Topbar title="Edit Order #1033" userName="Manager" />
+    <AppShell role="manager" activePage="manager-orders">
+      <Topbar title={`Edit Order #${orderId ?? ''}`} />
       <section className="box">
         <div className="form-grid">
           <div className="field"><label>Client Name</label><input className="input" type="text" value={form.client} onChange={set('client')} /></div>
@@ -28,8 +30,8 @@ export default function EditOrder({ onNavigate }: Props) {
         </div>
         <div className="line" />
         <div className="actions-inline">
-          <button className="btn primary" onClick={() => onNavigate('manager-order-details')}>Save Changes</button>
-          <button className="btn" onClick={() => onNavigate('manager-order-details')}>Cancel</button>
+          <button className="btn primary" onClick={() => goBack()}>Save Changes</button>
+          <button className="btn" onClick={() => goBack()}>Cancel</button>
         </div>
       </section>
     </AppShell>

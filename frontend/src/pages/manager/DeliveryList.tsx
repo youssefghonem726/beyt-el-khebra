@@ -1,9 +1,8 @@
-import { useState, Fragment } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
-
-interface Props { onNavigate: (page: string) => void; }
+import { useNavigation } from '../../context/NavigationContext';
 
 interface Delivery {
   id: string;
@@ -14,22 +13,37 @@ interface Delivery {
   status: string;
 }
 
-const DELIVERIES: Delivery[] = [
-  { id: 'DEL-001', orderId: '#1021', client: 'Design Hub',    address: '14 Tahrir St, Cairo',             scheduledDate: '28 Apr 2026', status: 'SCHEDULED'  },
-  { id: 'DEL-002', orderId: '#1022', client: 'Client Name',   address: '5 Nile Corniche, Giza',           scheduledDate: '29 Apr 2026', status: 'IN TRANSIT' },
-  { id: 'DEL-003', orderId: '#1019', client: 'Retail Plus',   address: '22 City Stars Mall, Nasr City',   scheduledDate: '26 Apr 2026', status: 'DELIVERED'  },
-  { id: 'DEL-004', orderId: '#1020', client: 'Marketing Co.', address: '9 Hassan Allam St, Heliopolis',   scheduledDate: '30 Apr 2026', status: 'ON HOLD'    },
-  { id: 'DEL-005', orderId: '#1026', client: 'Marketing Co.', address: '9 Hassan Allam St, Heliopolis',   scheduledDate: '1 May 2026',  status: 'SCHEDULED'  },
-];
-
 type ExpandKey = { id: string; action: 'reschedule' | 'address' } | null;
 
-export default function DeliveryList({ onNavigate: _onNavigate }: Props) {
+export default function DeliveryList() {
+  const { navigateTopLevel } = useNavigation();
+  const [deliveries, setDeliveries] = useState<Delivery[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [expand, setExpand]       = useState<ExpandKey>(null);
   const [date, setDate]           = useState('');
   const [address, setAddress]     = useState('');
   const [delivered, setDelivered] = useState<Set<string>>(new Set());
   const [cancelled, setCancelled] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    fetch('/data/manager-deliveries.json')
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then((data: Delivery[]) => {
+        setDeliveries(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error('Failed to load deliveries:', err);
+        setError('Could not load delivery data. Please try again later.');
+        setLoading(false);
+      });
+  }, []);
 
   const toggle = (id: string, action: 'reschedule' | 'address') => {
     if (expand?.id === id && expand.action === action) {
@@ -43,9 +57,27 @@ export default function DeliveryList({ onNavigate: _onNavigate }: Props) {
 
   const saveAndClose = () => setExpand(null);
 
+  if (loading) {
+    return (
+      <AppShell role="manager" activePage="delivery-list">
+        <Topbar title="Deliveries" />
+        <div className="loading-state">Loading deliveries...</div>
+      </AppShell>
+    );
+  }
+
+  if (error) {
+    return (
+      <AppShell role="manager" activePage="delivery-list">
+        <Topbar title="Deliveries" />
+        <div className="error-state">{error}</div>
+      </AppShell>
+    );
+  }
+
   return (
-    <AppShell role="manager" activePage="delivery-list" onNavigate={_onNavigate}>
-      <Topbar title="Deliveries" userName="Manager" />
+    <AppShell role="manager" activePage="delivery-list">
+      <Topbar title="Deliveries" />
 
       <section className="table-wrap">
         <div className="table-head"><h3>All Deliveries</h3></div>
@@ -64,7 +96,7 @@ export default function DeliveryList({ onNavigate: _onNavigate }: Props) {
               </tr>
             </thead>
             <tbody>
-              {DELIVERIES.map((d) => {
+              {deliveries.map((d) => {
                 const isDone      = delivered.has(d.id);
                 const isCancelled = cancelled.has(d.id);
                 const status      = isDone ? 'DELIVERED' : isCancelled ? 'CANCELLED' : d.status;

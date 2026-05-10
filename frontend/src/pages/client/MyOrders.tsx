@@ -3,8 +3,7 @@ import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
-
-interface Props { onNavigate: (page: string) => void; }
+import { useNavigation } from '../../context/NavigationContext';
 
 interface Order {
   id: string;
@@ -20,7 +19,8 @@ interface Order {
   paid: string;
 }
 
-export default function MyOrders({ onNavigate }: Props) {
+export default function MyOrders() {
+  const { navigateTopLevel } = useNavigation();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,29 +56,25 @@ export default function MyOrders({ onNavigate }: Props) {
 
   if (loading) {
     return (
-      <AppShell role="client" activePage="my-orders" onNavigate={onNavigate}>
-        <Topbar title="My Orders" userName="Client Name" />
-        <section className="table-wrap">
-          <div className="loading-state">Loading your orders...</div>
-        </section>
+      <AppShell role="client" activePage="my-orders">
+        <Topbar title="My Orders" />
+        <div className="loading-state">Loading orders...</div>
       </AppShell>
     );
   }
 
   if (error) {
     return (
-      <AppShell role="client" activePage="my-orders" onNavigate={onNavigate}>
-        <Topbar title="My Orders" userName="Client Name" />
-        <section className="table-wrap">
-          <div className="error-state">{error}</div>
-        </section>
+      <AppShell role="client" activePage="my-orders">
+        <Topbar title="My Orders" />
+        <div className="error-state">{error}</div>
       </AppShell>
     );
   }
 
   return (
-    <AppShell role="client" activePage="my-orders" onNavigate={onNavigate}>
-      <Topbar title="My Orders" userName="Client Name" />
+    <AppShell role="client" activePage="my-orders">
+      <Topbar title="My Orders" />
       <section className="table-wrap">
         <div className="table-head">
           <h3>All Orders</h3>
@@ -91,9 +87,7 @@ export default function MyOrders({ onNavigate }: Props) {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
-              <button className="filter-icon" type="button" onClick={() => setDropdownOpen((o) => !o)}>
-                ▼
-              </button>
+              <button className="filter-icon" type="button" onClick={() => setDropdownOpen((o) => !o)}>▼</button>
               {dropdownOpen && (
                 <div className="filter-dropdown show">
                   <div className="field">
@@ -105,16 +99,14 @@ export default function MyOrders({ onNavigate }: Props) {
                       <option value="COMPLETED">Completed</option>
                     </select>
                   </div>
-                  <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>
-                    Apply Filters
-                  </button>
+                  <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>Apply</button>
                 </div>
               )}
             </div>
-            <button className="btn primary" onClick={() => onNavigate('place-new-order')}>New Order</button>
+            <button className="btn primary" onClick={() => navigateTopLevel('place-new-order')}>New Order</button>
           </div>
         </div>
-        <table>
+        <table className="orders-table">
           <thead>
             <tr>
               <th>Order</th><th>Batch Code</th><th>Product</th><th>Status</th><th>Delivery Progress</th><th>Date</th><th>Total</th><th>Payment Method</th><th>Paid Amount</th><th>Action</th>
@@ -137,7 +129,7 @@ export default function MyOrders({ onNavigate }: Props) {
                   <td>{o.total}</td>
                   <td>{o.payment}</td>
                   <td>{o.paid}</td>
-                  <td><button className="btn" onClick={() => onNavigate(`client-order-${o.id.replace('#','')}`)}>View</button></td>
+                  <td><button className="btn" onClick={() => navigateTopLevel(`/client/orders/${o.id.replace('#', '')}`)}>View</button></td>
                 </tr>
               ))}
           </tbody>

@@ -16,7 +16,8 @@ class File(models.Model):
         User,
         on_delete=models.SET_NULL,
         null=True,
-        related_name='files'
+        related_name='files',
+        db_column='uploaded_by'
     )
     created_at = models.DateTimeField(auto_now_add=True)
 

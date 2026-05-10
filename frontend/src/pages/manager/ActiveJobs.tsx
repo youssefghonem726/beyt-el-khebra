@@ -4,9 +4,9 @@ import Topbar from '../../components/Topbar';
 import StatCard from '../../components/StatCard';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
+import { useNavigation } from '../../context/NavigationContext';
 
-interface Props { onNavigate: (page: string) => void; }
-
+interface Stage { stage: string; status: string; updatedAt: string; }
 interface Job {
   id: string;
   client: string;
@@ -16,6 +16,11 @@ interface Job {
   progress: number;
   dueDate: string;
   paper: string;
+  batchCode?: string;
+  priority?: string;
+  assignedTo?: string;
+  notes?: string;
+  stages?: Stage[];
 }
 
 const STEPS = [
@@ -35,7 +40,8 @@ function currentStep(pct: number): number {
   return 5;
 }
 
-export default function ActiveJobs({ onNavigate }: Props) {
+export default function ActiveJobs() {
+  const { navigateTopLevel } = useNavigation();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +49,7 @@ export default function ActiveJobs({ onNavigate }: Props) {
   const [filterStatus, setFilterStatus] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const [showWorkView, setShowWorkView] = useState(false);
 
   useEffect(() => {
     fetch('/data/jobs.json')
@@ -81,8 +88,8 @@ export default function ActiveJobs({ onNavigate }: Props) {
 
   if (loading) {
     return (
-      <AppShell role="manager" activePage="active-jobs" onNavigate={onNavigate}>
-        <Topbar title="Production Dashboard" userName="Production Team" />
+      <AppShell role="manager" activePage="active-jobs">
+        <Topbar title="Production Dashboard" />
         <div className="loading-state">Loading production data...</div>
       </AppShell>
     );
@@ -90,8 +97,8 @@ export default function ActiveJobs({ onNavigate }: Props) {
 
   if (error || jobs.length === 0) {
     return (
-      <AppShell role="manager" activePage="active-jobs" onNavigate={onNavigate}>
-        <Topbar title="Production Dashboard" userName="Production Team" />
+      <AppShell role="manager" activePage="active-jobs">
+        <Topbar title="Production Dashboard" />
         <div className="error-state">{error ?? 'No jobs available.'}</div>
       </AppShell>
     );
@@ -100,8 +107,8 @@ export default function ActiveJobs({ onNavigate }: Props) {
   const step = selectedJob ? currentStep(pct(selectedJob)) : 0;
 
   return (
-    <AppShell role="manager" activePage="active-jobs" onNavigate={onNavigate}>
-      <Topbar title="Production Dashboard" userName="Production Team" />
+    <AppShell role="manager" activePage="active-jobs">
+      <Topbar title="Production Dashboard" />
 
       <section className="grid-4" style={{ marginBottom: 14 }}>
         <StatCard label="Active Jobs"  value={activeJobs} sub="Currently in queue"    />
@@ -166,7 +173,7 @@ export default function ActiveJobs({ onNavigate }: Props) {
                   <div className="card-actions">
                     <button
                       className="btn"
-                      onClick={(e) => { e.stopPropagation(); onNavigate(`work-view-${j.id.replace('Job #', '')}`); }}
+                      onClick={(e) => { e.stopPropagation(); setSelectedJob(j); setShowWorkView(true); }}
                     >
                       Open Work View
                     </button>
@@ -236,12 +243,112 @@ export default function ActiveJobs({ onNavigate }: Props) {
 
             <div className="line" />
 
-            <button className="btn primary block" style={{ marginTop: 4 }} onClick={() => onNavigate(`work-view-${selectedJob.id.replace('Job #', '')}`)}>
+            <button className="btn primary block" style={{ marginTop: 4 }} onClick={() => setShowWorkView(true)}>
               Open Work View
             </button>
           </aside>
         )}
       </section>
+
+      {showWorkView && selectedJob && (() => {
+        const p = pct(selectedJob);
+        const s = currentStep(p);
+        return (
+          <div
+            style={{
+              position: 'fixed', inset: 0, zIndex: 300,
+              background: 'rgba(0,0,0,0.55)',
+              display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+              padding: '32px 16px', overflowY: 'auto',
+            }}
+            onClick={(e) => { if (e.target === e.currentTarget) setShowWorkView(false); }}
+          >
+            <div style={{
+              background: 'var(--surface, #fff)', borderRadius: 12,
+              width: '100%', maxWidth: 680,
+              boxShadow: '0 25px 50px rgba(0,0,0,0.35)', overflow: 'hidden',
+            }}>
+              <div style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '14px 20px', borderBottom: '1px solid var(--border, #e4e6eb)',
+                position: 'sticky', top: 0, background: 'var(--surface, #fff)', zIndex: 1,
+              }}>
+                <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>Work View — {selectedJob.id}</h2>
+                <button
+                  onClick={() => setShowWorkView(false)}
+                  style={{ padding: '5px 14px', background: '#2f3640', color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}
+                >
+                  ✕ Close
+                </button>
+              </div>
+              <div style={{ padding: 20 }}>
+                <p className="muted" style={{ fontSize: 13, marginBottom: 14 }}>{selectedJob.client} · {selectedJob.product}</p>
+                <ProgressBar percent={p} color={p === 100 ? 'green' : p >= 50 ? 'orange' : undefined} />
+                <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6, marginBottom: 18 }}>
+                  {selectedJob.progress} / {selectedJob.qty} printed ({p}%)
+                </p>
+
+                {selectedJob.stages ? (
+                  <>
+                    <h4 style={{ marginBottom: 10 }}>Production Stages</h4>
+                    <table style={{ marginBottom: 20 }}>
+                      <thead><tr><th>Stage</th><th>Status</th><th>Updated At</th></tr></thead>
+                      <tbody>
+                        {selectedJob.stages.map(st => (
+                          <tr key={st.stage}>
+                            <td>{st.stage}</td>
+                            <td><StatusBadge status={st.status} /></td>
+                            <td>{st.updatedAt}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </>
+                ) : (
+                  <>
+                    <h4 style={{ marginBottom: 10 }}>Production Steps</h4>
+                    <ul style={{ listStyle: 'none', display: 'grid', gap: 10, marginBottom: 20 }}>
+                      {STEPS.map((name, i) => {
+                        const done    = i < s;
+                        const current = i === s;
+                        return (
+                          <li key={name} style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 14 }}>
+                            <span style={{
+                              width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: 11, fontWeight: 700,
+                              background: done ? '#2c9a4b' : current ? '#2f3640' : '#e4e6eb',
+                              color: done || current ? '#fff' : 'var(--muted)',
+                            }}>
+                              {done ? '✓' : i + 1}
+                            </span>
+                            <span style={{ fontWeight: current ? 600 : 400, color: done ? '#2c9a4b' : current ? 'var(--text)' : 'var(--muted)' }}>
+                              {name}
+                              {current && <span style={{ fontSize: 11, marginLeft: 6, color: '#e89023' }}>← current</span>}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </>
+                )}
+
+                <div className="form-grid-2" style={{ fontSize: 14, gap: 8 }}>
+                  <p><strong>Client:</strong> {selectedJob.client}</p>
+                  {selectedJob.batchCode && <p><strong>Batch:</strong> {selectedJob.batchCode}</p>}
+                  <p><strong>Product:</strong> {selectedJob.product}</p>
+                  <p><strong>Quantity:</strong> {selectedJob.qty} pcs</p>
+                  <p><strong>Paper:</strong> {selectedJob.paper}</p>
+                  <p><strong>Due Date:</strong> {selectedJob.dueDate}</p>
+                  {selectedJob.priority   && <p><strong>Priority:</strong> {selectedJob.priority}</p>}
+                  {selectedJob.assignedTo && <p><strong>Assigned To:</strong> {selectedJob.assignedTo}</p>}
+                  {selectedJob.notes && <p style={{ gridColumn: '1 / -1' }}><strong>Notes:</strong> {selectedJob.notes}</p>}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </AppShell>
   );
 }

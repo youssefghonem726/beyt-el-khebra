@@ -1,12 +1,9 @@
 import { useState } from 'react';
+import { useParams } from 'react-router-dom';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
-
-interface Props {
-  onNavigate: (page: string) => void;
-  quoteId: string;
-}
+import { useNavigation } from '../../context/NavigationContext';
 
 interface LineItem { description: string; qty: number; unitPrice: number; }
 
@@ -41,7 +38,9 @@ function fmt(n: number) {
   return n.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-export default function QuoteDetail({ onNavigate, quoteId }: Props) {
+export default function QuoteDetail() {
+  const { id: quoteId = '' } = useParams<{ id: string }>();
+  const { navigateTopLevel, goBack } = useNavigation();
   const quote = QUOTE_DATA[quoteId];
 
   const [confirming, setConfirming] = useState(false);
@@ -52,8 +51,8 @@ export default function QuoteDetail({ onNavigate, quoteId }: Props) {
 
   if (!quote) {
     return (
-      <AppShell role="client" activePage="quotes" onNavigate={onNavigate}>
-        <Topbar title="Quote Detail" userName="Ahmed Store" />
+      <AppShell role="client" activePage="quotes">
+        <Topbar title="Quote Detail" />
         <section className="table-wrap"><div className="error-state">Quote not found.</div></section>
       </AppShell>
     );
@@ -64,8 +63,8 @@ export default function QuoteDetail({ onNavigate, quoteId }: Props) {
   const total = subtotal + vat;
 
   return (
-    <AppShell role="client" activePage="quotes" onNavigate={onNavigate}>
-      <Topbar title={`Quote ${quote.id}`} userName="Ahmed Store" />
+    <AppShell role="client" activePage="quotes">
+      <Topbar title={`Quote ${quote.id}`} onBack={goBack} backLabel="Quotes" />
 
       <div className="box invoice-detail-card" style={{ maxWidth: 760, margin: '0 auto' }}>
         <div className="invoice-header">
@@ -128,7 +127,7 @@ export default function QuoteDetail({ onNavigate, quoteId }: Props) {
           <div style={{ marginTop: 20, padding: '16px 20px', background: '#d1fae5', border: '1px solid #6ee7b7', borderRadius: 10, color: '#065f46' }}>
             <strong>Quote confirmed!</strong> Your order is now being sent to production. We'll notify you once it starts.
             <div style={{ marginTop: 12 }}>
-              <button className="btn primary" onClick={() => onNavigate('my-orders')}>View My Orders</button>
+              <button className="btn primary" onClick={() => navigateTopLevel('my-orders')}>View My Orders</button>
             </div>
           </div>
         )}
@@ -198,10 +197,10 @@ export default function QuoteDetail({ onNavigate, quoteId }: Props) {
         {/* ── Approved actions ── */}
         {quote.status === 'Approved' && quote.invoicePage && (
           <div className="invoice-actions">
-            <button className="btn primary" onClick={() => onNavigate(quote.invoicePage!)}>
+            <button className="btn primary" onClick={() => navigateTopLevel(quote.invoicePage!)}>
               View Invoice
             </button>
-            <button className="btn" onClick={() => onNavigate('support')}>Contact Support</button>
+            <button className="btn" onClick={() => navigateTopLevel('support')}>Contact Support</button>
           </div>
         )}
       </div>

@@ -3,6 +3,7 @@ import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatCard from '../../components/StatCard';
 import StatusBadge from '../../components/StatusBadge';
+import { useNavigation } from '../../context/NavigationContext';
 
 export interface Client {
   name: string;
@@ -46,7 +47,6 @@ export interface DashboardData {
 }
 
 interface Props {
-  onNavigate: (page: string) => void;
   /** Optional: specify which client to load (by name or index). Defaults to first client */
   clientIdentifier?: string | number;
   /** Optional: provide custom data source URLs */
@@ -59,8 +59,6 @@ interface Props {
   };
   fallbackData?: Partial<DashboardData>;
 }
-
-// ─── Defaults (mirrors the original hardcoded values) ─────────────────────────
 
 const DEFAULT_DATA: DashboardData = {
   client: { name: 'Ahmed Store', email: 'ahmed@store.com', phone: '+20 101 000 1021', page: 'client-detail-ahmed' },
@@ -102,7 +100,8 @@ const DEFAULT_URLS = {
   statusGuide: '/data/statusGuide.json',
 };
 
-export default function ClientDashboard({ onNavigate, clientIdentifier, dataUrls, fallbackData }: Props) {
+export default function ClientDashboard({ clientIdentifier, dataUrls, fallbackData }: Props) {
+  const { navigateTopLevel } = useNavigation();
   const [dashboardData, setDashboardData] = useState<DashboardData>(DEFAULT_DATA);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -193,8 +192,8 @@ export default function ClientDashboard({ onNavigate, clientIdentifier, dataUrls
 
   if (loading) {
     return (
-      <AppShell role="client" activePage="client-dashboard" onNavigate={onNavigate}>
-        <Topbar title="Dashboard" userName="Loading..." />
+      <AppShell role="client" activePage="client-dashboard">
+        <Topbar title="Dashboard" />
         <div className="loading-container">
           <div className="spinner"></div>
           <p>Loading your dashboard...</p>
@@ -204,8 +203,8 @@ export default function ClientDashboard({ onNavigate, clientIdentifier, dataUrls
   }
 
   return (
-    <AppShell role="client" activePage="client-dashboard" onNavigate={onNavigate}>
-      <Topbar title="Dashboard" userName={dashboardData.client?.name || 'Guest'} />
+    <AppShell role="client" activePage="client-dashboard">
+      <Topbar title="Dashboard" />
 
       {error && (
         <div className="error-banner">
@@ -245,7 +244,7 @@ export default function ClientDashboard({ onNavigate, clientIdentifier, dataUrls
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
-              <button className="filter-icon" type="button" onClick={() => setDropdownOpen((o) => !o)}>🔽</button>
+              <button className="filter-icon" type="button" onClick={() => setDropdownOpen((o) => !o)}>▼</button>
               {dropdownOpen && (
                 <div className="filter-dropdown show">
                   <div className="field">
@@ -262,9 +261,7 @@ export default function ClientDashboard({ onNavigate, clientIdentifier, dataUrls
                       ))}
                     </select>
                   </div>
-                  <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>
-                    Apply Filters
-                  </button>
+                  <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>Apply</button>
                 </div>
               )}
             </div>
@@ -291,8 +288,8 @@ export default function ClientDashboard({ onNavigate, clientIdentifier, dataUrls
                     <td>{o.total}</td>
                     <td>
                       <div className="action-buttons">
-                        <button className="btn btn-sm" onClick={() => onNavigate(`client-order-${o.id.replace('#', '')}`)}>View</button>
-                        <button className="btn btn-sm" onClick={() => onNavigate('track-order')}>Track</button>
+                        <button className="btn btn-sm" onClick={() => navigateTopLevel(`/client/orders/${o.id.replace('#', '')}`)}>View</button>
+                        <button className="btn btn-sm" onClick={() => navigateTopLevel('track-order')}>Track</button>
                       </div>
                     </td>
                   </tr>
@@ -305,9 +302,9 @@ export default function ClientDashboard({ onNavigate, clientIdentifier, dataUrls
         <div className="stack sidebar-cards">
           <section className="box quick-actions">
             <h3>Quick Actions</h3>
-            <button className="btn block primary" onClick={() => onNavigate('place-new-order')}>Place New Order</button>
-            <button className="btn block"         onClick={() => onNavigate('quotes')}>View Quotes</button>
-            <button className="btn block"         onClick={() => onNavigate('support')}>Contact Support</button>
+            <button className="btn block primary" onClick={() => navigateTopLevel('place-new-order')}>Place New Order</button>
+            <button className="btn block"         onClick={() => navigateTopLevel('quotes')}>View Quotes</button>
+            <button className="btn block"         onClick={() => navigateTopLevel('support')}>Contact Support</button>
           </section>
 
           <section className="box status-guide">

@@ -5,10 +5,7 @@ import StatCard from '../../components/StatCard';
 import TableWrap from '../../components/TableWrap';
 import './DocumentManagement.css';
 import { downloadText } from '../../utils/download';
-
-interface Props {
-  onNavigate: (page: string) => void;
-}
+import { useNavigation } from '../../context/NavigationContext';
 
 interface Document {
   id: string;
@@ -26,7 +23,8 @@ interface ReorderOptions {
   size: string;
 }
 
-export default function DocumentManagement({ onNavigate }: Props) {
+export default function DocumentManagement() {
+  const { navigateTopLevel } = useNavigation();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -236,26 +234,26 @@ export default function DocumentManagement({ onNavigate }: Props) {
 
   // Actions for the TableWrap (search + upload button)
   const tableActions = (
-    <div style={{ display: 'flex', gap: '12px' }}>
+    <>
       <div className="search-container">
         <input
-          type="text"
-          className="search-input"
-          placeholder="🔍 Search by file name..."
+          type="search"
+          className="input"
+          placeholder="Search by file name..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
-      <button className="upload-btn" onClick={() => setUploadModalOpen(true)}>
+      <button className="btn primary" onClick={() => setUploadModalOpen(true)}>
         + Upload New
       </button>
-    </div>
+    </>
   );
 
   if (loading) {
     return (
-      <AppShell role="client" activePage="documents" onNavigate={onNavigate}>
-        <Topbar title="My Documents" userName="Ahmed Store" />
+      <AppShell role="client" activePage="documents">
+        <Topbar title="My Documents" />
         <div className="loading-state">Loading your documents...</div>
       </AppShell>
     );
@@ -263,16 +261,16 @@ export default function DocumentManagement({ onNavigate }: Props) {
 
   if (error) {
     return (
-      <AppShell role="client" activePage="documents" onNavigate={onNavigate}>
-        <Topbar title="My Documents" userName="Ahmed Store" />
+      <AppShell role="client" activePage="documents">
+        <Topbar title="My Documents" />
         <div className="error-state">{error}</div>
       </AppShell>
     );
   }
 
   return (
-    <AppShell role="client" activePage="documents" onNavigate={onNavigate}>
-      <Topbar title="My Documents" userName="Ahmed Store" />
+    <AppShell role="client" activePage="documents">
+      <Topbar title="My Documents" />
 
       <div style={{ marginBottom: '8px' }}>
         <h2 style={{ fontSize: '28px', fontWeight: 600, marginBottom: '4px' }}>Print-Ready Files</h2>
@@ -325,12 +323,12 @@ export default function DocumentManagement({ onNavigate }: Props) {
                         <td>
                           <div className="action-buttons">
                             <button
-                              className="btn-sm btn-primary-sm"
+                              className="btn primary btn-sm"
                               onClick={() => setExpandedDocId(isExpanded ? null : doc.id)}
                             >
-                              🔄 Re-order
+                              Re-order
                             </button>
-                            <button className="btn-sm btn-outline-sm" onClick={() => {
+                            <button className="btn btn-sm" onClick={() => {
                               downloadText(`${doc.name}.txt`, [
                                 `Document: ${doc.name}`,
                                 `File:     ${doc.fileName}`,
@@ -339,15 +337,15 @@ export default function DocumentManagement({ onNavigate }: Props) {
                                 `Uploaded: ${doc.uploadedDate}`,
                                 `Re-orders: ${doc.reorderCount}`,
                               ]);
-                              showToast(`⬇️ "${doc.name}" downloaded`);
+                              showToast(`"${doc.name}" downloaded`);
                             }}>
-                              ⬇️ Download
+                              Download
                             </button>
-                            <button className="btn-sm btn-outline-sm" onClick={() => openEditModal(doc.id)}>
-                              ✏️ Edit
+                            <button className="btn btn-sm" onClick={() => openEditModal(doc.id)}>
+                              Edit
                             </button>
-                            <button className="btn-sm btn-outline-sm" onClick={() => handleDelete(doc.id)}>
-                              🗑️
+                            <button className="btn btn-sm" onClick={() => handleDelete(doc.id)}>
+                              Delete
                             </button>
                           </div>
                         </td>
@@ -394,10 +392,10 @@ export default function DocumentManagement({ onNavigate }: Props) {
                                 <option value="A3">A3</option>
                                 <option value="Custom">Custom size</option>
                               </select>
-                              <button className="confirm-reorder" onClick={() => handleReorder(doc)}>
-                                ✅ Confirm Re-order
+                              <button className="btn primary" onClick={() => handleReorder(doc)}>
+                                Confirm Re-order
                               </button>
-                              <button className="cancel-reorder" onClick={() => setExpandedDocId(null)}>
+                              <button className="btn" onClick={() => setExpandedDocId(null)}>
                                 Cancel
                               </button>
                             </div>
@@ -468,12 +466,8 @@ export default function DocumentManagement({ onNavigate }: Props) {
               />
             </div>
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '16px' }}>
-              <button className="btn-sm" onClick={cancelUpload}>
-                Cancel
-              </button>
-              <button className="btn-primary-sm" onClick={confirmUpload} disabled={!uploadFile}>
-                Upload
-              </button>
+              <button className="btn" onClick={cancelUpload}>Cancel</button>
+              <button className="btn primary" onClick={confirmUpload} disabled={!uploadFile}>Upload</button>
             </div>
           </div>
         </div>
@@ -499,12 +493,8 @@ export default function DocumentManagement({ onNavigate }: Props) {
               />
             </div>
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '20px' }}>
-              <button className="btn-sm" onClick={() => setEditModalOpen(false)}>
-                Cancel
-              </button>
-              <button className="btn-primary-sm" onClick={saveEdit}>
-                Save
-              </button>
+              <button className="btn" onClick={() => setEditModalOpen(false)}>Cancel</button>
+              <button className="btn primary" onClick={saveEdit}>Save</button>
             </div>
           </div>
         </div>
