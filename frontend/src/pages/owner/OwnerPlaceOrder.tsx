@@ -1,22 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 
-interface Client {
-  name: string;
-  email: string;
-  phone: string;
-  page: string;
-}
+// ── Inlined from types.ts ───────────────────────────────────────────
+type ItemType = 'book' | 'booklet' | 'card' | 'sticker' | 'poster';
 
-interface PricingRow {
+interface PackageItem {
   id: string;
-  product: string;
-  size: string;
-  paper: string;
-  pricePerUnit: number;
-  minQty: number;
-  active: boolean;
+  type: ItemType;
+  data: Record<string, any>;
 }
 
 interface ClientDocument {
@@ -26,125 +18,134 @@ interface ClientDocument {
   type: string;
   sizeKB: number;
   uploadedDate: string;
+  reorderCount?: number;
+  url?: string;
 }
 
-function fileTypeColor(type: string): string {
-  switch (type.toUpperCase()) {
-    case 'PDF': return '#e74c3c';
-    case 'AI':  return '#f47d01';
-    case 'PSD': return '#3498db';
-    case 'PNG':
-    case 'JPG': return '#27ae60';
-    default:    return '#7f8c8d';
-  }
+interface Client {
+  name: string;
+  email: string;
+  phone: string;
+  page: string;
 }
 
-function fmtSize(kb: number): string {
-  if (kb >= 1024) return (kb / 1024).toFixed(1) + ' MB';
-  return kb + ' KB';
-}
+const ITEM_TYPES: { id: ItemType; label: string; icon: string }[] = [
+  { id: 'book',    label: 'Book',          icon: '📚' },
+  { id: 'booklet', label: 'Booklet',       icon: '📖' },
+  { id: 'card',    label: 'Business Card', icon: '🃏' },
+  { id: 'sticker', label: 'Sticker',       icon: '🏷️' },
+  { id: 'poster',  label: 'Poster',        icon: '🖼️' },
+];
+// ─────────────────────────────────────────────────────────────────────
 
-function fmtCurrency(n: number): string {
-  return n.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
+import { DocLibrary } from '../../components/DocLibrary';
+import { ItemEditor } from '../../components/ItemEditor';
+import { FileField, SelectField } from '../../components/fields';
+import { PdfPreviewPanel } from '../../components/PdfPreviewPanel';
+import { PackageOrderSummary, SingleOrderSummary } from '../../components/OrderSummary';
+
+type OrderType = 'package' | 'single' | null;
 
 export default function OwnerPlaceOrder() {
-  const [clients, setClients]       = useState<Client[]>([]);
-  const [products, setProducts]     = useState<PricingRow[]>([]);
-  const [allDocs, setAllDocs]       = useState<Record<string, ClientDocument[]>>({});
+  const [clients, setClients]               = useState<Client[]>([]);
+  const [selectedClient, setSelectedClient] = useState('');
+  const [orderType, setOrderType]           = useState<OrderType>(null);
+  const [items, setItems]                   = useState<PackageItem[]>([]);
+  const [singleType, setSingleType]         = useState<ItemType | ''>('');
+  const [singleData, setSingleData]         = useState<Record<string, any>>({});
+  const [allDocs, setAllDocs]               = useState<Record<string, ClientDocument[]>>({});
+  const [selectedDocId, setSelectedDocId]   = useState('');
+  const [notes, setNotes]                   = useState('');
+  const [submitted, setSubmitted]           = useState(false);
 
-  const [selectedClient, setSelectedClient]   = useState('');
-  const [selectedProduct, setSelectedProduct] = useState('');
-  const [quantity, setQuantity]               = useState('');
-  const [selectedDocId, setSelectedDocId]     = useState('');
-  const [notes, setNotes]                     = useState('');
-  const [submitted, setSubmitted]             = useState(false);
-  const [toast, setToast]                     = useState<string | null>(null);
+  const [localPreviewFile, setLocalPreviewFile]       = useState<File | null>(null);
+  const [localPreviewUrl, setLocalPreviewUrl]         = useState<string | null>(null);
+  const [localCoverPreviewFile, setLocalCoverPreviewFile] = useState<File | null>(null);
+  const [localCoverPreviewUrl, setLocalCoverPreviewUrl]   = useState<string | null>(null);
+
+  const handleLocalFilePreview = useCallback((file: File | null) => {
+    if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setLocalPreviewUrl(url);
+      setLocalPreviewFile(file);
+    } else {
+      setLocalPreviewUrl(null);
+      setLocalPreviewFile(null);
+    }
+  }, [localPreviewUrl]);
+
+  const handleLocalCoverPreview = useCallback((file: File | null) => {
+    if (localCoverPreviewUrl) URL.revokeObjectURL(localCoverPreviewUrl);
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setLocalCoverPreviewUrl(url);
+      setLocalCoverPreviewFile(file);
+    } else {
+      setLocalCoverPreviewUrl(null);
+      setLocalCoverPreviewFile(null);
+    }
+  }, [localCoverPreviewUrl]);
 
   useEffect(() => {
-    fetch('/data/clients.json')
-      .then(r => r.json())
-      .then(setClients)
-      .catch(() => {});
+    return () => {
+      if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
+      if (localCoverPreviewUrl) URL.revokeObjectURL(localCoverPreviewUrl);
+    };
+  }, [localPreviewUrl, localCoverPreviewUrl]);
+
+  useEffect(() => {
+    fetch('/data/clients.json').then(r => r.json()).then(setClients).catch(() => {});
   }, []);
 
   useEffect(() => {
-    fetch('/data/pricing.json')
-      .then(r => r.json())
-      .then((data: PricingRow[]) => setProducts(data.filter(p => p.active)))
-      .catch(() => {});
+    fetch('/data/client-documents.json').then(r => r.json()).then(setAllDocs).catch(() => {});
   }, []);
 
-  useEffect(() => {
-    fetch('/data/client-documents.json')
-      .then(r => r.json())
-      .then(setAllDocs)
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 2500);
-    return () => clearTimeout(t);
-  }, [toast]);
-
-  const effectiveClient = selectedClient.trim();
-
-  // Only show client info card if the typed name exactly matches a known client
   const chosenClient = clients.find(c => c.name === selectedClient);
+  const clientDocs   = chosenClient ? (allDocs[selectedClient] ?? []) : [];
+  const selectedDoc  = clientDocs.find(d => d.id === selectedDocId) ?? null;
 
-  const clientDocs: ClientDocument[] = chosenClient
-    ? (allDocs[selectedClient] ?? [])
-    : [];
-
-  const activeProducts = products.filter(p => p.active);
-  const chosenProduct  = activeProducts.find(p => p.id === selectedProduct);
-  const chosenDoc      = clientDocs.find(d => d.id === selectedDocId);
-
-  const qty      = parseInt(quantity, 10);
-  const subtotal = chosenProduct && !isNaN(qty) && qty > 0
-    ? chosenProduct.pricePerUnit * qty
-    : 0;
-
-  // Document required only when a known client with docs is selected
-  const docRequirementMet = !chosenClient || clientDocs.length === 0 || !!selectedDocId;
-
-  const canSubmit =
-    !!effectiveClient &&
-    !!selectedProduct &&
-    !isNaN(qty) && qty > 0 &&
-    docRequirementMet;
-
-  function handleSubmit() {
-    if (!canSubmit) return;
-    setSubmitted(true);
-  }
-
-  function resetForm() {
-    setSelectedClient('');
-    setSelectedProduct('');
-    setQuantity('');
+  function resetOrder() {
+    setOrderType(null);
+    setItems([]);
+    setSingleType('');
+    setSingleData({});
     setSelectedDocId('');
     setNotes('');
+    setLocalPreviewFile(null);
+    if (localPreviewUrl) { URL.revokeObjectURL(localPreviewUrl); setLocalPreviewUrl(null); }
+    setLocalCoverPreviewFile(null);
+    if (localCoverPreviewUrl) { URL.revokeObjectURL(localCoverPreviewUrl); setLocalCoverPreviewUrl(null); }
+  }
+
+  function resetAll() {
+    setSelectedClient('');
+    resetOrder();
     setSubmitted(false);
   }
+
+  const addItem    = (type: ItemType) => setItems(p => [...p, { id: crypto.randomUUID(), type, data: {} }]);
+  const updateItem = (id: string, data: Record<string, any>) => setItems(p => p.map(i => i.id === id ? { ...i, data } : i));
+  const removeItem = (id: string) => setItems(p => p.filter(i => i.id !== id));
 
   if (submitted) {
     return (
       <AppShell role="owner" activePage="owner-place-order">
         <Topbar title="Place Order" />
-        <section className="box" style={{ maxWidth: 520, margin: '40px auto', textAlign: 'center', padding: '48px 32px' }}>
-          <div style={{ fontSize: 48, marginBottom: 12, color: 'var(--primary)' }}>✓</div>
-          <h2 style={{ marginBottom: 8 }}>Order Placed!</h2>
-          <p style={{ color: 'var(--muted)', marginBottom: 6, fontSize: 14 }}>
-            Order assigned to <strong>{effectiveClient}</strong>
+        <section className="box success-message">
+          <div className="success-icon">✓</div>
+          <h2>Order Placed!</h2>
+          <p className="success-subtext">
+            Assigned to <strong>{selectedClient}</strong>
           </p>
-          <p style={{ color: 'var(--muted)', marginBottom: 24, fontSize: 14 }}>
-            Product: <strong>{chosenProduct?.product}</strong> &nbsp;·&nbsp; Qty: <strong>{quantity}</strong>
+          <p className="success-subtext">
+            {orderType === 'package'
+              ? `${items.length} item${items.length !== 1 ? 's' : ''} in package`
+              : `${ITEM_TYPES.find(t => t.id === singleType)?.label} · ${singleData.qty ? Number(singleData.qty).toLocaleString() + ' pcs' : '—'}`
+            }
           </p>
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
-            <button className="btn primary" onClick={resetForm}>Place Another Order</button>
-          </div>
+          <button className="btn primary" onClick={resetAll}>Place Another Order</button>
         </section>
       </AppShell>
     );
@@ -154,260 +155,280 @@ export default function OwnerPlaceOrder() {
     <AppShell role="owner" activePage="owner-place-order">
       <Topbar title="Place Order" />
 
-      <div className="split" style={{ alignItems: 'flex-start' }}>
+      {/* ── Client selector ── */}
+      <section className="box mb-5">
+        <h3 className="section-heading">Select Client</h3>
+        <div className="client-selector">
+          <div className="client-search">
+            <label className="field-label">Client</label>
+            <input
+              className="input"
+              type="text"
+              list="owner-clients-list"
+              placeholder="Type or search for a client…"
+              value={selectedClient}
+              onChange={e => { setSelectedClient(e.target.value); resetOrder(); }}
+              autoComplete="off"
+            />
+            <datalist id="owner-clients-list">
+              {clients.map(c => <option key={c.name} value={c.name} />)}
+            </datalist>
+            {selectedClient && !chosenClient && (
+              <p className="new-client-hint">
+                New client — no existing record found.
+              </p>
+            )}
+          </div>
+          {chosenClient && (
+            <div className="client-card-mini">
+              <span className="client-card-mini__name">{chosenClient.name}</span>
+              <span className="client-card-mini__detail">{chosenClient.email}</span>
+              <span className="client-card-mini__detail">{chosenClient.phone}</span>
+            </div>
+          )}
+        </div>
+      </section>
 
-        {/* ── Left: Form ── */}
-        <div style={{ display: 'grid', gap: 16 }}>
+      {/* ── Order type picker ── */}
+      {!!selectedClient && !orderType && (
+        <section className="order-type-picker">
+          <p className="picker-intro">
+            Choose how you'd like to place this order for <strong>{selectedClient}</strong>.
+          </p>
+          <div className="grid-2">
+            <div className="box picker-card" onClick={() => setOrderType('package')}>
+              <h3>Package Order</h3>
+              <p>Combine multiple print items (books, cards, posters…) into one order.</p>
+            </div>
+            <div className="box picker-card" onClick={() => setOrderType('single')}>
+              <h3>Individual Order</h3>
+              <p>Order a single print item with full customization options.</p>
+            </div>
+          </div>
+        </section>
+      )}
 
-          {/* Step 1 — Client */}
-          <section className="box">
-            <h3 style={{ marginBottom: 14 }}>1. Select Client</h3>
+      {/* ── Package order ── */}
+      {orderType === 'package' && (
+        <>
+          <button className="global-back-btn" onClick={resetOrder}>← Back</button>
+          <section className="split panel-wrapper">
+            <div className="panel-left">
+              <DocLibrary docs={clientDocs} selectedDocId={selectedDocId} onSelect={setSelectedDocId} />
 
-            <div className="field" style={{ marginBottom: 0 }}>
-              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>
-                Client
-              </label>
-              <input
-                className="input"
-                type="text"
-                list="clients-list"
-                placeholder="Type or search for a client…"
-                value={selectedClient}
-                onChange={e => { setSelectedClient(e.target.value); setSelectedDocId(''); }}
-                style={{ width: '100%' }}
-                autoComplete="off"
-              />
-              <datalist id="clients-list">
-                {clients.map(c => (
-                  <option key={c.name} value={c.name} />
-                ))}
-              </datalist>
-              {selectedClient && !chosenClient && (
-                <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4, fontStyle: 'italic' }}>
-                  New client — no existing record found.
-                </p>
+              <div className="box">
+                <h3 className="add-items-heading">Add Items to Your Package</h3>
+                <p className="add-items-help">Click a product type to add it to the order.</p>
+                <div className="item-type-grid">
+                  {ITEM_TYPES.map(t => (
+                    <button
+                      key={t.id}
+                      onClick={() => addItem(t.id)}
+                      className="item-type-btn"
+                    >
+                      <span className="item-type-icon">{t.icon}</span>
+                      <span className="item-type-label">{t.label}</span>
+                    </button>
+                  ))}
+                </div>
+                {items.length === 0 && (
+                  <p className="no-items-hint">No items added yet.</p>
+                )}
+              </div>
+
+              {items.map((item, idx) => (
+                <ItemEditor
+                  key={item.id}
+                  item={item}
+                  onChange={data => updateItem(item.id, data)}
+                  onRemove={() => removeItem(item.id)}
+                  libraryDoc={idx === 0 ? selectedDoc : null}
+                  onClearLibraryDoc={() => setSelectedDocId('')}
+                />
+              ))}
+
+              {items.length > 0 && (
+                <div className="box">
+                  <h3 className="notes-heading">Additional Notes</h3>
+                  <textarea className="input textarea" rows={3} placeholder="Special instructions, finishing details…" value={notes} onChange={e => setNotes(e.target.value)} />
+                </div>
               )}
             </div>
 
-            {chosenClient && (
-              <div style={{
-                marginTop: 12, padding: '10px 14px',
-                background: 'var(--primary-soft)', borderRadius: 8,
-                fontSize: 13, display: 'grid', gap: 3,
-              }}>
-                <span style={{ fontWeight: 600, color: 'var(--primary-dark)' }}>{chosenClient.name}</span>
-                <span style={{ color: 'var(--muted)' }}>{chosenClient.email}</span>
-                <span style={{ color: 'var(--muted)' }}>{chosenClient.phone}</span>
-              </div>
-            )}
+            <aside className="sticky-panel">
+              <PackageOrderSummary
+                selectedClient={selectedClient}
+                items={items}
+                selectedDoc={selectedDoc}
+                onSubmit={() => setSubmitted(true)}
+              />
+            </aside>
           </section>
+        </>
+      )}
 
-          {/* Step 2 — Client Documents (only for known clients with docs) */}
-          {chosenClient && (
-            <section className="box">
-              <h3 style={{ marginBottom: 4 }}>2. Choose Client Document</h3>
-              <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 14 }}>
-                Select the file this order should be printed from.
-              </p>
+      {/* ── Individual order ── */}
+      {orderType === 'single' && (
+        <>
+          <button className="global-back-btn" onClick={resetOrder}>← Back</button>
+          <section className="split panel-wrapper">
+            <div className="panel-left">
+              <DocLibrary docs={clientDocs} selectedDocId={selectedDocId} onSelect={setSelectedDocId} />
 
-              {clientDocs.length === 0 ? (
-                <p style={{ fontSize: 13, color: 'var(--muted)', fontStyle: 'italic' }}>
-                  No documents uploaded by this client yet.
-                </p>
-              ) : (
-                <div style={{ display: 'grid', gap: 10 }}>
-                  {clientDocs.map(doc => {
-                    const selected = doc.id === selectedDocId;
+              <div className="box">
+                <h3 className="single-type-heading">What would you like to print?</h3>
+                <p className="single-type-help">Pick a product type to configure the order.</p>
+
+                <div className="item-type-grid single-type-grid">
+                  {ITEM_TYPES.map(t => {
+                    const active = singleType === t.id;
                     return (
-                      <div
-                        key={doc.id}
-                        onClick={() => setSelectedDocId(doc.id)}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 14,
-                          padding: '12px 14px', borderRadius: 8, cursor: 'pointer',
-                          border: `2px solid ${selected ? 'var(--primary)' : 'var(--border)'}`,
-                          background: selected ? 'var(--primary-soft)' : 'var(--surface)',
-                          transition: 'border-color .15s, background .15s',
-                        }}
+                      <button
+                        key={t.id}
+                        onClick={() => { setSingleType(t.id as ItemType); setSingleData({}); }}
+                        className={`item-type-btn ${active ? 'item-type-btn--active' : ''}`}
                       >
-                        <div style={{
-                          width: 42, height: 42, borderRadius: 8, flexShrink: 0,
-                          background: fileTypeColor(doc.type),
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: 11, fontWeight: 700, color: '#fff', letterSpacing: 0.5,
-                        }}>
-                          {doc.type}
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {doc.name}
-                          </div>
-                          <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                            {doc.fileName} &nbsp;·&nbsp; {fmtSize(doc.sizeKB)} &nbsp;·&nbsp; {doc.uploadedDate}
-                          </div>
-                        </div>
-                        {selected && (
-                          <div style={{
-                            width: 22, height: 22, borderRadius: '50%',
-                            background: 'var(--primary)', flexShrink: 0,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            color: '#fff', fontSize: 13, fontWeight: 700,
-                          }}>
-                            ✓
-                          </div>
-                        )}
-                      </div>
+                        <span className="item-type-icon">{t.icon}</span>
+                        <span className="item-type-label">{t.label}</span>
+                      </button>
                     );
                   })}
                 </div>
-              )}
-            </section>
-          )}
 
-          {/* Step 3 — Product & Quantity */}
-          <section className="box">
-            <h3 style={{ marginBottom: 14 }}>
-              {chosenClient ? '3.' : '2.'} Order Details
-            </h3>
+                {singleType && (
+                  <>
+                    <div className="line line--compact" />
+                    <p className="spec-section-label">File & Quantity</p>
+                    <FileField
+                      label="Print File (PDF)"
+                      value={singleData.pdf ?? null}
+                      onChange={f => setSingleData(d => ({ ...d, pdf: f }))}
+                      libraryDoc={selectedDoc}
+                      onClearLibrary={() => setSelectedDocId('')}
+                      onFilePreview={handleLocalFilePreview}
+                    />
+                    <div className="field mb-4">
+                      <label className="field-label">Quantity</label>
+                      <input className="input" type="number" min={1} placeholder="e.g. 500" value={singleData.qty ?? ''} onChange={e => setSingleData(d => ({ ...d, qty: e.target.value }))} />
+                    </div>
 
-            <div className="field" style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Product</label>
-              <select
-                className="select"
-                value={selectedProduct}
-                onChange={e => setSelectedProduct(e.target.value)}
-              >
-                <option value="">— Choose a product —</option>
-                {activeProducts.map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.product} — {p.size} / {p.paper}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {chosenProduct && (
-              <div style={{
-                marginBottom: 14, padding: '10px 14px',
-                background: 'var(--surface-soft)', borderRadius: 8,
-                fontSize: 13, display: 'flex', gap: 20,
-                border: '1px solid var(--border)',
-              }}>
-                <span><strong>Size:</strong> {chosenProduct.size}</span>
-                <span><strong>Paper:</strong> {chosenProduct.paper}</span>
-                <span><strong>Unit price:</strong> EGP {fmtCurrency(chosenProduct.pricePerUnit)}</span>
-                <span><strong>Min qty:</strong> {chosenProduct.minQty}</span>
+                    {singleType === 'book' && (
+                      <>
+                        <div className="line line--compact" />
+                        <p className="spec-section-label">Book Specifications</p>
+                        <FileField label="Cover File" value={singleData.cover ?? null} onChange={f => setSingleData(d => ({ ...d, cover: f }))} onFilePreview={handleLocalCoverPreview} />
+                        {localCoverPreviewFile && (
+                          <PdfPreviewPanel
+                            doc={{
+                              id: 'single-cover-preview',
+                              name: localCoverPreviewFile.name,
+                              fileName: localCoverPreviewFile.name,
+                              type: (localCoverPreviewFile.name.split('.').pop() ?? 'PDF').toUpperCase(),
+                              sizeKB: Math.round(localCoverPreviewFile.size / 1024),
+                              uploadedDate: new Date().toLocaleDateString(),
+                              url: localCoverPreviewUrl!,
+                            }}
+                            height={200}
+                          />
+                        )}
+                        <div className="form-grid-2 mt-1">
+                          <SelectField label="Cover Finish" options={['Matte', 'Shiny', 'Transparent']} value={singleData.coverFinish ?? 'Matte'} onChange={v => setSingleData(d => ({ ...d, coverFinish: v }))} />
+                          <SelectField label="Colors"       options={['B&W', 'Colors']}                 value={singleData.colors ?? 'Colors'}      onChange={v => setSingleData(d => ({ ...d, colors: v }))} />
+                          <SelectField label="Size"         options={['A4', 'A5']}                       value={singleData.size ?? 'A4'}            onChange={v => setSingleData(d => ({ ...d, size: v }))} />
+                          <SelectField label="Print Type"   options={['Front', 'Front & Back']}          value={singleData.printType ?? 'Front & Back'} onChange={v => setSingleData(d => ({ ...d, printType: v }))} />
+                          <SelectField label="Binding"      options={['Softcover', 'Hardcover', 'Spiral']} value={singleData.casing ?? 'Softcover'} onChange={v => setSingleData(d => ({ ...d, casing: v }))} />
+                        </div>
+                      </>
+                    )}
+                    {singleType === 'booklet' && (
+                      <>
+                        <div className="line line--compact" />
+                        <p className="spec-section-label">Booklet Specifications</p>
+                        <div className="form-grid-2">
+                          <SelectField label="Paper Weight" options={['150g', '200g', '300g']}         value={singleData.weight ?? '150g'}        onChange={v => setSingleData(d => ({ ...d, weight: v }))} />
+                          <SelectField label="Size"         options={['A4', 'A3 (Centerfold)']}         value={singleData.size ?? 'A4'}            onChange={v => setSingleData(d => ({ ...d, size: v }))} />
+                          <SelectField label="Colors"       options={['B&W', 'Colors']}                 value={singleData.colors ?? 'Colors'}      onChange={v => setSingleData(d => ({ ...d, colors: v }))} />
+                          <SelectField label="Print Type"   options={['Front', 'Front & Back']}          value={singleData.printType ?? 'Front & Back'} onChange={v => setSingleData(d => ({ ...d, printType: v }))} />
+                          <SelectField label="Binding"      options={['Staple', 'Glue']}                 value={singleData.casing ?? 'Staple'}     onChange={v => setSingleData(d => ({ ...d, casing: v }))} />
+                        </div>
+                      </>
+                    )}
+                    {singleType === 'card' && (
+                      <>
+                        <div className="line line--compact" />
+                        <p className="spec-section-label">Card Specifications</p>
+                        <div className="form-grid-2">
+                          <SelectField label="Paper Weight" options={['200g', '300g', '400g']}          value={singleData.weight ?? '300g'}        onChange={v => setSingleData(d => ({ ...d, weight: v }))} />
+                          <SelectField label="Size"         options={['6×9 cm', '3×6 cm', 'A5', 'A4 ÷ 8']} value={singleData.size ?? '6×9 cm'}   onChange={v => setSingleData(d => ({ ...d, size: v }))} />
+                          <SelectField label="Finish"       options={['Matte', 'Glossy', 'UV']}          value={singleData.finish ?? 'Matte'}      onChange={v => setSingleData(d => ({ ...d, finish: v }))} />
+                          <SelectField label="Print Type"   options={['Front', 'Front & Back']}          value={singleData.printType ?? 'Front & Back'} onChange={v => setSingleData(d => ({ ...d, printType: v }))} />
+                        </div>
+                      </>
+                    )}
+                    {singleType === 'sticker' && (
+                      <>
+                        <div className="line line--compact" />
+                        <p className="spec-section-label">Sticker Specifications</p>
+                        <div className="form-grid-2">
+                          <SelectField label="Material" options={['Vinyl', 'Paper', 'Clear']}            value={singleData.material ?? 'Vinyl'}    onChange={v => setSingleData(d => ({ ...d, material: v }))} />
+                          <SelectField label="Shape"    options={['Rectangle', 'Circle', 'Custom']}      value={singleData.shape ?? 'Rectangle'}   onChange={v => setSingleData(d => ({ ...d, shape: v }))} />
+                          <SelectField label="Finish"   options={['Glossy', 'Matte']}                    value={singleData.finish ?? 'Glossy'}     onChange={v => setSingleData(d => ({ ...d, finish: v }))} />
+                        </div>
+                      </>
+                    )}
+                    {singleType === 'poster' && (
+                      <>
+                        <div className="line line--compact" />
+                        <p className="spec-section-label">Poster Specifications</p>
+                        <div className="form-grid-2">
+                          <SelectField label="Size"         options={['A3', 'A2', 'A1', 'A0']}          value={singleData.size ?? 'A3'}           onChange={v => setSingleData(d => ({ ...d, size: v }))} />
+                          <SelectField label="Paper Weight" options={['150g', '200g', '300g']}           value={singleData.weight ?? '200g'}       onChange={v => setSingleData(d => ({ ...d, weight: v }))} />
+                          <SelectField label="Finish"       options={['Matte', 'Glossy']}                value={singleData.finish ?? 'Matte'}      onChange={v => setSingleData(d => ({ ...d, finish: v }))} />
+                          <SelectField label="Print Type"   options={['Front', 'Front & Back']}          value={singleData.printType ?? 'Front'}   onChange={v => setSingleData(d => ({ ...d, printType: v }))} />
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
               </div>
-            )}
 
-            <div className="field" style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Quantity</label>
-              <input
-                className="input"
-                type="number"
-                min={chosenProduct?.minQty ?? 1}
-                placeholder={chosenProduct ? `Min ${chosenProduct.minQty}` : 'e.g. 500'}
-                value={quantity}
-                onChange={e => setQuantity(e.target.value)}
-                style={{ width: 160 }}
-              />
-              {chosenProduct && !isNaN(qty) && qty > 0 && qty < chosenProduct.minQty && (
-                <p style={{ fontSize: 12, color: '#e74c3c', marginTop: 4 }}>
-                  Minimum quantity for this product is {chosenProduct.minQty}.
-                </p>
+              {singleType && (
+                <div className="box">
+                  <h3 className="notes-heading">Additional Notes</h3>
+                  <textarea className="input textarea" rows={3} placeholder="Special instructions, finishing details…" value={notes} onChange={e => setNotes(e.target.value)} />
+                </div>
               )}
             </div>
 
-            <div className="field" style={{ marginBottom: 0 }}>
-              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Notes (optional)</label>
-              <textarea
-                className="input"
-                rows={3}
-                placeholder="Special instructions, finishing details…"
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
-                style={{ resize: 'vertical', width: '100%' }}
+            <aside className="sticky-panel">
+              <SingleOrderSummary
+                selectedClient={selectedClient}
+                singleType={singleType}
+                singleData={singleData}
+                selectedDoc={selectedDoc}
+                localPreviewFile={localPreviewFile}
+                onSubmit={() => setSubmitted(true)}
               />
-            </div>
+              {(selectedDoc || localPreviewFile) && (
+                <PdfPreviewPanel
+                  doc={
+                    selectedDoc
+                      ? selectedDoc
+                      : {
+                          id: 'local-preview',
+                          name: localPreviewFile!.name,
+                          fileName: localPreviewFile!.name,
+                          type: (localPreviewFile!.name.split('.').pop() ?? 'PDF').toUpperCase(),
+                          sizeKB: Math.round(localPreviewFile!.size / 1024),
+                          uploadedDate: new Date().toLocaleDateString(),
+                          url: localPreviewUrl!,
+                        }
+                  }
+                />
+              )}
+            </aside>
           </section>
-        </div>
-
-        {/* ── Right: Summary sidebar ── */}
-        <aside className="box" style={{ position: 'sticky', top: 18, alignSelf: 'flex-start', minWidth: 260 }}>
-          <h3 style={{ marginBottom: 16 }}>Order Summary</h3>
-
-          <div style={{ display: 'grid', gap: 10, fontSize: 13, marginBottom: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--muted)' }}>Client</span>
-              <span style={{ fontWeight: 600 }}>{effectiveClient || '—'}</span>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--muted)' }}>Product</span>
-              <span style={{ fontWeight: 600, textAlign: 'right', maxWidth: 160 }}>
-                {chosenProduct ? chosenProduct.product : '—'}
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--muted)' }}>Quantity</span>
-              <span style={{ fontWeight: 600 }}>
-                {!isNaN(qty) && qty > 0 ? qty.toLocaleString() : '—'}
-              </span>
-            </div>
-
-            {chosenDoc && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <span style={{ color: 'var(--muted)' }}>Document</span>
-                <span style={{ fontWeight: 600, textAlign: 'right', maxWidth: 160 }}>{chosenDoc.name}</span>
-              </div>
-            )}
-
-            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 10, display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--muted)' }}>Est. Total</span>
-              <span style={{ fontWeight: 700, fontSize: 15, color: subtotal > 0 ? 'var(--text)' : 'var(--muted)' }}>
-                {subtotal > 0 ? `EGP ${fmtCurrency(subtotal)}` : '—'}
-              </span>
-            </div>
-          </div>
-
-          {/* Validation hints */}
-          {!canSubmit && (
-            <ul style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 14, paddingLeft: 16 }}>
-              {!effectiveClient && <li>Enter or select a client</li>}
-              {chosenClient && clientDocs.length > 0 && !selectedDocId && (
-                <li>Choose a document</li>
-              )}
-              {!selectedProduct  && <li>Choose a product</li>}
-              {(!quantity || isNaN(qty) || qty <= 0) && <li>Enter a valid quantity</li>}
-              {chosenProduct && !isNaN(qty) && qty > 0 && qty < chosenProduct.minQty && (
-                <li>Quantity below minimum ({chosenProduct.minQty})</li>
-              )}
-            </ul>
-          )}
-
-          <button
-            className="btn primary block"
-            disabled={!canSubmit || (!!chosenProduct && !isNaN(qty) && qty > 0 && qty < chosenProduct.minQty)}
-            onClick={handleSubmit}
-          >
-            Place Order
-          </button>
-
-          <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 10, textAlign: 'center' }}>
-            Order will be sent to the Unpriced Queue for pricing.
-          </p>
-        </aside>
-      </div>
-
-      {toast && (
-        <div style={{
-          position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
-          background: '#2f3640', color: '#fff', padding: '10px 20px', borderRadius: 8,
-          fontSize: 13, zIndex: 1000, boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-        }}>
-          {toast}
-        </div>
+        </>
       )}
     </AppShell>
   );
