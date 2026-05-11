@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import AppShell from '../../components/AppShell';
 import StatusBadge from '../../components/StatusBadge';
 import { useNavigation } from '../../context/NavigationContext';
+import DocumentSection from '../../components/DocumentSection';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -17,7 +18,7 @@ interface BasePricingRow {
 }
 
 interface ClientPricingOverride {
-  id: string;        // matches BasePricingRow.id
+  id: string;
   pricePerUnit: number;
   active: boolean;
 }
@@ -56,16 +57,15 @@ export default function ClientDetail() {
   const { id: clientId = 'client-detail-ahmed' } = useParams<{ id: string }>();
   const { navigateTopLevel } = useNavigation();
 
-  const [client, setClient]           = useState<ClientDetail | null>(null);
-  const [pricing, setPricing]         = useState<MergedPricingRow[]>([]);
-  const [loading, setLoading]         = useState(true);
-  const [error, setError]             = useState<string | null>(null);
-  const [editId, setEditId]           = useState<string | null>(null);
-  const [editPrice, setEditPrice]     = useState('');
-  const [editMinQty, setEditMinQty]   = useState('');
-  const [toast, setToast]             = useState<string | null>(null);
+  const [client, setClient]         = useState<ClientDetail | null>(null);
+  const [pricing, setPricing]       = useState<MergedPricingRow[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState<string | null>(null);
+  const [editId, setEditId]         = useState<string | null>(null);
+  const [editPrice, setEditPrice]   = useState('');
+  const [editMinQty, setEditMinQty] = useState('');
+  const [toast, setToast]           = useState<string | null>(null);
 
-  // Load base pricing + client data in parallel
   useEffect(() => {
     Promise.all([
       fetch('/data/pricing.json').then(r => { if (!r.ok) throw new Error(); return r.json() as Promise<BasePricingRow[]>; }),
@@ -75,7 +75,6 @@ export default function ClientDetail() {
         const found = clients.find(c => c.id === clientId);
         if (!found) { setError(`Client with ID "${clientId}" not found.`); setLoading(false); return; }
 
-        // Merge: start from base, apply any per-client overrides
         const merged: MergedPricingRow[] = basePricing.map(base => {
           const override = found.pricingOverrides?.find(o => o.id === base.id);
           return override
@@ -94,14 +93,12 @@ export default function ClientDetail() {
       });
   }, [clientId]);
 
-  // Toast auto-dismiss
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 2500);
     return () => clearTimeout(t);
   }, [toast]);
 
-  // Pricing actions
   const startEdit = (row: MergedPricingRow) => {
     setEditId(row.id);
     setEditPrice(String(row.pricePerUnit));
@@ -169,6 +166,17 @@ export default function ClientDetail() {
             </div>
           ))}
         </div>
+      </section>
+
+      {/* ── Documents ── */}
+      <section className="box" style={{ marginTop: 14 }}>
+        <div className="table-head" style={{ marginBottom: 14 }}>
+          <h3>Documents</h3>
+          <p style={{ fontSize: 13, color: 'var(--muted)' }}>
+            Click a document to expand its preview. Rename, download, or remove files below.
+          </p>
+        </div>
+        <DocumentSection clientId={clientId} />
       </section>
 
       {/* ── Client Pricing ── */}
