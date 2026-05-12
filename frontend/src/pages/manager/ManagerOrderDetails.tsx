@@ -6,59 +6,128 @@ import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
 import { useNavigation } from '../../context/NavigationContext';
 
-interface OrderData {
-  client: string; batch: string; product: string; status: string;
-  qty: number; deadline: string; step: string; progress: number;
-  type: 'pending' | 'completed';
-  invoiceId?: string;
+interface Order {
+  id: string;
+  clientId: string;
+  product: string;
+  status: string;
+  orderDate: string;
+  deliveryDate: string | null;
+  total: number | null;
+  paid: number | null;
+  paymentMethod: string | null;
+  invoiceId: string | null;
+  specs: Record<string, any>;
 }
 
-interface InvoiceData {
-  id: string; issued: string; due: string; paidDate?: string; status: string;
-  billedTo: { name: string; address: string; taxId: string };
-  items: { description: string; quantity: number; unitPrice: number }[];
-  vatRate: number; notes?: string;
+interface Batch {
+  id: string;
+  orderId: string;
+  clientId: string;
+  product: string;
+  qty: number;
+  progress: number;
+  priority: string;
+  assignedTo: string | null;
+  deadline: string | null;
+  status: string;
+  stages: Array<{ stage: string; status: string; updatedAt: string | null }>;
+  notes: string;
 }
 
-function fmt(n: number) { return n.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+interface Invoice {
+  id: string;
+  orderId: string;
+  clientId: string;
+  issued: string;
+  due: string;
+  paidDate: string | null;
+  amount: number;
+  status: string;
+  vatRate: number;
+  items: Array<{ description: string; quantity: number; unitPrice: number }>;
+  notes: string;
+}
+
+interface Client {
+  id: string;
+  name: string;
+  address: string;
+  taxId: string;
+}
+
+function formatDate(isoDate: string | null): string {
+  if (!isoDate) return '—';
+  const d = new Date(isoDate);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function fmt(n: number): string {
+  return n.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 
 export default function ManagerOrderDetails() {
-  const { id: orderId = '' } = useParams<{ id: string }>();
+  const { id: orderIdParam = '' } = useParams<{ id: string }>();
   const { navigateTopLevel, goBack } = useNavigation();
   const [sentToAccounting, setSentToAccounting] = useState(false);
   const [showInvoice, setShowInvoice] = useState(false);
-  
-  // Data state
-  const [orderData, setOrderData] = useState<Record<string, OrderData>>({});
-  const [invoiceData, setInvoiceData] = useState<Record<string, InvoiceData>>({});
+
+  const [order, setOrder] = useState<Order | null>(null);
+  const [batch, setBatch] = useState<Batch | null>(null);
+  const [invoice, setInvoice] = useState<Invoice | null>(null);
+  const [client, setClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!orderIdParam) {
+      setError('No order ID provided.');
+      setLoading(false);
+      return;
+    }
+
     Promise.all([
-      fetch('/data/work-orders.json').then(res => {
-        if (!res.ok) throw new Error(`Orders HTTP ${res.status}`);
-        return res.json();
-      }),
-      fetch('/data/manager-invoices.json').then(res => {
-        if (!res.ok) throw new Error(`Invoices HTTP ${res.status}`);
-        return res.json();
-      })
+      fetch('/data/json/orders.json').then(res => res.json()),
+      fetch('/data/json/batches.json').then(res => res.json()),
+      fetch('/data/json/invoices.json').then(res => res.json()),
+      fetch('/data/json/clients.json').then(res => res.json())
     ])
-      .then(([orders, invoices]) => {
-        setOrderData(orders);
-        setInvoiceData(invoices);
+      .then(([ordersData, batchesData, invoicesData, clientsData]) => {
+        const orders: Order[] = ordersData;
+        const batches: Batch[] = batchesData;
+        const invoices: Invoice[] = invoicesData;
+        const clients: Client[] = clientsData;
+
+        // Find order: try full ID first, then try by numeric suffix
+        let foundOrder = orders.find(o => o.id === orderIdParam);
+        if (!foundOrder) {
+          // Try to match orders where the ID contains "-{orderIdParam}-"
+          const numericPattern = new RegExp(`-${orderIdParam}-`);
+          foundOrder = orders.find(o => numericPattern.test(o.id));
+        }
+        if (!foundOrder) {
+          setError(`Order ${orderIdParam} not found.`);
+          setLoading(false);
+          return;
+        }
+
+        const foundBatch = batches.find(b => b.orderId === foundOrder!.id) || null;
+        const foundInvoice = foundOrder!.invoiceId ? invoices.find(i => i.id === foundOrder!.invoiceId) : null;
+        const foundClient = clients.find(c => c.id === foundOrder!.clientId) || null;
+
+        setOrder(foundOrder);
+        setBatch(foundBatch);
+        setInvoice(foundInvoice || null);
+        setClient(foundClient);
         setLoading(false);
       })
       .catch((err) => {
-        console.error('Failed to load order/invoice data:', err);
+        console.error('Failed to load order details:', err);
         setError('Could not load order details. Please try again later.');
         setLoading(false);
       });
-  }, []);
-
-  const order = orderId ? orderData[orderId] : null;
-  const invoice = order?.invoiceId ? invoiceData[order.invoiceId] : null;
+  }, [orderIdParam]);
 
   if (loading) {
     return (
@@ -69,54 +138,51 @@ export default function ManagerOrderDetails() {
     );
   }
 
-  if (error) {
+  if (error || !order) {
     return (
       <AppShell role="manager" activePage="manager-orders">
         <Topbar title="Order Details" />
-        <div className="error-state">{error}</div>
+        <div className="error-state">{error || 'Order not found.'}</div>
       </AppShell>
     );
   }
 
-  if (!order) {
-    return (
-      <AppShell role="manager" activePage="manager-orders">
-        <Topbar title="Order Details" />
-        <div className="error-state">Order not found.</div>
-      </AppShell>
-    );
-  }
+  // Derived values
+  const qty = batch?.qty || order.specs?.qty || 0;
+  const progress = batch ? Math.round((batch.progress / batch.qty) * 100) : 0;
+  const deadline = batch?.deadline ? formatDate(batch.deadline) : '—';
+  const stepLabel = batch?.stages?.find(s => s.status !== 'done')?.stage || (order.status === 'completed' ? 'Done' : 'In progress');
+  const isCompleted = order.status === 'completed' || order.status === 'canceled';
 
   return (
     <AppShell role="manager" activePage="manager-orders">
-      <Topbar title={`Order Details #${orderId}`} onBack={goBack} backLabel="Orders" />
+      <Topbar title={`Order Details #${orderIdParam}`} onBack={goBack} backLabel="Orders" />
       <section className="order-layout">
         <article className="stack">
           <section className="box">
             <h3>Order Overview</h3>
             <div className="spec-grid">
-              <p>Client       <span>{order.client}</span></p>
-              <p>Batch Code   <span>{order.batch}</span></p>
+              <p>Client       <span>{client?.name || 'Unknown'}</span></p>
+              <p>Batch Code   <span>{batch?.id || '—'}</span></p>
               <p>Product      <span>{order.product}</span></p>
               <p>Status       <span><StatusBadge status={order.status} /></span></p>
-              <p>Quantity     <span>{order.qty}</span></p>
-              <p>Deadline     <span>{order.deadline}</span></p>
+              <p>Quantity     <span>{qty}</span></p>
+              <p>Deadline     <span>{deadline}</span></p>
             </div>
           </section>
 
           <section className="box">
             <h3>Production Progress</h3>
-            <p><strong>Current Step:</strong> {order.step}</p>
-            <ProgressBar percent={order.progress} style={{ marginTop: 10 }} />
-            {order.type === 'completed' && (
-              <p style={{ marginTop: 10, color: '#2c9a4b', fontWeight: 600 }}>All stages complete.</p>
+            <p><strong>Current Step:</strong> {stepLabel}</p>
+            <ProgressBar percent={progress} style={{ marginTop: 10 }} />
+            {isCompleted && (
+              <p style={{ marginTop: 10, color: '#2c9a4b', fontWeight: 600 }}>Order completed.</p>
             )}
-            {order.type === 'pending' && (
+            {!isCompleted && batch?.stages && batch.stages.length > 0 && (
               <ul style={{ marginTop: 10, fontSize: 13 }}>
-                <li>Prepress: Pending</li>
-                <li>Printing: Not started</li>
-                <li>Finishing: Not started</li>
-                <li>QC: Not started</li>
+                {batch.stages.map(s => (
+                  <li key={s.stage}>{s.stage}: {s.status}</li>
+                ))}
               </ul>
             )}
           </section>
@@ -124,14 +190,14 @@ export default function ManagerOrderDetails() {
 
         <aside className="box">
           <h3>Manager Actions</h3>
-          {order.type === 'pending' && (
+          {!isCompleted ? (
             <>
-              <button className="btn primary block" onClick={() => navigateTopLevel(`/manager/orders/edit/${orderId}`)}>
+              <button className="btn primary block" onClick={() => navigateTopLevel(`/manager/orders/edit/${order.id}`)}>
                 Edit Order
               </button>
               {sentToAccounting ? (
                 <div style={{ marginTop: 10, padding: '10px 14px', background: '#f0faf4', border: '1px solid #a8ddb5', borderRadius: 8, fontSize: 13, color: '#2c7a4b' }}>
-                  Order <strong>#{orderId}</strong> has been forwarded to the accounting team for invoicing.
+                  Order <strong>#{orderIdParam}</strong> has been forwarded to the accounting team for invoicing.
                 </div>
               ) : (
                 <button
@@ -143,15 +209,16 @@ export default function ManagerOrderDetails() {
                 </button>
               )}
             </>
-          )}
-          {order.type === 'completed' && (
+          ) : (
             <>
-              <button className="btn primary block" onClick={() => setShowInvoice(true)}>
-                View Invoice
-              </button>
+              {order.invoiceId && (
+                <button className="btn primary block" onClick={() => setShowInvoice(true)}>
+                  View Invoice
+                </button>
+              )}
               {sentToAccounting ? (
                 <div style={{ marginTop: 8, padding: '10px 14px', background: '#f0faf4', border: '1px solid #a8ddb5', borderRadius: 8, fontSize: 13, color: '#2c7a4b' }}>
-                  Invoice for order <strong>#{orderId}</strong> has been sent to the accounting team.
+                  Invoice for order <strong>#{orderIdParam}</strong> has been sent to the accounting team.
                 </div>
               ) : (
                 <button className="btn block" style={{ marginTop: 8 }} onClick={() => setSentToAccounting(true)}>
@@ -165,6 +232,7 @@ export default function ManagerOrderDetails() {
           )}
         </aside>
       </section>
+
       {showInvoice && invoice && (() => {
         const subtotal = invoice.items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
         const vat = subtotal * invoice.vatRate;
@@ -182,10 +250,10 @@ export default function ManagerOrderDetails() {
               <div style={{ padding: 20 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
                   <div>
-                    <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 2 }}>Linked Order: #{orderId}</p>
-                    <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 2 }}>Issue Date: {invoice.issued}</p>
-                    <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 2 }}>Due Date: {invoice.due}</p>
-                    {invoice.paidDate && <p style={{ fontSize: 12, color: 'var(--muted)' }}>Paid: {invoice.paidDate}</p>}
+                    <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 2 }}>Linked Order: {order.id}</p>
+                    <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 2 }}>Issue Date: {formatDate(invoice.issued)}</p>
+                    <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 2 }}>Due Date: {formatDate(invoice.due)}</p>
+                    {invoice.paidDate && <p style={{ fontSize: 12, color: 'var(--muted)' }}>Paid: {formatDate(invoice.paidDate)}</p>}
                   </div>
                   <StatusBadge status={invoice.status} />
                 </div>
@@ -193,9 +261,9 @@ export default function ManagerOrderDetails() {
                 <div className="line" />
 
                 <h4 style={{ margin: '12px 0 8px' }}>Billed To</h4>
-                <p style={{ fontSize: 13 }}><strong>{invoice.billedTo.name}</strong></p>
-                <p style={{ fontSize: 12, color: 'var(--muted)' }}>{invoice.billedTo.address}</p>
-                <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 14 }}>Tax ID: {invoice.billedTo.taxId}</p>
+                <p style={{ fontSize: 13 }}><strong>{client?.name || 'Unknown'}</strong></p>
+                <p style={{ fontSize: 12, color: 'var(--muted)' }}>{client?.address || '—'}</p>
+                <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 14 }}>Tax ID: {client?.taxId || '—'}</p>
 
                 <div className="line" />
 

@@ -6,7 +6,53 @@ import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
 import { useNavigation } from '../../context/NavigationContext';
 
-interface Stage { stage: string; status: string; updatedAt: string; }
+// Types based on normalized JSON files
+interface Stage {
+  stage: string;
+  status: string;
+  updatedAt: string | null;
+}
+
+interface Batch {
+  id: string;
+  orderId: string;
+  clientId?: string;       // may be redundant, but provided in normalized batches.json
+  product: string;
+  qty: number;
+  progress: number;
+  priority: string;
+  assignedTo: string | null;
+  deadline: string | null;
+  status: string;
+  stages: Stage[];
+  notes: string;
+}
+
+interface Order {
+  id: string;
+  clientId: string;
+  product: string;
+  status: string;
+  orderDate: string;
+  deliveryDate: string | null;
+  total: number | null;
+  paid: number | null;
+  paymentMethod: string | null;
+  invoiceId: string | null;
+  specs: Record<string, any>;
+}
+
+interface Client {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  taxId: string;
+  since: string | null;
+}
+
+// Extended job view
 interface Job {
   id: string;
   client: string;
@@ -16,11 +62,11 @@ interface Job {
   progress: number;
   dueDate: string;
   paper: string;
-  batchCode?: string;
-  priority?: string;
-  assignedTo?: string;
-  notes?: string;
-  stages?: Stage[];
+  batchCode: string;
+  priority: string;
+  assignedTo: string | null;
+  notes: string;
+  stages: Stage[];
 }
 
 const STEPS = [
@@ -40,6 +86,32 @@ function currentStep(pct: number): number {
   return 5;
 }
 
+// Helper to format date
+function formatDate(isoDate: string | null): string {
+  if (!isoDate) return '—';
+  const date = new Date(isoDate);
+  if (isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+// Map batch status to display status (for badge & filtering)
+function normalizeStatus(batchStatus: string): string {
+  switch (batchStatus) {
+    case 'in_progress':
+    case 'finishing':
+      return 'in_progress';
+    case 'completed':
+      return 'completed';
+    case 'pending_approval':
+    case 'unpriced':
+      return 'on_hold';
+    case 'canceled':
+      return 'canceled';
+    default:
+      return batchStatus;
+  }
+}
+
 export default function ActiveJobs() {
   const { navigateTopLevel } = useNavigation();
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -52,18 +124,45 @@ export default function ActiveJobs() {
   const [showWorkView, setShowWorkView] = useState(false);
 
   useEffect(() => {
-    fetch('/data/jobs.json')
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((data: Job[]) => {
-        setJobs(data);
-        setSelectedJob(data[0] ?? null);
+    Promise.all([
+      fetch('/data/json/batches.json').then(res => res.json()),
+      fetch('/data/json/orders.json').then(res => res.json()),
+      fetch('/data/json/clients.json').then(res => res.json())
+    ])
+      .then(([batches, orders, clients]) => {
+        const ordersMap: Record<string, Order> = {};
+        orders.forEach((o: Order) => { ordersMap[o.id] = o; });
+        const clientsMap: Record<string, Client> = {};
+        clients.forEach((c: Client) => { clientsMap[c.id] = c; });
+
+        const jobList: Job[] = batches.map((batch: Batch) => {
+          const order = ordersMap[batch.orderId];
+          const client = order ? clientsMap[order.clientId] : null;
+          // Extract paper from order specs if available
+          const paper = order?.specs?.paper || (order?.specs?.material) || '—';
+          return {
+            id: batch.id,
+            client: client ? client.name : 'Unknown Client',
+            product: batch.product,
+            qty: batch.qty,
+            status: normalizeStatus(batch.status),
+            progress: batch.progress,
+            dueDate: formatDate(batch.deadline),
+            paper,
+            batchCode: batch.id,
+            priority: batch.priority,
+            assignedTo: batch.assignedTo,
+            notes: batch.notes,
+            stages: batch.stages || []
+          };
+        });
+
+        setJobs(jobList);
+        if (jobList.length > 0 && !selectedJob) setSelectedJob(jobList[0]);
         setLoading(false);
       })
       .catch((err) => {
-        console.error('Failed to load jobs:', err);
+        console.error('Failed to load production data:', err);
         setError('Could not load production data. Please try again later.');
         setLoading(false);
       });
@@ -71,7 +170,8 @@ export default function ActiveJobs() {
 
   const pct = (j: Job) => j.qty > 0 ? Math.round((j.progress / j.qty) * 100) : 0;
 
-  const activeJobs = jobs.filter(j => j.status !== 'completed').length;
+  // Statistics (only consider active jobs – not completed or canceled)
+  const activeJobs = jobs.filter(j => j.status !== 'completed' && j.status !== 'canceled').length;
   const inProgress = jobs.filter(j => j.status === 'in_progress').length;
   const onHold     = jobs.filter(j => j.status === 'on_hold').length;
   const completed  = jobs.filter(j => j.status === 'completed').length;
@@ -288,7 +388,7 @@ export default function ActiveJobs() {
                   {selectedJob.progress} / {selectedJob.qty} printed ({p}%)
                 </p>
 
-                {selectedJob.stages ? (
+                {selectedJob.stages && selectedJob.stages.length > 0 ? (
                   <>
                     <h4 style={{ marginBottom: 10 }}>Production Stages</h4>
                     <table style={{ marginBottom: 20 }}>
@@ -298,7 +398,7 @@ export default function ActiveJobs() {
                           <tr key={st.stage}>
                             <td>{st.stage}</td>
                             <td><StatusBadge status={st.status} /></td>
-                            <td>{st.updatedAt}</td>
+                            <td>{st.updatedAt || '—'}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -335,7 +435,7 @@ export default function ActiveJobs() {
 
                 <div className="form-grid-2" style={{ fontSize: 14, gap: 8 }}>
                   <p><strong>Client:</strong> {selectedJob.client}</p>
-                  {selectedJob.batchCode && <p><strong>Batch:</strong> {selectedJob.batchCode}</p>}
+                  <p><strong>Batch:</strong> {selectedJob.batchCode}</p>
                   <p><strong>Product:</strong> {selectedJob.product}</p>
                   <p><strong>Quantity:</strong> {selectedJob.qty} pcs</p>
                   <p><strong>Paper:</strong> {selectedJob.paper}</p>

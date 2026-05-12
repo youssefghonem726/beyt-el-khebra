@@ -7,36 +7,133 @@ import { downloadText } from '../../utils/download';
 
 interface Props { role?: 'manager' | 'owner'; }
 
-interface Stage { stage: string; status: string; updatedAt: string; }
-interface Batch {
-  code: string; order: string; client: string; status: string; date: string;
-  product: string; qty: number; progress: number; priority: string;
-  assignedTo: string; deadline: string; notes?: string; stages: Stage[];
+interface Stage {
+  stage: string;
+  status: string;
+  updatedAt: string | null;
+}
+
+// Normalized batch (from batches.json)
+interface BatchRaw {
+  id: string;
+  orderId: string;
+  clientId: string;
+  product: string;
+  qty: number;
+  progress: number;
+  priority: string;
+  assignedTo: string | null;
+  deadline: string | null;
+  status: string;
+  stages: Stage[];
+  notes: string;
+}
+
+// Order (from orders.json)
+interface Order {
+  id: string;
+  clientId: string;
+  orderDate: string;
+  deliveryDate: string | null;
+}
+
+// Client (from clients.json)
+interface Client {
+  id: string;
+  name: string;
+  phone: string;
+  address: string;
+  taxId: string;
+}
+
+// Combined view for batch
+interface BatchView {
+  code: string;
+  order: string;
+  client: string;
+  status: string;
+  date: string;
+  product: string;
+  qty: number;
+  progress: number;
+  priority: string;
+  assignedTo: string;
+  deadline: string;
+  notes?: string;
+  stages: Stage[];
   clientInfo: { address: string; phone: string; taxId: string; };
 }
 
+// Helper: format ISO date to DD MMM YYYY
+function formatDateShort(isoDate: string | null): string {
+  if (!isoDate) return '—';
+  const d = new Date(isoDate);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+// Helper: format date with time for stage updates (if needed)
+function formatDateTime(isoDate: string | null): string {
+  if (!isoDate) return '—';
+  const d = new Date(isoDate);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
 export default function BatchLookup({ role = 'manager' }: Props) {
-  const [batches, setBatches] = useState<Batch[]>([]);
+  const [batches, setBatches] = useState<BatchView[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [selected, setSelected] = useState<Batch | null>(null);
+  const [selected, setSelected] = useState<BatchView | null>(null);
 
   useEffect(() => {
-    fetch('/data/batches.json')
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-      })
-      .then((data: Batch[]) => {
-        setBatches(data);
+    Promise.all([
+      fetch('/data/json/batches.json').then(res => res.json()),
+      fetch('/data/json/orders.json').then(res => res.json()),
+      fetch('/data/json/clients.json').then(res => res.json())
+    ])
+      .then(([batchesRaw, ordersRaw, clientsRaw]) => {
+        const ordersMap: Record<string, Order> = {};
+        ordersRaw.forEach((o: Order) => { ordersMap[o.id] = o; });
+        const clientsMap: Record<string, Client> = {};
+        clientsRaw.forEach((c: Client) => { clientsMap[c.id] = c; });
+
+        const batchViews: BatchView[] = batchesRaw.map((b: BatchRaw) => {
+          const order = ordersMap[b.orderId];
+          const client = clientsMap[b.clientId];
+          // Use order date if available, otherwise fallback to a default
+          const dateStr = order ? formatDateShort(order.orderDate) : '—';
+          return {
+            code: b.id,
+            order: b.orderId,
+            client: client ? client.name : 'Unknown',
+            status: b.status,
+            date: dateStr,
+            product: b.product,
+            qty: b.qty,
+            progress: b.progress,
+            priority: b.priority,
+            assignedTo: b.assignedTo || 'Unassigned',
+            deadline: formatDateShort(b.deadline),
+            notes: b.notes,
+            stages: b.stages.map(s => ({
+              ...s,
+              updatedAt: s.updatedAt ? formatDateTime(s.updatedAt) : '—'
+            })),
+            clientInfo: client ? {
+              address: client.address,
+              phone: client.phone,
+              taxId: client.taxId
+            } : { address: '—', phone: '—', taxId: '—' }
+          };
+        });
+        setBatches(batchViews);
         setLoading(false);
       })
       .catch((err) => {
-        console.error('Failed to load batches:', err);
+        console.error('Failed to load batch data:', err);
         setError('Could not load batch data. Please try again later.');
         setLoading(false);
       });
@@ -47,7 +144,7 @@ export default function BatchLookup({ role = 'manager' }: Props) {
     return !q || b.code.toLowerCase().includes(q) || b.order.toLowerCase().includes(q) || b.client.toLowerCase().includes(q);
   });
 
-  const pct = (b: Batch) => b.qty > 0 ? Math.round((b.progress / b.qty) * 100) : 0;
+  const pct = (b: BatchView) => b.qty > 0 ? Math.round((b.progress / b.qty) * 100) : 0;
 
   if (loading) {
     return (

@@ -4,16 +4,52 @@ import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import { useNavigation } from '../../context/NavigationContext';
 
-interface Delivery {
+interface DeliveryRaw {
   id: string;
   orderId: string;
+  clientId: string;
+  address: string;
+  driver: string;
+  company: string;
+  phone: string;
+  status: string;
+  progress: number;
+  scheduledDate: string; // ISO date
+}
+
+interface Order {
+  id: string;
+}
+
+interface Client {
+  id: string;
+  name: string;
+}
+
+interface Delivery {
+  id: string;
+  orderId: string;      // Real order ID (e.g., ORD-1021-2025)
+  orderDisplayId: string; // Display ID (e.g., "#1021")
   client: string;
   address: string;
-  scheduledDate: string;
+  scheduledDate: string; // Formatted date string
   status: string;
 }
 
 type ExpandKey = { id: string; action: 'reschedule' | 'address' } | null;
+
+// Helper: format ISO date to "DD MMM YYYY"
+function formatDate(isoDate: string): string {
+  const d = new Date(isoDate);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+// Helper: extract short order number (e.g., "1021" from "ORD-1021-2025" -> "#1021")
+function getShortOrderId(fullId: string): string {
+  const match = fullId.match(/ORD-(\d+)-/);
+  return match ? `#${match[1]}` : fullId;
+}
 
 export default function DeliveryList() {
   const { navigateTopLevel } = useNavigation();
@@ -27,15 +63,31 @@ export default function DeliveryList() {
   const [cancelled, setCancelled] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    fetch('/data/manager-deliveries.json')
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-      })
-      .then((data: Delivery[]) => {
-        setDeliveries(data);
+    Promise.all([
+      fetch('/data/json/deliveries.json').then(res => res.json()),
+      fetch('/data/json/orders.json').then(res => res.json()),
+      fetch('/data/json/clients.json').then(res => res.json())
+    ])
+      .then(([deliveriesRaw, ordersRaw, clientsRaw]) => {
+        const ordersMap: Record<string, Order> = {};
+        ordersRaw.forEach((o: Order) => { ordersMap[o.id] = o; });
+        const clientsMap: Record<string, Client> = {};
+        clientsRaw.forEach((c: Client) => { clientsMap[c.id] = c; });
+
+        const deliveryList: Delivery[] = deliveriesRaw.map((d: DeliveryRaw) => {
+          const client = clientsMap[d.clientId];
+          return {
+            id: d.id,
+            orderId: d.orderId,
+            orderDisplayId: getShortOrderId(d.orderId),
+            client: client ? client.name : 'Unknown Client',
+            address: d.address,
+            scheduledDate: formatDate(d.scheduledDate),
+            status: d.status,
+          };
+        });
+
+        setDeliveries(deliveryList);
         setLoading(false);
       })
       .catch((err) => {
@@ -106,7 +158,7 @@ export default function DeliveryList() {
                   <Fragment key={d.id}>
                     <tr>
                       <td><strong>{d.id}</strong></td>
-                      <td>{d.orderId}</td>
+                      <td>{d.orderDisplayId} <span style={{ fontSize: 11, color: 'var(--muted)' }}>({d.orderId})</span></td>
                       <td>{d.client}</td>
                       <td style={{ maxWidth: 180, fontSize: 12 }}>{d.address}</td>
                       <td style={{ whiteSpace: 'nowrap' }}>{d.scheduledDate}</td>
