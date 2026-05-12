@@ -7,7 +7,7 @@ import { useParams } from 'react-router-dom';
 export default function EditOrder() {
   const { id: orderId } = useParams<{ id: string }>();
   const { goBack } = useNavigation();
-  const [form, setForm] = useState({ client: 'Client Name', batch: 'B-260426-P', status: 'UNPRICED', product: 'Packaging Sleeves', qty: '2500', deadline: '' });
+  const [form, setForm] = useState({ client: 'Client Name', batch: 'B-260426-P', status: 'unpriced', product: 'Packaging Sleeves', qty: '2500', deadline: '' });
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -21,7 +21,7 @@ export default function EditOrder() {
           <div className="field">
             <label>Status</label>
             <select className="select" value={form.status} onChange={set('status')}>
-              <option>UNPRICED</option><option>PENDING</option><option>IN_PROGRESS</option><option>COMPLETED</option>
+              <option value="unpriced">unpriced</option><option value="pending">pending</option><option value="in_progress">in_progress</option><option value="completed">completed</option>
             </select>
           </div>
           <div className="field"><label>Product</label><input className="input" type="text" value={form.product} onChange={set('product')} /></div>

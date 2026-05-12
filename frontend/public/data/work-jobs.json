@@ -5,16 +5,16 @@
     "total": 1000,
     "percent": 60,
     "stages": [
-      { "stage": "Prepress",  "status": "DONE",        "updated": "26 Apr 2026, 9:00 AM"  },
-      { "stage": "Printing",  "status": "IN_PROGRESS", "updated": "26 Apr 2026, 4:20 PM"  },
-      { "stage": "Finishing", "status": "WAITING",     "updated": "-"                      }
+      { "stage": "Prepress",  "status": "done",        "updated": "26 Apr 2026, 9:00 AM"  },
+      { "stage": "Printing",  "status": "in_progress", "updated": "26 Apr 2026, 4:20 PM"  },
+      { "stage": "Finishing", "status": "waiting",     "updated": "-"                      }
     ],
     "info": {
       "client": "Client Name",
       "batch": "B-260425-M",
       "product": "Business Cards",
       "qty": 1000,
-      "status": "In Progress",
+      "status": "in_progress",
       "priority": "High",
       "deadline": "28 Apr 2026",
       "team": "Production Team A",
@@ -47,16 +47,16 @@
     "total": 2000,
     "percent": 60,
     "stages": [
-      { "stage": "Prepress",  "status": "DONE",        "updated": "25 Apr 2026, 8:00 AM"  },
-      { "stage": "Printing",  "status": "IN_PROGRESS", "updated": "25 Apr 2026, 3:00 PM"  },
-      { "stage": "Finishing", "status": "WAITING",     "updated": "-"                      }
+      { "stage": "Prepress",  "status": "done",        "updated": "25 Apr 2026, 8:00 AM"  },
+      { "stage": "Printing",  "status": "in_progress", "updated": "25 Apr 2026, 3:00 PM"  },
+      { "stage": "Finishing", "status": "waiting",     "updated": "-"                      }
     ],
     "info": {
       "client": "Design Hub",
       "batch": "B-260425-D",
       "product": "Flyers",
       "qty": 2000,
-      "status": "In Progress",
+      "status": "in_progress",
       "priority": "High",
       "deadline": "25 Apr 2026",
       "team": "Production Team B",
@@ -89,16 +89,16 @@
     "total": 300,
     "percent": 50,
     "stages": [
-      { "stage": "Prepress",  "status": "DONE",        "updated": "27 Apr 2026, 9:00 AM"  },
-      { "stage": "Printing",  "status": "IN_PROGRESS", "updated": "27 Apr 2026, 1:00 PM"  },
-      { "stage": "Finishing", "status": "WAITING",     "updated": "-"                      }
+      { "stage": "Prepress",  "status": "done",        "updated": "27 Apr 2026, 9:00 AM"  },
+      { "stage": "Printing",  "status": "in_progress", "updated": "27 Apr 2026, 1:00 PM"  },
+      { "stage": "Finishing", "status": "waiting",     "updated": "-"                      }
     ],
     "info": {
       "client": "Retail Plus",
       "batch": "B-260427-R",
       "product": "Catalogs",
       "qty": 300,
-      "status": "In Progress",
+      "status": "in_progress",
       "priority": "Medium",
       "deadline": "29 Apr 2026",
       "team": "Production Team A",
@@ -131,16 +131,16 @@
     "total": 1000,
     "percent": 80,
     "stages": [
-      { "stage": "Prepress",  "status": "DONE",        "updated": "26 Apr 2026, 11:00 AM" },
-      { "stage": "Printing",  "status": "DONE",        "updated": "26 Apr 2026, 5:00 PM"  },
-      { "stage": "Finishing", "status": "IN_PROGRESS", "updated": "27 Apr 2026, 8:00 AM"  }
+      { "stage": "Prepress",  "status": "done",        "updated": "26 Apr 2026, 11:00 AM" },
+      { "stage": "Printing",  "status": "done",        "updated": "26 Apr 2026, 5:00 PM"  },
+      { "stage": "Finishing", "status": "in_progress", "updated": "27 Apr 2026, 8:00 AM"  }
     ],
     "info": {
       "client": "Marketing Co.",
       "batch": "B-260426-MK",
       "product": "Posters",
       "qty": 1000,
-      "status": "Finishing",
+      "status": "finishing",
       "priority": "High",
       "deadline": "27 Apr 2026",
       "team": "Production Team C",

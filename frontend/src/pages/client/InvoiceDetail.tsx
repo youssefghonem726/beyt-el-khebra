@@ -125,7 +125,7 @@ export default function InvoiceDetail() {
       <Topbar title="Invoice Detail" onBack={goBack} backLabel="Invoices" />
 
       <section className="table-wrap">
-        <div className={`box invoice-detail-card${invoice.status === 'Overdue' ? ' overdue' : ''}`}>
+        <div className={`box invoice-detail-card${invoice.status === 'overdue' ? ' overdue' : ''}`}>
           {/* Header */}
           <div className="invoice-header">
             <div>
@@ -209,7 +209,7 @@ export default function InvoiceDetail() {
 
           {/* Actions */}
           <div className="invoice-actions">
-            {invoice.status !== 'Paid' && !paid && (
+            {invoice.status !== 'paid' && !paid && (
               <button className="btn primary" onClick={() => setPaying(true)}>Pay Now</button>
             )}
             {paid && <span style={{ color: '#2c9a4b', fontWeight: 600, fontSize: 14 }}>✓ Payment confirmed</span>}

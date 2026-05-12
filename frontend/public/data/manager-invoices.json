@@ -4,7 +4,7 @@
     "issued": "26 Apr 2026",
     "due": "3 May 2026",
     "paidDate": "26 Apr 2026",
-    "status": "Paid",
+    "status": "paid",
     "billedTo": {
       "name": "Client Name",
       "address": "45 El Hegaz St, Heliopolis, Cairo",
@@ -25,7 +25,7 @@
     "issued": "26 Apr 2026",
     "due": "3 May 2026",
     "paidDate": "26 Apr 2026",
-    "status": "Paid",
+    "status": "paid",
     "billedTo": {
       "name": "Ahmed Store",
       "address": "12 El Nasr St, Cairo, Egypt",

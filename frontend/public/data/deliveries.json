@@ -7,7 +7,7 @@
     "driver": "Omar Hassan",
     "company": "Swift Express",
     "phone": "+20 111 555 8801",
-    "status": "ON TIME",
+    "status": "on_time",
     "progress": 75,
     "color": "green"
   },
@@ -19,7 +19,7 @@
     "driver": "Mona Adel",
     "company": "Urban Delivery",
     "phone": "+20 114 201 3332",
-    "status": "DELAYED",
+    "status": "delayed",
     "progress": 55,
     "color": "orange"
   },
@@ -31,7 +31,7 @@
     "driver": "Yousef Nabil",
     "company": "RoadLine",
     "phone": "+20 115 449 2907",
-    "status": "LOST IN TRANSIT",
+    "status": "lost_in_transit",
     "progress": 35,
     "color": "red"
   }

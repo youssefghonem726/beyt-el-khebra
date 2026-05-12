@@ -69,11 +69,11 @@ const DEFAULT_DATA: DashboardData = {
     completed: 119,
   },
   orders: [
-    { id: '#1021', type: 'Business Cards', status: 'PRICED_PENDING_CONFIRMATION', orderDate: '21 Apr 2025', deliveryDate: '25 Apr 2025', total: '1,200.00' },
-    { id: '#1020', type: 'Flyers A5',      status: 'IN_PROGRESS',                orderDate: '18 Apr 2025', deliveryDate: '23 Apr 2025', total: '2,400.00' },
-    { id: '#1018', type: 'Posters A3',     status: 'UNPRICED_PENDING',           orderDate: '15 Apr 2025', deliveryDate: '—',           total: '—'        },
-    { id: '#1015', type: 'Stickers',       status: 'COMPLETED',                  orderDate: '10 Apr 2025', deliveryDate: '14 Apr 2025', total: '850.00'   },
-    { id: '#1012', type: 'Banners',        status: 'CANCELED',                   orderDate: '05 Apr 2025', deliveryDate: '—',           total: '—'        },
+    { id: '#1021', type: 'Business Cards', status: 'priced_pending_confirmation', orderDate: '21 Apr 2025', deliveryDate: '25 Apr 2025', total: '1,200.00' },
+    { id: '#1020', type: 'Flyers A5',      status: 'in_progress',                orderDate: '18 Apr 2025', deliveryDate: '23 Apr 2025', total: '2,400.00' },
+    { id: '#1018', type: 'Posters A3',     status: 'unpriced_pending',           orderDate: '15 Apr 2025', deliveryDate: '—',           total: '—'        },
+    { id: '#1015', type: 'Stickers',       status: 'completed',                  orderDate: '10 Apr 2025', deliveryDate: '14 Apr 2025', total: '850.00'   },
+    { id: '#1012', type: 'Banners',        status: 'canceled',                   orderDate: '05 Apr 2025', deliveryDate: '—',           total: '—'        },
   ],
   statusFilters: [
     { label: 'Unpriced Pending',           value: 'unpriced_pending'           },
@@ -83,11 +83,11 @@ const DEFAULT_DATA: DashboardData = {
     { label: 'Canceled',                   value: 'canceled'                   },
   ],
   statusGuide: [
-    { status: 'UNPRICED_PENDING',            desc: 'Waiting for pricing'    },
-    { status: 'PRICED_PENDING_CONFIRMATION', desc: 'Ready for confirmation' },
-    { status: 'IN_PROGRESS',                 desc: 'Production started'     },
-    { status: 'COMPLETED',                   desc: 'Order delivered'        },
-    { status: 'CANCELED',                    desc: 'Order canceled'         },
+    { status: 'unpriced_pending',            desc: 'Waiting for pricing'    },
+    { status: 'priced_pending_confirmation', desc: 'Ready for confirmation' },
+    { status: 'in_progress',                 desc: 'Production started'     },
+    { status: 'completed',                   desc: 'Order delivered'        },
+    { status: 'canceled',                    desc: 'Order canceled'         },
   ],
 };
 

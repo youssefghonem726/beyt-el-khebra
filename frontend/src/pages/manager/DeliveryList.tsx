@@ -99,7 +99,7 @@ export default function DeliveryList() {
               {deliveries.map((d) => {
                 const isDone      = delivered.has(d.id);
                 const isCancelled = cancelled.has(d.id);
-                const status      = isDone ? 'DELIVERED' : isCancelled ? 'CANCELLED' : d.status;
+                const status      = isDone ? 'delivered' : isCancelled ? 'cancelled' : d.status;
                 const isExpanded  = expand?.id === d.id;
 
                 return (

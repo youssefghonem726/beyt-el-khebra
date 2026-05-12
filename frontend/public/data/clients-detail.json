@@ -12,9 +12,9 @@
       { "label": "Total Amount Spent", "value": "EGP 44,400" }
     ],
     "orders": [
-      { "id": "#1021", "product": "Business Cards", "status": "PRICED_PENDING_CONFIRMATION", "date": "21 Apr 2025", "total": "EGP 1,200.00" },
-      { "id": "#1020", "product": "Flyers A5", "status": "IN_PROGRESS", "date": "18 Apr 2025", "total": "EGP 2,400.00" },
-      { "id": "#1018", "product": "Stickers", "status": "COMPLETED", "date": "15 Apr 2025", "total": "EGP 950.00" }
+      { "id": "#1021", "product": "Business Cards", "status": "priced_pending_confirmation", "date": "21 Apr 2025", "total": "EGP 1,200.00" },
+      { "id": "#1020", "product": "Flyers A5",      "status": "in_progress",                "date": "18 Apr 2025", "total": "EGP 2,400.00" },
+      { "id": "#1018", "product": "Stickers",       "status": "completed",                  "date": "15 Apr 2025", "total": "EGP 950.00"   }
     ]
   },
   {
@@ -30,8 +30,8 @@
       { "label": "Total Amount Spent", "value": "EGP 32,800" }
     ],
     "orders": [
-      { "id": "#1112", "product": "Catalogs", "status": "COMPLETED", "date": "10 Apr 2025", "total": "EGP 3,000.00" },
-      { "id": "#1101", "product": "Posters A3", "status": "COMPLETED", "date": "2 Apr 2025", "total": "EGP 1,500.00" }
+      { "id": "#1112", "product": "Catalogs",   "status": "completed", "date": "10 Apr 2025", "total": "EGP 3,000.00" },
+      { "id": "#1101", "product": "Posters A3", "status": "completed", "date": "2 Apr 2025",  "total": "EGP 1,500.00" }
     ]
   },
   {
@@ -47,8 +47,8 @@
       { "label": "Total Amount Spent", "value": "EGP 15,620" }
     ],
     "orders": [
-      { "id": "#1096", "product": "Shelf Labels", "status": "IN_PROGRESS", "date": "20 Apr 2025", "total": "EGP 1,800.00" },
-      { "id": "#1090", "product": "Price Stickers", "status": "COMPLETED", "date": "10 Apr 2025", "total": "EGP 950.00" }
+      { "id": "#1096", "product": "Shelf Labels",   "status": "in_progress", "date": "20 Apr 2025", "total": "EGP 1,800.00" },
+      { "id": "#1090", "product": "Price Stickers", "status": "completed",   "date": "10 Apr 2025", "total": "EGP 950.00"   }
     ]
   }
 ]

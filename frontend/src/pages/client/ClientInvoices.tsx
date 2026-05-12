@@ -93,9 +93,9 @@ export default function ClientInvoices() {
                   <label>Status</label>
                   <select className="select" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
                     <option value="">All Status</option>
-                    <option>Paid</option>
-                    <option>Pending</option>
-                    <option>Overdue</option>
+                    <option value="paid">Paid</option>
+                    <option value="pending">Pending</option>
+                    <option value="overdue">Overdue</option>
                   </select>
                 </div>
                 <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>Apply</button>
@@ -129,14 +129,14 @@ export default function ClientInvoices() {
                     <td><StatusBadge status={inv.status} /></td>
                     <td>
                       <div className="action-buttons">
-                        {inv.status !== 'Paid' && !paidSet.has(inv.id) && (
+                        {inv.status !== 'paid' && !paidSet.has(inv.id) && (
                           <button className="btn btn-sm primary" onClick={() => setPayingId(inv.id)}>Pay Now</button>
                         )}
                         <button
                           className="btn btn-sm"
                           onClick={() => navigateTopLevel(`/client/invoices/${inv.id}`)}>View
                         </button>
-                        {(inv.status === 'Paid' || paidSet.has(inv.id)) && (
+                        {(inv.status === 'paid' || paidSet.has(inv.id)) && (
                           <button className="btn btn-sm btn-outline" onClick={() => downloadText(`invoice-${inv.id}.txt`, [
                             `INVOICE: ${inv.id}`,
                             `Order:       ${inv.order}`,

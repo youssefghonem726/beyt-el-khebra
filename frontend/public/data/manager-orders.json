@@ -1,14 +1,14 @@
 {
   "pending": [
-    { "id": "#1033", "status": "UNPRICED",         "client": "Client Name" },
-    { "id": "#1031", "status": "PENDING APPROVAL", "client": "Design Hub"  }
+    { "id": "#1033", "status": "unpriced",         "client": "Client Name" },
+    { "id": "#1031", "status": "pending_approval",  "client": "Design Hub"  }
   ],
   "working": [
-    { "id": "#1029", "status": "IN_PROGRESS", "client": "Retail Plus"   },
-    { "id": "#1026", "status": "FINISHING",   "client": "Marketing Co." }
+    { "id": "#1029", "status": "in_progress", "client": "Retail Plus"   },
+    { "id": "#1026", "status": "finishing",   "client": "Marketing Co." }
   ],
   "completed": [
-    { "id": "#10121224", "status": "COMPLETED", "client": "Client Name", "completedAt": "26 Apr 2026, 6:10 PM" },
-    { "id": "#1020", "status": "COMPLETED", "client": "Ahmed Store",  "completedAt": "26 Apr 2026, 4:45 PM" }
+    { "id": "#1024", "status": "completed", "client": "Client Name", "completedAt": "26 Apr 2026, 6:10 PM" },
+    { "id": "#1020", "status": "completed", "client": "Ahmed Store",  "completedAt": "26 Apr 2026, 4:45 PM" }
   ]
 }

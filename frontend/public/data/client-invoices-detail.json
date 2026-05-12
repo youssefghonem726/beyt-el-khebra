@@ -6,7 +6,7 @@
     "due": "28 Apr 2025",
     "paidDate": "27 Apr 2025",
     "amount": "1,200.00",
-    "status": "Paid",
+    "status": "paid",
     "billedTo": {
       "name": "Ahmed Store",
       "address": "12 El Nasr St, Cairo, Egypt",
@@ -26,7 +26,7 @@
     "due": "22 Apr 2025",
     "paidDate": "21 Apr 2025",
     "amount": "950.00",
-    "status": "Paid",
+    "status": "paid",
     "billedTo": {
       "name": "Ahmed Store",
       "address": "12 El Nasr St, Cairo, Egypt",
@@ -46,7 +46,7 @@
     "due": "17 Apr 2025",
     "paidDate": "16 Apr 2025",
     "amount": "850.00",
-    "status": "Paid",
+    "status": "paid",
     "billedTo": {
       "name": "Ahmed Store",
       "address": "12 El Nasr St, Cairo, Egypt",
@@ -65,7 +65,7 @@
     "issued": "05 Apr 2025",
     "due": "12 Apr 2025",
     "amount": "2,100.00",
-    "status": "Pending",
+    "status": "pending",
     "billedTo": {
       "name": "Ahmed Store",
       "address": "12 El Nasr St, Cairo, Egypt",
@@ -85,7 +85,7 @@
     "issued": "28 Mar 2025",
     "due": "04 Apr 2025",
     "amount": "3,500.00",
-    "status": "Overdue",
+    "status": "overdue",
     "billedTo": {
       "name": "Ahmed Store",
       "address": "12 El Nasr St, Cairo, Egypt",

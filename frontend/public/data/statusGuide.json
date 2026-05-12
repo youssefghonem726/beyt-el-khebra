@@ -1,7 +1,7 @@
 [
-  { "status": "UNPRICED_PENDING", "desc": "Waiting for pricing" },
-  { "status": "PRICED_PENDING_CONFIRMATION", "desc": "Ready for confirmation" },
-  { "status": "IN_PROGRESS", "desc": "Production started" },
-  { "status": "COMPLETED", "desc": "Order delivered" },
-  { "status": "CANCELED", "desc": "Order canceled" }
+  { "status": "unpriced_pending",            "desc": "Waiting for pricing" },
+  { "status": "priced_pending_confirmation", "desc": "Ready for confirmation" },
+  { "status": "in_progress",                "desc": "Production started" },
+  { "status": "completed",                  "desc": "Order delivered" },
+  { "status": "canceled",                   "desc": "Order canceled" }
 ]

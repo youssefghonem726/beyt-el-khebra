@@ -26,7 +26,7 @@ interface TrackingData {
 
 const TRACKING: Record<string, TrackingData> = {
   '1021': {
-    id: '#1021', product: 'Business Cards', status: 'PRICED_PENDING_CONFIRMATION',
+    id: '#1021', product: 'Business Cards', status: 'priced_pending_confirmation',
     currentStatusLabel: 'Awaiting your confirmation to begin production.',
     orderDate: '21 Apr 2025', estimatedDelivery: '25 Apr 2025', total: 'EGP 1,200.00',
     progress: 30,
@@ -57,7 +57,7 @@ const TRACKING: Record<string, TrackingData> = {
   },
 
   '1020': {
-    id: '#1020', product: 'Flyers A5', status: 'IN_PROGRESS',
+    id: '#1020', product: 'Flyers A5', status: 'in_progress',
     currentStatusLabel: 'Your order is currently being printed.',
     orderDate: '18 Apr 2025', estimatedDelivery: '23 Apr 2025', total: 'EGP 2,400.00',
     progress: 55,
@@ -89,7 +89,7 @@ const TRACKING: Record<string, TrackingData> = {
   },
 
   '1018': {
-    id: '#1018', product: 'Posters A3', status: 'UNPRICED_PENDING',
+    id: '#1018', product: 'Posters A3', status: 'unpriced_pending',
     currentStatusLabel: 'Your order is being reviewed for pricing.',
     orderDate: '15 Apr 2025', estimatedDelivery: '—', total: '—',
     progress: 10,
@@ -118,7 +118,7 @@ const TRACKING: Record<string, TrackingData> = {
   },
 
   '1015': {
-    id: '#1015', product: 'Stickers', status: 'COMPLETED',
+    id: '#1015', product: 'Stickers', status: 'completed',
     currentStatusLabel: 'Order completed and delivered on time.',
     orderDate: '10 Apr 2025', estimatedDelivery: '14 Apr 2025', total: 'EGP 850.00',
     progress: 100,
@@ -152,7 +152,7 @@ const TRACKING: Record<string, TrackingData> = {
   },
 
   '1012': {
-    id: '#1012', product: 'Banners', status: 'CANCELED',
+    id: '#1012', product: 'Banners', status: 'canceled',
     currentStatusLabel: 'This order was canceled at client request.',
     orderDate: '05 Apr 2025', estimatedDelivery: '—', total: '—',
     progress: 0,

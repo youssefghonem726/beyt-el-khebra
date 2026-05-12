@@ -6,16 +6,16 @@ import { downloadText } from '../../utils/download';
 // ─── Manager Orders Panel ─────────────────────────────────────────────────────
 
 const PENDING_ORDERS = [
-  { id: '#1033', status: 'UNPRICED',         client: 'Client Name' },
-  { id: '#1031', status: 'PENDING APPROVAL', client: 'Design Hub'  },
+  { id: '#1033', status: 'unpriced',         client: 'Client Name' },
+  { id: '#1031', status: 'pending_approval', client: 'Design Hub'  },
 ];
 const WORKING_ORDERS = [
-  { id: '#1029', status: 'IN_PROGRESS', client: 'Retail Plus',   product: 'Brochures',  qty: 3000, progress: 1200, paper: 'Gloss 170gsm' },
-  { id: '#1026', status: 'FINISHING',   client: 'Marketing Co.', product: 'Gift Bags',  qty: 800,  progress: 600,  paper: 'Kraft'        },
+  { id: '#1029', status: 'in_progress', client: 'Retail Plus',   product: 'Brochures',  qty: 3000, progress: 1200, paper: 'Gloss 170gsm' },
+  { id: '#1026', status: 'finishing',   client: 'Marketing Co.', product: 'Gift Bags',  qty: 800,  progress: 600,  paper: 'Kraft'        },
 ];
 const COMPLETED_ORDERS = [
-  { id: '#1024', status: 'COMPLETED', client: 'Client Name', completedAt: '26 Apr 2026, 6:10 PM' },
-  { id: '#1020', status: 'COMPLETED', client: 'Ahmed Store', completedAt: '26 Apr 2026, 4:45 PM' },
+  { id: '#1024', status: 'completed', client: 'Client Name', completedAt: '26 Apr 2026, 6:10 PM' },
+  { id: '#1020', status: 'completed', client: 'Ahmed Store', completedAt: '26 Apr 2026, 4:45 PM' },
 ];
 
 const ORDER_DETAIL: Record<string, { product: string; qty: number; paper: string; notes: string }> = {
@@ -27,14 +27,14 @@ const ORDER_DETAIL: Record<string, { product: string; qty: number; paper: string
 
 const WORK_VIEW_STAGES: Record<string, { stage: string; status: string; updated: string }[]> = {
   '#1029': [
-    { stage: 'File Approved', status: 'DONE',        updated: '25 Apr 2026, 9:00 AM'  },
-    { stage: 'Printing',      status: 'IN_PROGRESS', updated: '26 Apr 2026, 11:30 AM' },
-    { stage: 'Finishing',     status: 'PENDING',     updated: '—'                     },
+    { stage: 'File Approved', status: 'done',        updated: '25 Apr 2026, 9:00 AM'  },
+    { stage: 'Printing',      status: 'in_progress', updated: '26 Apr 2026, 11:30 AM' },
+    { stage: 'Finishing',     status: 'pending',     updated: '—'                     },
   ],
   '#1026': [
-    { stage: 'File Approved', status: 'DONE',        updated: '24 Apr 2026, 8:00 AM'  },
-    { stage: 'Printing',      status: 'DONE',        updated: '25 Apr 2026, 3:00 PM'  },
-    { stage: 'Finishing',     status: 'IN_PROGRESS', updated: '26 Apr 2026, 10:00 AM' },
+    { stage: 'File Approved', status: 'done',        updated: '24 Apr 2026, 8:00 AM'  },
+    { stage: 'Printing',      status: 'done',        updated: '25 Apr 2026, 3:00 PM'  },
+    { stage: 'Finishing',     status: 'in_progress', updated: '26 Apr 2026, 10:00 AM' },
   ],
 };
 
@@ -175,8 +175,8 @@ export function ManagerOrdersPanel() {
 interface Batch { code: string; order: string; client: string; status: string; date: string; }
 
 const BATCHES: Batch[] = [
-  { code: 'B-260426-P', order: '#1033', client: 'Client Name', status: 'UNPRICED',    date: '26 Apr 2026' },
-  { code: 'B-260425-M', order: '#1032', client: 'Ahmed Store', status: 'IN_PROGRESS', date: '25 Apr 2026' },
+  { code: 'B-260426-P', order: '#1033', client: 'Client Name', status: 'unpriced',    date: '26 Apr 2026' },
+  { code: 'B-260425-M', order: '#1032', client: 'Ahmed Store', status: 'in_progress', date: '25 Apr 2026' },
 ];
 
 const BATCH_ORDER_DETAIL: Record<string, { product: string; qty: number; paper: string; notes: string }> = {
@@ -469,10 +469,10 @@ export function ProductionPanel() {
   if (loading) return <div className="loading-state">Loading jobs…</div>;
   if (error)   return <div className="error-state">{error}</div>;
 
-  const active    = jobs.filter(j => j.status.toUpperCase() !== 'COMPLETED').length;
-  const inProg    = jobs.filter(j => j.status.toUpperCase() === 'IN PROGRESS').length;
-  const onHold    = jobs.filter(j => j.status.toUpperCase() === 'ON HOLD').length;
-  const completed = jobs.filter(j => j.status.toUpperCase() === 'COMPLETED').length;
+  const active    = jobs.filter(j => j.status !== 'completed').length;
+  const inProg    = jobs.filter(j => j.status === 'in_progress').length;
+  const onHold    = jobs.filter(j => j.status === 'on_hold').length;
+  const completed = jobs.filter(j => j.status === 'completed').length;
 
   const filtered = jobs.filter(j => {
     const q = query.toLowerCase();
@@ -524,18 +524,18 @@ const COMPLETED_JOBS = [
   {
     id: 'Order #1024', done: 1500, total: 1500,
     stages: [
-      { stage: 'Prepress',  status: 'DONE', updated: '26 Apr 2026, 9:00 AM'  },
-      { stage: 'Printing',  status: 'DONE', updated: '27 Apr 2026, 2:00 PM'  },
-      { stage: 'Finishing', status: 'DONE', updated: '27 Apr 2026, 6:10 PM'  },
+      { stage: 'Prepress',  status: 'done', updated: '26 Apr 2026, 9:00 AM'  },
+      { stage: 'Printing',  status: 'done', updated: '27 Apr 2026, 2:00 PM'  },
+      { stage: 'Finishing', status: 'done', updated: '27 Apr 2026, 6:10 PM'  },
     ],
     info: { client: 'Client Name', batch: 'B-260425-M', product: 'Packaging Sleeves', qty: 1500, completion: '27 Apr 2026' },
   },
   {
     id: 'Order #1023', done: 800, total: 800,
     stages: [
-      { stage: 'Prepress',  status: 'DONE', updated: '26 Apr 2026, 10:00 AM' },
-      { stage: 'Printing',  status: 'DONE', updated: '27 Apr 2026, 1:00 PM'  },
-      { stage: 'Finishing', status: 'DONE', updated: '27 Apr 2026, 4:45 PM'  },
+      { stage: 'Prepress',  status: 'done', updated: '26 Apr 2026, 10:00 AM' },
+      { stage: 'Printing',  status: 'done', updated: '27 Apr 2026, 1:00 PM'  },
+      { stage: 'Finishing', status: 'done', updated: '27 Apr 2026, 4:45 PM'  },
     ],
     info: { client: 'Retail Plus', batch: 'B-260426-R', product: 'Stickers', qty: 800, completion: '27 Apr 2026' },
   },

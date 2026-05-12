@@ -71,15 +71,15 @@ export default function ActiveJobs() {
 
   const pct = (j: Job) => j.qty > 0 ? Math.round((j.progress / j.qty) * 100) : 0;
 
-  const activeJobs = jobs.filter(j => j.status.toUpperCase() !== 'COMPLETED').length;
-  const inProgress = jobs.filter(j => j.status.toUpperCase() === 'IN PROGRESS').length;
-  const onHold     = jobs.filter(j => j.status.toUpperCase() === 'ON HOLD').length;
-  const completed  = jobs.filter(j => j.status.toUpperCase() === 'COMPLETED').length;
+  const activeJobs = jobs.filter(j => j.status !== 'completed').length;
+  const inProgress = jobs.filter(j => j.status === 'in_progress').length;
+  const onHold     = jobs.filter(j => j.status === 'on_hold').length;
+  const completed  = jobs.filter(j => j.status === 'completed').length;
 
   const filtered = jobs.filter((j) => {
     const q = query.toLowerCase();
     const matchQ = !q || j.id.toLowerCase().includes(q) || j.client.toLowerCase().includes(q) || j.product.toLowerCase().includes(q);
-    const matchS = !filterStatus || j.status.toUpperCase() === filterStatus.toUpperCase();
+    const matchS = !filterStatus || j.status === filterStatus;
     return matchQ && matchS;
   });
 
@@ -138,9 +138,9 @@ export default function ActiveJobs() {
                       <label>Status</label>
                       <select className="select" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
                         <option value="">All</option>
-                        <option value="IN PROGRESS">In Progress</option>
-                        <option value="ON HOLD">On Hold</option>
-                        <option value="COMPLETED">Completed</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="on_hold">On Hold</option>
+                        <option value="completed">Completed</option>
                       </select>
                     </div>
                     <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>Apply</button>

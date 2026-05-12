@@ -2,16 +2,16 @@
   {
     "email": "owner@baytelkhebra.com",
     "role": "Owner",
-    "status": "ACTIVE"
+    "status": "active"
   },
   {
     "email": "manager@baytelkhebra.com",
     "role": "Manager",
-    "status": "ACTIVE"
+    "status": "active"
   },
   {
     "email": "production@baytelkhebra.com",
     "role": "Production",
-    "status": "ACTIVE"
+    "status": "active"
   }
 ]

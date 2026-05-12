@@ -4,7 +4,7 @@
     "client": "Client Name",
     "product": "Business Cards",
     "qty": 1000,
-    "status": "IN PROGRESS",
+    "status": "in_progress",
     "progress": 600,
     "dueDate": "28 Apr 2026",
     "paper": "Matte 350gsm",
@@ -13,9 +13,9 @@
     "assignedTo": "Production Team A",
     "notes": "Standard business cards, double-sided.",
     "stages": [
-      { "stage": "Prepress",  "status": "DONE",        "updatedAt": "26 Apr 2026, 9:00 AM"  },
-      { "stage": "Printing",  "status": "IN_PROGRESS", "updatedAt": "26 Apr 2026, 4:20 PM"  },
-      { "stage": "Finishing", "status": "WAITING",     "updatedAt": "-"                     }
+      { "stage": "Prepress",  "status": "done",        "updatedAt": "26 Apr 2026, 9:00 AM"  },
+      { "stage": "Printing",  "status": "in_progress", "updatedAt": "26 Apr 2026, 4:20 PM"  },
+      { "stage": "Finishing", "status": "waiting",     "updatedAt": "-"                     }
     ]
   },
   {
@@ -23,7 +23,7 @@
     "client": "Design Hub",
     "product": "Flyers",
     "qty": 2000,
-    "status": "IN PROGRESS",
+    "status": "in_progress",
     "progress": 1200,
     "dueDate": "25 Apr 2026",
     "paper": "Glossy 130gsm",
@@ -32,9 +32,9 @@
     "assignedTo": "Production Team B",
     "notes": "A5 flyers, full colour both sides.",
     "stages": [
-      { "stage": "Prepress",  "status": "DONE",        "updatedAt": "24 Apr 2026, 10:00 AM" },
-      { "stage": "Printing",  "status": "IN_PROGRESS", "updatedAt": "25 Apr 2026, 2:00 PM"  },
-      { "stage": "Finishing", "status": "WAITING",     "updatedAt": "-"                     }
+      { "stage": "Prepress",  "status": "done",        "updatedAt": "24 Apr 2026, 10:00 AM" },
+      { "stage": "Printing",  "status": "in_progress", "updatedAt": "25 Apr 2026, 2:00 PM"  },
+      { "stage": "Finishing", "status": "waiting",     "updatedAt": "-"                     }
     ]
   },
   {
@@ -42,7 +42,7 @@
     "client": "Marketing Co.",
     "product": "Brochures",
     "qty": 500,
-    "status": "ON HOLD",
+    "status": "on_hold",
     "progress": 0,
     "dueDate": "28 Apr 2026",
     "paper": "Satin 170gsm",
@@ -51,9 +51,9 @@
     "assignedTo": "Production Team A",
     "notes": "Waiting on client to approve final file.",
     "stages": [
-      { "stage": "Prepress",  "status": "WAITING", "updatedAt": "-" },
-      { "stage": "Printing",  "status": "WAITING", "updatedAt": "-" },
-      { "stage": "Finishing", "status": "WAITING", "updatedAt": "-" }
+      { "stage": "Prepress",  "status": "waiting", "updatedAt": "-" },
+      { "stage": "Printing",  "status": "waiting", "updatedAt": "-" },
+      { "stage": "Finishing", "status": "waiting", "updatedAt": "-" }
     ]
   },
   {
@@ -61,7 +61,7 @@
     "client": "Retail Plus",
     "product": "Stickers",
     "qty": 1000,
-    "status": "COMPLETED",
+    "status": "completed",
     "progress": 1000,
     "dueDate": "20 Apr 2026",
     "paper": "Vinyl Matte",
@@ -70,9 +70,9 @@
     "assignedTo": "Production Team B",
     "notes": "Die-cut vinyl stickers. Completed on schedule.",
     "stages": [
-      { "stage": "Prepress",  "status": "DONE", "updatedAt": "18 Apr 2026, 9:00 AM"  },
-      { "stage": "Printing",  "status": "DONE", "updatedAt": "19 Apr 2026, 1:00 PM"  },
-      { "stage": "Finishing", "status": "DONE", "updatedAt": "20 Apr 2026, 11:00 AM" }
+      { "stage": "Prepress",  "status": "done", "updatedAt": "18 Apr 2026, 9:00 AM"  },
+      { "stage": "Printing",  "status": "done", "updatedAt": "19 Apr 2026, 1:00 PM"  },
+      { "stage": "Finishing", "status": "done", "updatedAt": "20 Apr 2026, 11:00 AM" }
     ]
   }
 ]

@@ -62,9 +62,9 @@ export default function DeliveryTracking() {
     setToast(message);
   };
 
-  const onTime  = deliveries.filter(d => d.status === 'ON TIME').length;
-  const delayed = deliveries.filter(d => d.status === 'DELAYED').length;
-  const lost    = deliveries.filter(d => d.status === 'LOST IN TRANSIT').length;
+  const onTime  = deliveries.filter(d => d.status === 'on_time').length;
+  const delayed = deliveries.filter(d => d.status === 'delayed').length;
+  const lost    = deliveries.filter(d => d.status === 'lost_in_transit').length;
 
   const filtered = deliveries.filter(d => {
     const q = query.toLowerCase();
@@ -74,7 +74,7 @@ export default function DeliveryTracking() {
   });
 
   const statusColor = (s: string): 'green' | 'orange' | 'red' =>
-    s === 'ON TIME' || s === 'DELIVERED' ? 'green' : s === 'DELAYED' ? 'orange' : 'red';
+    s === 'on_time' || s === 'delivered' ? 'green' : s === 'delayed' ? 'orange' : 'red';
 
   const selectDelivery = (d: Delivery) => {
     setSelected(d);
@@ -99,7 +99,7 @@ export default function DeliveryTracking() {
     );
   }
 
-  const isClosed = selected && (selected.status === 'CANCELLED' || selected.status === 'DELIVERED');
+  const isClosed = selected && (selected.status === 'cancelled' || selected.status === 'delivered');
 
   return (
     <AppShell role="owner" activePage="delivery-tracking">
@@ -133,9 +133,9 @@ export default function DeliveryTracking() {
                       <label>Status</label>
                       <select className="select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
                         <option value="">All</option>
-                        <option value="ON TIME">On Time</option>
-                        <option value="DELAYED">Delayed</option>
-                        <option value="LOST IN TRANSIT">Lost in Transit</option>
+                        <option value="on_time">On Time</option>
+                        <option value="delayed">Delayed</option>
+                        <option value="lost_in_transit">Lost in Transit</option>
                       </select>
                     </div>
                     <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>Apply</button>
@@ -195,7 +195,7 @@ export default function DeliveryTracking() {
             <ProgressBar percent={selected.progress} color={statusColor(selected.status)} />
             <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
               {selected.progress}% complete
-              {selected.status === 'LOST IN TRANSIT' && (
+              {selected.status === 'lost_in_transit' && (
                 <span style={{ color: '#d9534f', marginLeft: 8 }}>More than 2 days delayed</span>
               )}
             </p>
@@ -206,14 +206,14 @@ export default function DeliveryTracking() {
 
             {isClosed ? (
               <p style={{ fontSize: 13, color: 'var(--muted)' }}>
-                {selected.status === 'DELIVERED' ? '✓ Delivery completed.' : '✕ Delivery cancelled.'}
+                {selected.status === 'delivered' ? '✓ Delivery completed.' : '✕ Delivery cancelled.'}
               </p>
             ) : (
               <>
                 {/* ── Mark as Delivered ── */}
                 <button
                   className="btn primary block"
-                  onClick={() => applyUpdate(selected.order, { status: 'DELIVERED', progress: 100, color: 'green' }, `✓ ${selected.order} marked as delivered.`)}
+                  onClick={() => applyUpdate(selected.order, { status: 'delivered', progress: 100, color: 'green' }, `✓ ${selected.order} marked as delivered.`)}
                 >
                   Mark as Delivered
                 </button>
@@ -240,7 +240,7 @@ export default function DeliveryTracking() {
                       <button
                         className="btn primary"
                         disabled={!rescheduleDate}
-                        onClick={() => applyUpdate(selected.order, { status: 'DELAYED', color: 'orange' }, `↻ ${selected.order} rescheduled to ${rescheduleDate}.`)}
+                        onClick={() => applyUpdate(selected.order, { status: 'delayed', color: 'orange' }, `↻ ${selected.order} rescheduled to ${rescheduleDate}.`)}
                       >
                         Save
                       </button>
@@ -297,7 +297,7 @@ export default function DeliveryTracking() {
                       <button
                         className="btn"
                         style={{ background: '#d9534f', color: '#fff', border: 'none' }}
-                        onClick={() => applyUpdate(selected.order, { status: 'CANCELLED', progress: 0, color: 'red' }, `✕ ${selected.order} delivery cancelled.`)}
+                        onClick={() => applyUpdate(selected.order, { status: 'cancelled', progress: 0, color: 'red' }, `✕ ${selected.order} delivery cancelled.`)}
                       >
                         Yes, Cancel
                       </button>

@@ -2,7 +2,7 @@
   {
     "id": "Q-211",
     "order": "#1021",
-    "status": "Awaiting Confirmation",
+    "status": "awaiting_confirmation",
     "amount": "EGP 1,200.00",
     "action": {
       "label": "Review Quote",
@@ -12,7 +12,7 @@
   {
     "id": "Q-208",
     "order": "#1018",
-    "status": "Approved",
+    "status": "approved",
     "amount": "EGP 950.00",
     "action": {
       "label": "View Invoice",

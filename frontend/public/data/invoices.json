@@ -4,13 +4,13 @@
     "order": "#1033",
     "client": "Client Name",
     "total": "EGP 2,850.00",
-    "status": "UNPAID"
+    "status": "unpaid"
   },
   {
     "id": "INV-9507",
     "order": "#1029",
     "client": "Retail Plus",
     "total": "EGP 3,120.00",
-    "status": "PAID"
+    "status": "paid"
   }
 ]
