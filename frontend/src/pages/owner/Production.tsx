@@ -5,7 +5,11 @@ import StatCard from '../../components/StatCard';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
 
-interface Stage { stage: string; status: string; updatedAt: string; }
+interface Stage {
+  stage: string;
+  status: string;
+  updatedAt: string | null;
+}
 
 interface Job {
   id: string;
@@ -21,6 +25,21 @@ interface Job {
   assignedTo: string;
   notes: string;
   stages: Stage[];
+}
+
+// Helper functions
+function formatDate(isoDate: string | null): string {
+  if (!isoDate) return '—';
+  const d = new Date(isoDate);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function formatDateTime(isoDate: string | null): string {
+  if (!isoDate) return '—';
+  const d = new Date(isoDate);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 const STEPS = [
@@ -51,18 +70,48 @@ export default function Production() {
   const [showWorkView, setShowWorkView] = useState(false);
 
   useEffect(() => {
-    fetch('/data/jobs.json')
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((data: Job[]) => {
-        setJobs(data);
-        setSelectedJob(data[0] ?? null);
+    Promise.all([
+      fetch('/data/json/batches.json').then(res => res.json()),
+      fetch('/data/json/orders.json').then(res => res.json()),
+      fetch('/data/json/clients.json').then(res => res.json())
+    ])
+      .then(([batchesData, ordersData, clientsData]) => {
+        const ordersMap = new Map(ordersData.map((o: any) => [o.id, o]));
+        const clientsMap = new Map(clientsData.map((c: any) => [c.id, c.name]));
+
+        const jobList: Job[] = batchesData.map((batch: any) => {
+          const order = ordersMap.get(batch.orderId);
+          const clientName = order ? clientsMap.get(order.clientId) || 'Unknown' : 'Unknown';
+          const paper = order?.specs?.paper || (batch.paper) || '—';
+          const dueDate = formatDate(batch.deadline);
+          const stages = (batch.stages || []).map((s: any) => ({
+            ...s,
+            updatedAt: formatDateTime(s.updatedAt),
+          }));
+
+          return {
+            id: batch.id,                     // e.g., "B-260425-M"
+            client: clientName,
+            product: batch.product,
+            qty: batch.qty,
+            status: batch.status,             // e.g., "in_progress", "completed", "on_hold"
+            progress: batch.progress,
+            dueDate,
+            paper,
+            batchCode: batch.id,
+            priority: batch.priority,
+            assignedTo: batch.assignedTo || 'Unassigned',
+            notes: batch.notes || '—',
+            stages,
+          };
+        });
+
+        setJobs(jobList);
+        if (jobList.length > 0) setSelectedJob(jobList[0]);
         setLoading(false);
       })
       .catch((err) => {
-        console.error('Failed to load jobs:', err);
+        console.error('Failed to load production data:', err);
         setError('Could not load production data. Please try again later.');
         setLoading(false);
       });
@@ -290,7 +339,7 @@ export default function Production() {
                 <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 6, marginBottom: 16 }}>
                   {selectedJob.progress} / {selectedJob.qty} completed ({p}%)
                 </p>
-                <table style={{ marginBottom: 24 }}>
+                <table className="orders-table" style={{ marginBottom: 24 }}>
                   <thead>
                     <tr><th>Stage</th><th>Status</th><th>Updated At</th></tr>
                   </thead>

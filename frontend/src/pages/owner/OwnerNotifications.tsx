@@ -7,6 +7,7 @@ interface Notification {
   id: number;
   title: string;
   body: string;
+  // other fields (time, unread, action) are optional – not used in display
 }
 
 export default function OwnerNotifications() {
@@ -16,15 +17,23 @@ export default function OwnerNotifications() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch('/public/data/notifications-client.json')
+    fetch('/data/json/notifications-owner.json')
       .then((response) => {
         if (!response.ok) {
+          // If file not found, treat as empty list (no notifications)
+          if (response.status === 404) {
+            setNotifications([]);
+            setLoading(false);
+            return null;
+          }
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         return response.json();
       })
-      .then((data: Notification[]) => {
-        setNotifications(data);
+      .then((data: Notification[] | null) => {
+        if (data !== null) {
+          setNotifications(data);
+        }
         setLoading(false);
       })
       .catch((err) => {
@@ -60,12 +69,18 @@ export default function OwnerNotifications() {
     <AppShell role="owner" activePage="owner-notifications">
       <Topbar title="Notifications" />
       <section className="stack">
-        {notifications.map((n) => (
-          <article key={n.id} className="box">
-            <h3>{n.title}</h3>
-            <p>{n.body}</p>
-          </article>
-        ))}
+        {notifications.length === 0 ? (
+          <div className="box" style={{ textAlign: 'center', color: 'var(--muted)', padding: 48 }}>
+            No notifications.
+          </div>
+        ) : (
+          notifications.map((n) => (
+            <article key={n.id} className="box">
+              <h3>{n.title}</h3>
+              <p>{n.body}</p>
+            </article>
+          ))
+        )}
       </section>
     </AppShell>
   );
