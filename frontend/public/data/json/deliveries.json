@@ -1,0 +1,98 @@
+[
+  {
+    "id": "CX-001",
+    "orderId": "ORD-1021-2025",
+    "clientId": "CL-001",
+    "address": "15 Tahrir St, Cairo",
+    "driver": "Omar Hassan",
+    "company": "Swift Express",
+    "phone": "+20 111 555 8801",
+    "status": "on_time",
+    "progress": 75,
+    "scheduledDate": "2025-04-25"
+  },
+  {
+    "id": "CX-002",
+    "orderId": "ORD-1020-2025",
+    "clientId": "CL-001",
+    "address": "12 El Nasr St, Cairo, Egypt",
+    "driver": "Mona Adel",
+    "company": "Urban Delivery",
+    "phone": "+20 114 201 3332",
+    "status": "delayed",
+    "progress": 55,
+    "scheduledDate": "2025-04-23"
+  },
+  {
+    "id": "CX-003",
+    "orderId": "ORD-1019-2025",
+    "clientId": "CL-003",
+    "address": "42 Corniche Rd, Alexandria",
+    "driver": "Yousef Nabil",
+    "company": "RoadLine",
+    "phone": "+20 115 449 2907",
+    "status": "lost_in_transit",
+    "progress": 35,
+    "scheduledDate": "2025-04-20"
+  },
+  {
+    "id": "DEL-001",
+    "orderId": "ORD-1021-2026",
+    "clientId": "CL-002",
+    "address": "7 Smart Village, Giza",
+    "driver": "TBD",
+    "company": "TBD",
+    "phone": "",
+    "status": "scheduled",
+    "progress": 0,
+    "scheduledDate": "2026-04-28"
+  },
+  {
+    "id": "DEL-002",
+    "orderId": "ORD-1032-2026",
+    "clientId": "CL-001",
+    "address": "12 El Nasr St, Cairo, Egypt",
+    "driver": "TBD",
+    "company": "TBD",
+    "phone": "",
+    "status": "in_transit",
+    "progress": 50,
+    "scheduledDate": "2026-04-29"
+  },
+  {
+    "id": "DEL-003",
+    "orderId": "ORD-1019-2026",
+    "clientId": "CL-003",
+    "address": "22 City Stars Mall, Nasr City",
+    "driver": "TBD",
+    "company": "TBD",
+    "phone": "",
+    "status": "delivered",
+    "progress": 100,
+    "scheduledDate": "2026-04-26"
+  },
+  {
+    "id": "DEL-004",
+    "orderId": "ORD-1020-2026",
+    "clientId": "CL-001",
+    "address": "12 El Nasr St, Cairo, Egypt",
+    "driver": "TBD",
+    "company": "TBD",
+    "phone": "",
+    "status": "on_hold",
+    "progress": 0,
+    "scheduledDate": "2026-04-30"
+  },
+  {
+    "id": "DEL-005",
+    "orderId": "ORD-1026-2026",
+    "clientId": "CL-009",
+    "address": "9 Hassan Allam St, Heliopolis",
+    "driver": "TBD",
+    "company": "TBD",
+    "phone": "",
+    "status": "scheduled",
+    "progress": 0,
+    "scheduledDate": "2026-05-01"
+  }
+]

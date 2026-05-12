@@ -1,0 +1,228 @@
+[
+  {
+    "id": "B-240421-A",
+    "orderId": "ORD-1021-2025",
+    "clientId": "CL-001",
+    "product": "Business Cards",
+    "qty": 500,
+    "progress": 375,
+    "priority": "Normal",
+    "assignedTo": null,
+    "deadline": "2025-04-25",
+    "status": "in_progress",
+    "stages": [
+      { "stage": "Prepress",  "status": "done",        "updatedAt": null },
+      { "stage": "Printing",  "status": "done",        "updatedAt": null },
+      { "stage": "Finishing", "status": "in_progress", "updatedAt": null }
+    ],
+    "notes": ""
+  },
+  {
+    "id": "B-240418-C",
+    "orderId": "ORD-1020-2025",
+    "clientId": "CL-001",
+    "product": "Flyers A5",
+    "qty": 200,
+    "progress": 110,
+    "priority": "Normal",
+    "assignedTo": null,
+    "deadline": "2025-04-23",
+    "status": "in_progress",
+    "stages": [
+      { "stage": "Prepress",  "status": "done",        "updatedAt": null },
+      { "stage": "Printing",  "status": "in_progress", "updatedAt": null },
+      { "stage": "Finishing", "status": "waiting",     "updatedAt": null }
+    ],
+    "notes": ""
+  },
+  {
+    "id": "B-240410-S",
+    "orderId": "ORD-1015-2025",
+    "clientId": "CL-001",
+    "product": "Stickers",
+    "qty": 300,
+    "progress": 300,
+    "priority": "Normal",
+    "assignedTo": null,
+    "deadline": "2025-04-14",
+    "status": "completed",
+    "stages": [
+      { "stage": "Prepress",  "status": "done", "updatedAt": "2025-04-11T08:00" },
+      { "stage": "Printing",  "status": "done", "updatedAt": "2025-04-12T12:00" },
+      { "stage": "Finishing", "status": "done", "updatedAt": "2025-04-14T09:00" }
+    ],
+    "notes": ""
+  },
+  {
+    "id": "B-240405-N",
+    "orderId": "ORD-1012-2025",
+    "clientId": "CL-001",
+    "product": "Banners",
+    "qty": 5,
+    "progress": 0,
+    "priority": "Normal",
+    "assignedTo": null,
+    "deadline": null,
+    "status": "canceled",
+    "stages": [],
+    "notes": ""
+  },
+  {
+    "id": "B-260426-P",
+    "orderId": "ORD-1033-2026",
+    "clientId": "CL-008",
+    "product": "Packaging Sleeves",
+    "qty": 2500,
+    "progress": 0,
+    "priority": "Normal",
+    "assignedTo": "Unassigned",
+    "deadline": "2026-04-30",
+    "status": "unpriced",
+    "stages": [
+      { "stage": "Prepress",  "status": "pending",     "updatedAt": null },
+      { "stage": "Printing",  "status": "not_started", "updatedAt": null },
+      { "stage": "Finishing", "status": "not_started", "updatedAt": null }
+    ],
+    "notes": "Awaiting pricing approval before production can start."
+  },
+  {
+    "id": "B-260425-M",
+    "orderId": "ORD-1032-2026",
+    "clientId": "CL-001",
+    "product": "Business Cards",
+    "qty": 1000,
+    "progress": 600,
+    "priority": "High",
+    "assignedTo": "Production Team A",
+    "deadline": "2026-04-28",
+    "status": "in_progress",
+    "stages": [
+      { "stage": "Prepress",  "status": "done",        "updatedAt": "2026-04-26T09:00" },
+      { "stage": "Printing",  "status": "in_progress", "updatedAt": "2026-04-26T16:20" },
+      { "stage": "Finishing", "status": "waiting",     "updatedAt": null }
+    ],
+    "notes": "Standard business cards, double-sided."
+  },
+  {
+    "id": "B-260425-D",
+    "orderId": "ORD-1031-2026",
+    "clientId": "CL-002",
+    "product": "Brochures",
+    "qty": 500,
+    "progress": 0,
+    "priority": "Normal",
+    "assignedTo": null,
+    "deadline": "2026-04-27",
+    "status": "pending_approval",
+    "stages": [],
+    "notes": ""
+  },
+  {
+    "id": "B-260427-R",
+    "orderId": "ORD-1029-2026",
+    "clientId": "CL-003",
+    "product": "Catalogs",
+    "qty": 300,
+    "progress": 150,
+    "priority": "Medium",
+    "assignedTo": "Production Team A",
+    "deadline": "2026-04-29",
+    "status": "in_progress",
+    "stages": [
+      { "stage": "Prepress",  "status": "done",        "updatedAt": "2026-04-27T09:00" },
+      { "stage": "Printing",  "status": "in_progress", "updatedAt": "2026-04-27T13:00" },
+      { "stage": "Finishing", "status": "waiting",     "updatedAt": null }
+    ],
+    "notes": "Full color catalog, A4 format"
+  },
+  {
+    "id": "B-260426-MK",
+    "orderId": "ORD-1026-2026",
+    "clientId": "CL-009",
+    "product": "Posters",
+    "qty": 1000,
+    "progress": 800,
+    "priority": "High",
+    "assignedTo": "Production Team C",
+    "deadline": "2026-04-27",
+    "status": "finishing",
+    "stages": [
+      { "stage": "Prepress",  "status": "done",        "updatedAt": "2026-04-26T11:00" },
+      { "stage": "Printing",  "status": "done",        "updatedAt": "2026-04-26T17:00" },
+      { "stage": "Finishing", "status": "in_progress", "updatedAt": "2026-04-27T08:00" }
+    ],
+    "notes": "A2 posters, glossy finish"
+  },
+  {
+    "id": "B-260423-C",
+    "orderId": "ORD-1024-2026",
+    "clientId": "CL-008",
+    "product": "Business Cards",
+    "qty": 1000,
+    "progress": 1000,
+    "priority": "Normal",
+    "assignedTo": null,
+    "deadline": "2026-04-26",
+    "status": "completed",
+    "stages": [
+      { "stage": "Prepress",  "status": "done", "updatedAt": "2026-04-26T09:00" },
+      { "stage": "Printing",  "status": "done", "updatedAt": "2026-04-27T14:00" },
+      { "stage": "Finishing", "status": "done", "updatedAt": "2026-04-27T18:10" }
+    ],
+    "notes": "Completed on time"
+  },
+  {
+    "id": "B-260420-A",
+    "orderId": "ORD-1020-2026",
+    "clientId": "CL-001",
+    "product": "Flyers A5",
+    "qty": 200,
+    "progress": 200,
+    "priority": "Normal",
+    "assignedTo": null,
+    "deadline": "2026-04-26",
+    "status": "completed",
+    "stages": [
+      { "stage": "Prepress",  "status": "done", "updatedAt": "2026-04-24T10:00" },
+      { "stage": "Printing",  "status": "done", "updatedAt": "2026-04-26T14:00" },
+      { "stage": "Finishing", "status": "done", "updatedAt": "2026-04-26T16:45" }
+    ],
+    "notes": ""
+  },
+  {
+    "id": "B-260425-F",
+    "orderId": "ORD-1021-2026",
+    "clientId": "CL-002",
+    "product": "Flyers",
+    "qty": 2000,
+    "progress": 1200,
+    "priority": "High",
+    "assignedTo": "Production Team B",
+    "deadline": "2026-04-25",
+    "status": "in_progress",
+    "stages": [
+      { "stage": "Prepress",  "status": "done",        "updatedAt": "2026-04-25T08:00" },
+      { "stage": "Printing",  "status": "in_progress", "updatedAt": "2026-04-25T15:00" },
+      { "stage": "Finishing", "status": "waiting",     "updatedAt": null }
+    ],
+    "notes": "A5 flyers, full color"
+  },
+  {
+    "id": "B-260426-R",
+    "orderId": "ORD-1023-2026",
+    "clientId": "CL-003",
+    "product": "Stickers",
+    "qty": 800,
+    "progress": 800,
+    "priority": "Medium",
+    "assignedTo": "Production Team B",
+    "deadline": "2026-04-27",
+    "status": "completed",
+    "stages": [
+      { "stage": "Prepress",  "status": "done", "updatedAt": "2026-04-26T10:00" },
+      { "stage": "Printing",  "status": "done", "updatedAt": "2026-04-27T13:00" },
+      { "stage": "Finishing", "status": "done", "updatedAt": "2026-04-27T16:45" }
+    ],
+    "notes": "Completed ahead of schedule"
+  }
+]

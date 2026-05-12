@@ -1,0 +1,144 @@
+[
+  {
+    "id": "INV-9021",
+    "orderId": "ORD-1021-2025",
+    "clientId": "CL-001",
+    "issued": "2025-04-21",
+    "due": "2025-04-28",
+    "paidDate": "2025-04-27",
+    "amount": 1200.00,
+    "status": "paid",
+    "vatRate": 0.14,
+    "items": [
+      { "description": "Business Cards (Glossy) – 500 pcs", "quantity": 500, "unitPrice": 1.80 },
+      { "description": "Flyers A5 (Full Colour) – 200 pcs", "quantity": 200, "unitPrice": 2.10 }
+    ],
+    "notes": "Thank you for your business. Payment received on 27 Apr 2025."
+  },
+  {
+    "id": "INV-9018",
+    "orderId": "ORD-1018-2025",
+    "clientId": "CL-001",
+    "issued": "2025-04-15",
+    "due": "2025-04-22",
+    "paidDate": "2025-04-21",
+    "amount": 950.00,
+    "status": "paid",
+    "vatRate": 0.14,
+    "items": [
+      { "description": "Roll-up Banner 85×200 cm", "quantity": 2, "unitPrice": 280.00 },
+      { "description": "Vinyl Stickers (Custom die-cut)", "quantity": 100, "unitPrice": 3.90 }
+    ],
+    "notes": "Payment received on 21 Apr 2025."
+  },
+  {
+    "id": "INV-9015",
+    "orderId": "ORD-1015-2025",
+    "clientId": "CL-001",
+    "issued": "2025-04-10",
+    "due": "2025-04-17",
+    "paidDate": "2025-04-16",
+    "amount": 850.00,
+    "status": "paid",
+    "vatRate": 0.14,
+    "items": [
+      { "description": "A4 Brochures (Tri-fold, Matte) – 300 pcs", "quantity": 300, "unitPrice": 2.50 },
+      { "description": "Envelope printing (DL size) – 200 pcs", "quantity": 200, "unitPrice": 0.25 }
+    ],
+    "notes": "Payment received on 16 Apr 2025."
+  },
+  {
+    "id": "INV-9012",
+    "orderId": "ORD-1012-2025",
+    "clientId": "CL-001",
+    "issued": "2025-04-05",
+    "due": "2025-04-12",
+    "paidDate": null,
+    "amount": 2100.00,
+    "status": "pending",
+    "vatRate": 0.14,
+    "items": [
+      { "description": "Large Format Print – 3×1 m banner", "quantity": 3, "unitPrice": 420.00 },
+      { "description": "Foam board mounting 50×70 cm", "quantity": 6, "unitPrice": 95.00 },
+      { "description": "Delivery & handling", "quantity": 1, "unitPrice": 120.00 }
+    ],
+    "notes": "Payment is due on 12 Apr 2025. Please transfer to our bank account or pay online."
+  },
+  {
+    "id": "INV-9008",
+    "orderId": "ORD-1008-2025",
+    "clientId": "CL-001",
+    "issued": "2025-03-28",
+    "due": "2025-04-04",
+    "paidDate": null,
+    "amount": 3500.00,
+    "status": "overdue",
+    "vatRate": 0.14,
+    "items": [
+      { "description": "Exhibition stand graphics (full set)", "quantity": 1, "unitPrice": 1800.00 },
+      { "description": "Pull-up banners 85×200 cm", "quantity": 4, "unitPrice": 280.00 },
+      { "description": "Fabric backdrop 3×2 m (dye sublimation)", "quantity": 1, "unitPrice": 490.00 }
+    ],
+    "notes": "This invoice is overdue. Please settle immediately to avoid service suspension."
+  },
+  {
+    "id": "INV-9511",
+    "orderId": "ORD-1033-2026",
+    "clientId": "CL-008",
+    "issued": "2026-04-26",
+    "due": "2026-05-03",
+    "paidDate": null,
+    "amount": 2850.00,
+    "status": "unpaid",
+    "vatRate": 0.14,
+    "items": [
+      { "description": "Packaging Sleeves – 2500 pcs", "quantity": 2500, "unitPrice": 1.14 }
+    ],
+    "notes": ""
+  },
+  {
+    "id": "INV-9507",
+    "orderId": "ORD-1029-2026",
+    "clientId": "CL-003",
+    "issued": "2026-04-27",
+    "due": "2026-05-04",
+    "paidDate": "2026-04-28",
+    "amount": 3120.00,
+    "status": "paid",
+    "vatRate": 0.14,
+    "items": [
+      { "description": "Catalogs – 300 pcs", "quantity": 300, "unitPrice": 10.40 }
+    ],
+    "notes": ""
+  },
+  {
+    "id": "INV-1024",
+    "orderId": "ORD-1024-2026",
+    "clientId": "CL-008",
+    "issued": "2026-04-26",
+    "due": "2026-05-03",
+    "paidDate": "2026-04-26",
+    "amount": 1200.00,
+    "status": "paid",
+    "vatRate": 0.14,
+    "items": [
+      { "description": "Business Cards (Matte 350gsm) — 1000 pcs", "quantity": 1000, "unitPrice": 1.20 }
+    ],
+    "notes": "Payment received on 26 Apr 2026."
+  },
+  {
+    "id": "INV-1020",
+    "orderId": "ORD-1020-2026",
+    "clientId": "CL-001",
+    "issued": "2026-04-26",
+    "due": "2026-05-03",
+    "paidDate": "2026-04-26",
+    "amount": 420.00,
+    "status": "paid",
+    "vatRate": 0.14,
+    "items": [
+      { "description": "Flyers A5 (Glossy 150gsm, Full Colour) — 200 pcs", "quantity": 200, "unitPrice": 2.10 }
+    ],
+    "notes": "Payment received on 26 Apr 2026."
+  }
+]

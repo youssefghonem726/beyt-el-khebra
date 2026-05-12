@@ -1,0 +1,119 @@
+[
+  {
+    "id": "CL-001",
+    "name": "Ahmed Store",
+    "email": "ahmed@store.com",
+    "phone": "+20 101 000 1021",
+    "address": "12 El Nasr St, Cairo, Egypt",
+    "taxId": "TAX-10023",
+    "since": "2023-01-15",
+    "stats": {
+      "totalOrders": 24,
+      "totalSpent": 44400
+    }
+  },
+  {
+    "id": "CL-002",
+    "name": "Design Hub",
+    "email": "info@designhub.com",
+    "phone": "+20 100 222 3100",
+    "address": "7 Smart Village, Giza, Egypt",
+    "taxId": "TAX-20012",
+    "since": "2024-09-15",
+    "stats": {
+      "totalOrders": 16,
+      "totalSpent": 32800
+    }
+  },
+  {
+    "id": "CL-003",
+    "name": "Retail Plus",
+    "email": "contact@retailplus.com",
+    "phone": "+20 122 777 4400",
+    "address": "42 Corniche Road, Alexandria, Egypt",
+    "taxId": "TAX-30088",
+    "since": "2025-06-15",
+    "stats": {
+      "totalOrders": 11,
+      "totalSpent": 15620
+    }
+  },
+  {
+    "id": "CL-004",
+    "name": "PrintWorks",
+    "email": "hello@printworks.com",
+    "phone": "+20 111 444 5500",
+    "address": "",
+    "taxId": "",
+    "since": null,
+    "stats": {
+      "totalOrders": 0,
+      "totalSpent": 0
+    }
+  },
+  {
+    "id": "CL-005",
+    "name": "Spark Creative",
+    "email": "team@sparkcreative.com",
+    "phone": "+20 115 800 3321",
+    "address": "",
+    "taxId": "",
+    "since": null,
+    "stats": {
+      "totalOrders": 0,
+      "totalSpent": 0
+    }
+  },
+  {
+    "id": "CL-006",
+    "name": "Nile Office Supply",
+    "email": "support@nileoffice.com",
+    "phone": "+20 100 900 2211",
+    "address": "",
+    "taxId": "",
+    "since": null,
+    "stats": {
+      "totalOrders": 0,
+      "totalSpent": 0
+    }
+  },
+  {
+    "id": "CL-007",
+    "name": "Cairo Media",
+    "email": "contact@cairomedia.com",
+    "phone": "+20 122 444 6600",
+    "address": "",
+    "taxId": "",
+    "since": null,
+    "stats": {
+      "totalOrders": 0,
+      "totalSpent": 0
+    }
+  },
+  {
+    "id": "CL-008",
+    "name": "Client Name",
+    "email": "client@example.com",
+    "phone": "+20 100 123 4567",
+    "address": "45 El Hegaz St, Heliopolis, Cairo",
+    "taxId": "TAX-20045",
+    "since": null,
+    "stats": {
+      "totalOrders": 4,
+      "totalSpent": 4050
+    }
+  },
+  {
+    "id": "CL-009",
+    "name": "Marketing Co.",
+    "email": "marketing@example.com",
+    "phone": "",
+    "address": "9 Hassan Allam St, Heliopolis",
+    "taxId": "",
+    "since": null,
+    "stats": {
+      "totalOrders": 1,
+      "totalSpent": 0
+    }
+  }
+]
