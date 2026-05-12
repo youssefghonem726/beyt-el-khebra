@@ -28,6 +28,8 @@ INSTALLED_APPS = [
     'orders',
     'uploads',
     'pricing',
+    'quotes',
+    'dashboard',
 ]
 
 MIDDLEWARE = [
