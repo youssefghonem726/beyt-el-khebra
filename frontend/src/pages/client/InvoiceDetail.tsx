@@ -13,24 +13,45 @@ interface LineItem {
   unitPrice: number;
 }
 
-interface InvoiceDetail {
+// Normalized invoice structure
+interface Invoice {
   id: string;
-  order: string;
-  issued: string;
-  due: string;
-  paidDate?: string;
-  amount: string;
+  orderId: string;
+  clientId: string;
+  issued: string;      // ISO date
+  due: string;         // ISO date
+  paidDate: string | null;
+  amount: number;
   status: string;
-  billedTo: {
-    name: string;
-    address: string;
-    taxId: string;
-  };
-  items: LineItem[];
   vatRate: number;
-  notes?: string;
+  items: LineItem[];
+  notes: string;
 }
 
+// Client data for billing info
+interface Client {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  taxId: string;
+  since: string | null;
+  stats: {
+    totalOrders: number;
+    totalSpent: number;
+  };
+}
+
+// Helper: format ISO date to "DD MMM YYYY"
+function formatDate(isoDate: string | null): string {
+  if (!isoDate) return '—';
+  const date = new Date(isoDate);
+  if (isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+// Helper: format number as currency
 function formatEGP(value: number): string {
   return value.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -38,22 +59,45 @@ function formatEGP(value: number): string {
 export default function InvoiceDetail() {
   const { id: invoiceId = '' } = useParams<{ id: string }>();
   const { navigateTopLevel, goBack } = useNavigation();
-  const [invoice, setInvoice] = useState<InvoiceDetail | null>(null);
+  const [invoice, setInvoice] = useState<Invoice | null>(null);
+  const [client, setClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
   const [paid, setPaid] = useState(false);
 
   useEffect(() => {
-    fetch('/data/client-invoices-detail.json')
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        return res.json();
-      })
-      .then((data: InvoiceDetail[]) => {
-        const found = data.find((inv) => inv.id === invoiceId);
-        if (!found) throw new Error('Invoice not found.');
-        setInvoice(found);
+    if (!invoiceId) {
+      setError('No invoice ID provided.');
+      setLoading(false);
+      return;
+    }
+
+    // Fetch both invoices and clients
+    Promise.all([
+      fetch('/data/json/invoices.json').then(res => res.json()),
+      fetch('/data/json/clients.json').then(res => res.json())
+    ])
+      .then(([invoicesData, clientsData]) => {
+        const invoices: Invoice[] = invoicesData;
+        const clients: Client[] = clientsData;
+
+        const foundInvoice = invoices.find(inv => inv.id === invoiceId);
+        if (!foundInvoice) {
+          setError(`Invoice ${invoiceId} not found.`);
+          setLoading(false);
+          return;
+        }
+
+        const foundClient = clients.find(c => c.id === foundInvoice.clientId);
+        if (!foundClient) {
+          setError(`Client data for invoice ${invoiceId} not found.`);
+          setLoading(false);
+          return;
+        }
+
+        setInvoice(foundInvoice);
+        setClient(foundClient);
         setLoading(false);
       })
       .catch((err) => {
@@ -66,21 +110,21 @@ export default function InvoiceDetail() {
   const handlePrint = () => window.print();
 
   const handleDownload = () => {
-    if (!invoice) return;
+    if (!invoice || !client) return;
     const sub = invoice.items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
     const v = sub * invoice.vatRate;
     const tot = sub + v;
     downloadText(`invoice-${invoice.id}.txt`, [
       `INVOICE #${invoice.id}`,
       ``,
-      `Billed To:   ${invoice.billedTo.name}`,
-      `Address:     ${invoice.billedTo.address}`,
-      `Tax ID:      ${invoice.billedTo.taxId}`,
+      `Billed To:   ${client.name}`,
+      `Address:     ${client.address}`,
+      `Tax ID:      ${client.taxId}`,
       ``,
-      `Linked Order: ${invoice.order}`,
-      `Issue Date:   ${invoice.issued}`,
-      `Due Date:     ${invoice.due}`,
-      invoice.paidDate ? `Payment Date: ${invoice.paidDate}` : '',
+      `Linked Order: ${invoice.orderId}`,
+      `Issue Date:   ${formatDate(invoice.issued)}`,
+      `Due Date:     ${formatDate(invoice.due)}`,
+      invoice.paidDate ? `Payment Date: ${formatDate(invoice.paidDate)}` : '',
       ``,
       `Items:`,
       ...invoice.items.map(item =>
@@ -105,7 +149,7 @@ export default function InvoiceDetail() {
     );
   }
 
-  if (error || !invoice) {
+  if (error || !invoice || !client) {
     return (
       <AppShell role="client" activePage="client-invoices">
         <Topbar title="Invoice Detail" />
@@ -139,24 +183,24 @@ export default function InvoiceDetail() {
           <div className="invoice-meta-grid">
             <div className="invoice-meta-col">
               <p className="meta-section-label">Billed to</p>
-              <p className="meta-value-primary">{invoice.billedTo.name}</p>
+              <p className="meta-value-primary">{client.name}</p>
               <p className="meta-field-label">Address</p>
-              <p className="meta-value">{invoice.billedTo.address}</p>
+              <p className="meta-value">{client.address || '—'}</p>
               <p className="meta-field-label">Tax ID</p>
-              <p className="meta-value">{invoice.billedTo.taxId}</p>
+              <p className="meta-value">{client.taxId || '—'}</p>
             </div>
             <div className="invoice-meta-col">
               <p className="meta-section-label">Invoice details</p>
               <p className="meta-field-label">Linked order</p>
-              <p className="meta-value">{invoice.order}</p>
+              <p className="meta-value">{invoice.orderId}</p>
               <p className="meta-field-label">Issue date</p>
-              <p className="meta-value">{invoice.issued}</p>
+              <p className="meta-value">{formatDate(invoice.issued)}</p>
               <p className="meta-field-label">Due date</p>
-              <p className="meta-value">{invoice.due}</p>
+              <p className="meta-value">{formatDate(invoice.due)}</p>
               {invoice.paidDate && (
                 <>
                   <p className="meta-field-label">Payment date</p>
-                  <p className="meta-value">{invoice.paidDate}</p>
+                  <p className="meta-value">{formatDate(invoice.paidDate)}</p>
                 </>
               )}
             </div>

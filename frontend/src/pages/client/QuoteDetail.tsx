@@ -1,59 +1,99 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import { useNavigation } from '../../context/NavigationContext';
 
-interface LineItem { description: string; qty: number; unitPrice: number; }
-
-interface QuoteData {
-  id: string; order: string; status: string; vatRate: number;
-  items: LineItem[]; notes: string; validUntil?: string; invoicePage?: string;
+interface LineItem {
+  description: string;
+  qty: number;
+  unitPrice: number;
 }
 
-const QUOTE_DATA: Record<string, QuoteData> = {
-  'Q-211': {
-    id: 'Q-211', order: '#1021', status: 'Awaiting Confirmation', vatRate: 0.14,
-    validUntil: '28 Apr 2025',
-    items: [
-      { description: 'Business Cards (Matte 350gsm) – 500 pcs', qty: 500, unitPrice: 1.80 },
-      { description: 'Glossy Finish Coating',                    qty: 1,   unitPrice: 200  },
-      { description: 'Delivery & Handling',                      qty: 1,   unitPrice: 150  },
-    ],
-    notes: 'Quote valid until 28 Apr 2025. Confirm to start production.',
-  },
-  'Q-208': {
-    id: 'Q-208', order: '#1018', status: 'Approved', vatRate: 0.14,
-    invoicePage: 'invoice-detail-INV-9018',
-    items: [
-      { description: 'Flyers A5 (Glossy 150gsm) – 200 pcs', qty: 200, unitPrice: 3.50 },
-      { description: 'Delivery & Handling',                   qty: 1,   unitPrice: 100  },
-    ],
-    notes: 'Quote approved. Invoice INV-9018 has been issued.',
-  },
-};
+interface Quote {
+  id: string;
+  orderId: string;
+  clientId: string;
+  status: string;
+  vatRate: number;
+  validUntil?: string;    // ISO date
+  invoiceId?: string;
+  items: LineItem[];
+  notes: string;
+}
 
 function fmt(n: number) {
   return n.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-export default function QuoteDetail() {
+function formatDate(isoDate?: string): string {
+  if (!isoDate) return '';
+  const date = new Date(isoDate);
+  if (isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+interface Props {
+  /** Current client ID (e.g., "CL-001") – defaults to CL-001 */
+  clientId?: string;
+}
+
+export default function QuoteDetail({ clientId = 'CL-001' }: Props) {
   const { id: quoteId = '' } = useParams<{ id: string }>();
   const { navigateTopLevel, goBack } = useNavigation();
-  const quote = QUOTE_DATA[quoteId];
-
+  const [quote, setQuote] = useState<Quote | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
   const [confirming, setConfirming] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [requestOpen, setRequestOpen] = useState(false);
   const [requestMsg, setRequestMsg] = useState('');
   const [requestSent, setRequestSent] = useState(false);
 
-  if (!quote) {
+  useEffect(() => {
+    if (!quoteId) {
+      setError('No quote ID provided.');
+      setLoading(false);
+      return;
+    }
+
+    fetch('/data/json/quotes.json')
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then((data: Quote[]) => {
+        const found = data.find(q => q.id === quoteId && q.clientId === clientId);
+        if (!found) {
+          setError('Quote not found or not accessible.');
+        } else {
+          setQuote(found);
+        }
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('Failed to load quote:', err);
+        setError('Could not load quote details. Please try again later.');
+        setLoading(false);
+      });
+  }, [quoteId, clientId]);
+
+  if (loading) {
     return (
       <AppShell role="client" activePage="quotes">
         <Topbar title="Quote Detail" />
-        <section className="table-wrap"><div className="error-state">Quote not found.</div></section>
+        <section className="table-wrap"><div className="loading-state">Loading quote...</div></section>
+      </AppShell>
+    );
+  }
+
+  if (error || !quote) {
+    return (
+      <AppShell role="client" activePage="quotes">
+        <Topbar title="Quote Detail" />
+        <section className="table-wrap"><div className="error-state">{error || 'Quote not found.'}</div></section>
       </AppShell>
     );
   }
@@ -71,14 +111,14 @@ export default function QuoteDetail() {
           <div>
             <div className="invoice-brand">Bayt El Khebra</div>
             <h2 className="invoice-id">Quote {quote.id}</h2>
-            <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>For order {quote.order}</p>
+            <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>For order {quote.orderId}</p>
           </div>
           <StatusBadge status={quote.status} />
         </div>
 
         {quote.validUntil && (
           <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20 }}>
-            Valid until: <strong>{quote.validUntil}</strong>
+            Valid until: <strong>{formatDate(quote.validUntil)}</strong>
           </p>
         )}
 
@@ -122,7 +162,7 @@ export default function QuoteDetail() {
 
         {quote.notes && <div className="invoice-note" style={{ marginTop: 20 }}>{quote.notes}</div>}
 
-        {/* ── Confirmed success banner ── */}
+        {/* Confirmed success banner */}
         {confirmed && (
           <div style={{ marginTop: 20, padding: '16px 20px', background: '#d1fae5', border: '1px solid #6ee7b7', borderRadius: 10, color: '#065f46' }}>
             <strong>Quote confirmed!</strong> Your order is now being sent to production. We'll notify you once it starts.
@@ -132,17 +172,16 @@ export default function QuoteDetail() {
           </div>
         )}
 
-        {/* ── Request changes success banner ── */}
+        {/* Request changes success banner */}
         {requestSent && (
           <div style={{ marginTop: 20, padding: '16px 20px', background: '#dbeafe', border: '1px solid #93c5fd', borderRadius: 10, color: '#1e40af' }}>
             <strong>Request sent!</strong> Our team will review your changes and get back to you shortly.
           </div>
         )}
 
-        {/* ── Awaiting confirmation actions ── */}
+        {/* Awaiting confirmation actions */}
         {quote.status === 'Awaiting Confirmation' && !confirmed && !requestSent && (
           <>
-            {/* Confirm step */}
             {!confirming && !requestOpen && (
               <div className="invoice-actions">
                 <button className="btn primary" onClick={() => setConfirming(true)}>
@@ -194,10 +233,10 @@ export default function QuoteDetail() {
           </>
         )}
 
-        {/* ── Approved actions ── */}
-        {quote.status === 'Approved' && quote.invoicePage && (
+        {/* Approved actions */}
+        {quote.status === 'Approved' && quote.invoiceId && (
           <div className="invoice-actions">
-            <button className="btn primary" onClick={() => navigateTopLevel(quote.invoicePage!)}>
+            <button className="btn primary" onClick={() => navigateTopLevel(`/client/invoices/${quote.invoiceId}`)}>
               View Invoice
             </button>
             <button className="btn" onClick={() => navigateTopLevel('support')}>Contact Support</button>

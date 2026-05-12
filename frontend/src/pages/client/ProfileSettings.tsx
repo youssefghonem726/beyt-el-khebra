@@ -6,13 +6,23 @@ import { useNavigation } from '../../context/NavigationContext';
 interface Client {
   id: string;
   name: string;
+  email: string;
   phone: string;
   address: string;
-  email: string;
-  // other fields may exist but we only use these four
+  taxId: string;
+  since: string | null;
+  stats: {
+    totalOrders: number;
+    totalSpent: number;
+  };
 }
 
-export default function ProfileSettings() {
+interface Props {
+  /** Client ID (e.g., "CL-001") – defaults to CL-001 */
+  clientId?: string;
+}
+
+export default function ProfileSettings({ clientId = 'CL-001' }: Props) {
   const { navigateTopLevel } = useNavigation();
   const [info, setInfo] = useState({ name: '', email: '', phone: '', address: '' });
   const [security, setSecurity] = useState({ current: '', newPass: '' });
@@ -21,7 +31,7 @@ export default function ProfileSettings() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch('/data/clients-detail.json')
+    fetch('/data/json/clients.json')
       .then((response) => {
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -29,8 +39,12 @@ export default function ProfileSettings() {
         return response.json();
       })
       .then((data: Client[]) => {
-        // Find the logged‑in user – here we assume "Ahmed Store"
-        const currentUser = data.find((c) => c.name === 'Ahmed Store');
+        // Find the client by ID
+        let currentUser = data.find((c) => c.id === clientId);
+        // Fallback to first client if not found
+        if (!currentUser && data.length > 0) {
+          currentUser = data[0];
+        }
         if (currentUser) {
           setInfo({
             name: currentUser.name,
@@ -39,18 +53,7 @@ export default function ProfileSettings() {
             address: currentUser.address,
           });
         } else {
-          // Fallback: use the first client
-          const first = data[0];
-          if (first) {
-            setInfo({
-              name: first.name,
-              email: first.email,
-              phone: first.phone,
-              address: first.address,
-            });
-          } else {
-            setError('No client data available.');
-          }
+          setError('No client data available.');
         }
         setLoading(false);
       })
@@ -59,7 +62,7 @@ export default function ProfileSettings() {
         setError('Could not load your profile. Please try again later.');
         setLoading(false);
       });
-  }, []);
+  }, [clientId]);
 
   const setField = (k: keyof typeof info) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setInfo((f) => ({ ...f, [k]: e.target.value }));

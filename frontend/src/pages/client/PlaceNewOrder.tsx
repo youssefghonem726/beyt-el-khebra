@@ -13,6 +13,7 @@ interface PackageItem {
   data: Record<string, any>;
 }
 
+// Updated to match normalized documents.json
 interface ClientDocument {
   id: string;
   name: string;
@@ -21,6 +22,8 @@ interface ClientDocument {
   sizeKB: number;
   uploadedDate: string;
   reorderCount: number;
+  ownerType: 'client' | 'template' | 'order';
+  ownerId: string;
   url?: string;
 }
 
@@ -202,6 +205,8 @@ function ItemEditor({
         sizeKB: Math.round(localMainFile.size / 1024),
         uploadedDate: new Date().toLocaleDateString(),
         url: localMainUrl!,
+        ownerType: 'client',
+        ownerId: 'temp',
       }
     : libraryDoc ?? null;
 
@@ -214,6 +219,8 @@ function ItemEditor({
         sizeKB: Math.round(localCoverFile.size / 1024),
         uploadedDate: new Date().toLocaleDateString(),
         url: localCoverUrl!,
+        ownerType: 'client',
+        ownerId: 'temp',
       }
     : null;
 
@@ -235,10 +242,6 @@ function ItemEditor({
         onChange={f => set('pdf', f)}
         libraryDoc={libraryDoc}
         onClearLibrary={onClearLibraryDoc}
-        onFilePreview={
-          // We don't need to do anything extra because useEffect handles preview
-          undefined
-        }
       />
       <div className="field mb-4">
         <label className="field-label">Quantity</label>
@@ -316,7 +319,12 @@ function ItemEditor({
   );
 }
 
-export default function PlaceNewOrder() {
+interface Props {
+  /** Client ID (e.g., "CL-001") – defaults to CL-001 */
+  clientId?: string;
+}
+
+export default function PlaceNewOrder({ clientId = 'CL-001' }: Props) {
   const { navigateTopLevel } = useNavigation();
 
   const [orderType, setOrderType]     = useState<OrderType>(null);
@@ -336,12 +344,17 @@ export default function PlaceNewOrder() {
   const [localCoverFile, setLocalCoverFile] = useState<File | null>(null);
   const [localCoverUrl, setLocalCoverUrl] = useState<string | null>(null);
 
+  // Fetch documents and filter by client
   useEffect(() => {
-    fetch('/data/documents.json')
+    fetch('/data/json/documents.json')
       .then(r => r.json())
-      .then(setDocs)
+      .then((allDocs: ClientDocument[]) => {
+        // Only show documents belonging to this client
+        const clientDocs = allDocs.filter(doc => doc.ownerType === 'client' && doc.ownerId === clientId);
+        setDocs(clientDocs);
+      })
       .catch(() => {});
-  }, []);
+  }, [clientId]);
 
   // Cleanup object URLs
   useEffect(() => {
@@ -697,6 +710,8 @@ export default function PlaceNewOrder() {
                               sizeKB: Math.round(localCoverFile.size / 1024),
                               uploadedDate: new Date().toLocaleDateString(),
                               url: localCoverUrl!,
+                              ownerType: 'client',
+                              ownerId: clientId,
                             }}
                             height={200}
                           />
@@ -710,8 +725,54 @@ export default function PlaceNewOrder() {
                         </div>
                       </>
                     )}
-                    {/* (other types follow same pattern, omitted for brevity) */}
-                    {/* ... rest of spec blocks ... */}
+                    {singleType === 'booklet' && (
+                      <>
+                        <div className="line line--compact" />
+                        <p className="spec-section-label">Booklet Specifications</p>
+                        <div className="form-grid-2">
+                          <SelectField label="Paper Weight" options={['150g', '200g', '300g']} value={singleData.weight ?? '150g'} onChange={v => setSingleData(d => ({ ...d, weight: v }))} />
+                          <SelectField label="Size" options={['A4', 'A3 (Centerfold)']} value={singleData.size ?? 'A4'} onChange={v => setSingleData(d => ({ ...d, size: v }))} />
+                          <SelectField label="Colors" options={['B&W', 'Colors']} value={singleData.colors ?? 'Colors'} onChange={v => setSingleData(d => ({ ...d, colors: v }))} />
+                          <SelectField label="Print Type" options={['Front', 'Front & Back']} value={singleData.printType ?? 'Front & Back'} onChange={v => setSingleData(d => ({ ...d, printType: v }))} />
+                          <SelectField label="Binding" options={['Staple', 'Glue']} value={singleData.casing ?? 'Staple'} onChange={v => setSingleData(d => ({ ...d, casing: v }))} />
+                        </div>
+                      </>
+                    )}
+                    {singleType === 'card' && (
+                      <>
+                        <div className="line line--compact" />
+                        <p className="spec-section-label">Card Specifications</p>
+                        <div className="form-grid-2">
+                          <SelectField label="Paper Weight" options={['200g', '300g', '400g']} value={singleData.weight ?? '300g'} onChange={v => setSingleData(d => ({ ...d, weight: v }))} />
+                          <SelectField label="Size" options={['6×9 cm', '3×6 cm', 'A5', 'A4 ÷ 8']} value={singleData.size ?? '6×9 cm'} onChange={v => setSingleData(d => ({ ...d, size: v }))} />
+                          <SelectField label="Finish" options={['Matte', 'Glossy', 'UV']} value={singleData.finish ?? 'Matte'} onChange={v => setSingleData(d => ({ ...d, finish: v }))} />
+                          <SelectField label="Print Type" options={['Front', 'Front & Back']} value={singleData.printType ?? 'Front & Back'} onChange={v => setSingleData(d => ({ ...d, printType: v }))} />
+                        </div>
+                      </>
+                    )}
+                    {singleType === 'sticker' && (
+                      <>
+                        <div className="line line--compact" />
+                        <p className="spec-section-label">Sticker Specifications</p>
+                        <div className="form-grid-2">
+                          <SelectField label="Material" options={['Vinyl', 'Paper', 'Clear']} value={singleData.material ?? 'Vinyl'} onChange={v => setSingleData(d => ({ ...d, material: v }))} />
+                          <SelectField label="Shape" options={['Rectangle', 'Circle', 'Custom']} value={singleData.shape ?? 'Rectangle'} onChange={v => setSingleData(d => ({ ...d, shape: v }))} />
+                          <SelectField label="Finish" options={['Glossy', 'Matte']} value={singleData.finish ?? 'Glossy'} onChange={v => setSingleData(d => ({ ...d, finish: v }))} />
+                        </div>
+                      </>
+                    )}
+                    {singleType === 'poster' && (
+                      <>
+                        <div className="line line--compact" />
+                        <p className="spec-section-label">Poster Specifications</p>
+                        <div className="form-grid-2">
+                          <SelectField label="Size" options={['A3', 'A2', 'A1', 'A0']} value={singleData.size ?? 'A3'} onChange={v => setSingleData(d => ({ ...d, size: v }))} />
+                          <SelectField label="Paper Weight" options={['150g', '200g', '300g']} value={singleData.weight ?? '200g'} onChange={v => setSingleData(d => ({ ...d, weight: v }))} />
+                          <SelectField label="Finish" options={['Matte', 'Glossy']} value={singleData.finish ?? 'Matte'} onChange={v => setSingleData(d => ({ ...d, finish: v }))} />
+                          <SelectField label="Print Type" options={['Front', 'Front & Back']} value={singleData.printType ?? 'Front'} onChange={v => setSingleData(d => ({ ...d, printType: v }))} />
+                        </div>
+                      </>
+                    )}
                   </>
                 )}
               </div>

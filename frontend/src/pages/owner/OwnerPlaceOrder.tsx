@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 
-// ── Inlined from types.ts ───────────────────────────────────────────
+// ── Types from normalized JSON ──────────────────────────────────────
 type ItemType = 'book' | 'booklet' | 'card' | 'sticker' | 'poster';
 
 interface PackageItem {
@@ -20,13 +20,22 @@ interface ClientDocument {
   uploadedDate: string;
   reorderCount?: number;
   url?: string;
+  ownerType: 'client' | 'template' | 'order';
+  ownerId: string;
 }
 
 interface Client {
+  id: string;
   name: string;
   email: string;
   phone: string;
-  page: string;
+  address: string;
+  taxId: string;
+  since: string | null;
+  stats: {
+    totalOrders: number;
+    totalSpent: number;
+  };
 }
 
 const ITEM_TYPES: { id: ItemType; label: string; icon: string }[] = [
@@ -36,7 +45,6 @@ const ITEM_TYPES: { id: ItemType; label: string; icon: string }[] = [
   { id: 'sticker', label: 'Sticker',       icon: '🏷️' },
   { id: 'poster',  label: 'Poster',        icon: '🖼️' },
 ];
-// ─────────────────────────────────────────────────────────────────────
 
 import { DocLibrary } from '../../components/DocLibrary';
 import { ItemEditor } from '../../components/ItemEditor';
@@ -48,12 +56,12 @@ type OrderType = 'package' | 'single' | null;
 
 export default function OwnerPlaceOrder() {
   const [clients, setClients]               = useState<Client[]>([]);
-  const [selectedClient, setSelectedClient] = useState('');
+  const [selectedClientId, setSelectedClientId] = useState('');
   const [orderType, setOrderType]           = useState<OrderType>(null);
   const [items, setItems]                   = useState<PackageItem[]>([]);
   const [singleType, setSingleType]         = useState<ItemType | ''>('');
   const [singleData, setSingleData]         = useState<Record<string, any>>({});
-  const [allDocs, setAllDocs]               = useState<Record<string, ClientDocument[]>>({});
+  const [allDocs, setAllDocs]               = useState<ClientDocument[]>([]);
   const [selectedDocId, setSelectedDocId]   = useState('');
   const [notes, setNotes]                   = useState('');
   const [submitted, setSubmitted]           = useState(false);
@@ -95,16 +103,23 @@ export default function OwnerPlaceOrder() {
   }, [localPreviewUrl, localCoverPreviewUrl]);
 
   useEffect(() => {
-    fetch('/data/clients.json').then(r => r.json()).then(setClients).catch(() => {});
+    fetch('/data/json/clients.json')
+      .then(r => r.json())
+      .then(setClients)
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
-    fetch('/data/client-documents.json').then(r => r.json()).then(setAllDocs).catch(() => {});
+    fetch('/data/json/documents.json')
+      .then(r => r.json())
+      .then(setAllDocs)
+      .catch(() => {});
   }, []);
 
-  const chosenClient = clients.find(c => c.name === selectedClient);
-  const clientDocs   = chosenClient ? (allDocs[selectedClient] ?? []) : [];
-  const selectedDoc  = clientDocs.find(d => d.id === selectedDocId) ?? null;
+  const selectedClient = clients.find(c => c.id === selectedClientId);
+  // Filter documents belonging to this client
+  const clientDocs = allDocs.filter(doc => doc.ownerType === 'client' && doc.ownerId === selectedClientId);
+  const selectedDoc = clientDocs.find(d => d.id === selectedDocId) ?? null;
 
   function resetOrder() {
     setOrderType(null);
@@ -120,7 +135,7 @@ export default function OwnerPlaceOrder() {
   }
 
   function resetAll() {
-    setSelectedClient('');
+    setSelectedClientId('');
     resetOrder();
     setSubmitted(false);
   }
@@ -128,6 +143,13 @@ export default function OwnerPlaceOrder() {
   const addItem    = (type: ItemType) => setItems(p => [...p, { id: crypto.randomUUID(), type, data: {} }]);
   const updateItem = (id: string, data: Record<string, any>) => setItems(p => p.map(i => i.id === id ? { ...i, data } : i));
   const removeItem = (id: string) => setItems(p => p.filter(i => i.id !== id));
+
+  // Helper to map client name (from datalist) to client id
+  const handleClientNameChange = (name: string) => {
+    const found = clients.find(c => c.name === name);
+    setSelectedClientId(found ? found.id : '');
+    resetOrder();
+  };
 
   if (submitted) {
     return (
@@ -137,7 +159,7 @@ export default function OwnerPlaceOrder() {
           <div className="success-icon">✓</div>
           <h2>Order Placed!</h2>
           <p className="success-subtext">
-            Assigned to <strong>{selectedClient}</strong>
+            Assigned to <strong>{selectedClient?.name ?? 'Client'}</strong>
           </p>
           <p className="success-subtext">
             {orderType === 'package'
@@ -155,7 +177,7 @@ export default function OwnerPlaceOrder() {
     <AppShell role="owner" activePage="owner-place-order">
       <Topbar title="Place Order" />
 
-      {/* ── Client selector ── */}
+      {/* Client selector – uses name for display, stores id internally */}
       <section className="box mb-5">
         <h3 className="section-heading">Select Client</h3>
         <div className="client-selector">
@@ -166,34 +188,34 @@ export default function OwnerPlaceOrder() {
               type="text"
               list="owner-clients-list"
               placeholder="Type or search for a client…"
-              value={selectedClient}
-              onChange={e => { setSelectedClient(e.target.value); resetOrder(); }}
+              value={selectedClient?.name ?? ''}
+              onChange={e => handleClientNameChange(e.target.value)}
               autoComplete="off"
             />
             <datalist id="owner-clients-list">
-              {clients.map(c => <option key={c.name} value={c.name} />)}
+              {clients.map(c => <option key={c.id} value={c.name} />)}
             </datalist>
-            {selectedClient && !chosenClient && (
+            {selectedClientId && !selectedClient && (
               <p className="new-client-hint">
                 New client — no existing record found.
               </p>
             )}
           </div>
-          {chosenClient && (
+          {selectedClient && (
             <div className="client-card-mini">
-              <span className="client-card-mini__name">{chosenClient.name}</span>
-              <span className="client-card-mini__detail">{chosenClient.email}</span>
-              <span className="client-card-mini__detail">{chosenClient.phone}</span>
+              <span className="client-card-mini__name">{selectedClient.name}</span>
+              <span className="client-card-mini__detail">{selectedClient.email}</span>
+              <span className="client-card-mini__detail">{selectedClient.phone}</span>
             </div>
           )}
         </div>
       </section>
 
-      {/* ── Order type picker ── */}
-      {!!selectedClient && !orderType && (
+      {/* Order type picker – only if a valid client is selected */}
+      {selectedClient && !orderType && (
         <section className="order-type-picker">
           <p className="picker-intro">
-            Choose how you'd like to place this order for <strong>{selectedClient}</strong>.
+            Choose how you'd like to place this order for <strong>{selectedClient.name}</strong>.
           </p>
           <div className="grid-2">
             <div className="box picker-card" onClick={() => setOrderType('package')}>
@@ -208,8 +230,8 @@ export default function OwnerPlaceOrder() {
         </section>
       )}
 
-      {/* ── Package order ── */}
-      {orderType === 'package' && (
+      {/* Package order UI */}
+      {orderType === 'package' && selectedClient && (
         <>
           <button className="global-back-btn" onClick={resetOrder}>← Back</button>
           <section className="split panel-wrapper">
@@ -257,7 +279,7 @@ export default function OwnerPlaceOrder() {
 
             <aside className="sticky-panel">
               <PackageOrderSummary
-                selectedClient={selectedClient}
+                selectedClient={selectedClient.name}
                 items={items}
                 selectedDoc={selectedDoc}
                 onSubmit={() => setSubmitted(true)}
@@ -267,8 +289,8 @@ export default function OwnerPlaceOrder() {
         </>
       )}
 
-      {/* ── Individual order ── */}
-      {orderType === 'single' && (
+      {/* Individual order UI */}
+      {orderType === 'single' && selectedClient && (
         <>
           <button className="global-back-btn" onClick={resetOrder}>← Back</button>
           <section className="split panel-wrapper">
@@ -402,7 +424,7 @@ export default function OwnerPlaceOrder() {
 
             <aside className="sticky-panel">
               <SingleOrderSummary
-                selectedClient={selectedClient}
+                selectedClient={selectedClient.name}
                 singleType={singleType}
                 singleData={singleData}
                 selectedDoc={selectedDoc}
