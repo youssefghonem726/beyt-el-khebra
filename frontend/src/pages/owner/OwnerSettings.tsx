@@ -32,7 +32,7 @@ export default function OwnerSettings() {
   };
 
   useEffect(() => {
-    fetch('/public/data/users.json')
+    fetch('/data/json/users.json')
       .then((response) => {
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -121,7 +121,7 @@ export default function OwnerSettings() {
         </article>
         <article className="box">
           <h3>User Management</h3>
-          <table>
+          <table className="orders-table">
             <thead>
               <tr>
                 <th>User</th>

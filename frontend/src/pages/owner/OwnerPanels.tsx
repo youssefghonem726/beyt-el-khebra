@@ -1,57 +1,178 @@
+// OwnerPanels.tsx (updated)
+
 import { useState, useEffect } from 'react';
 import StatCard from '../../components/StatCard';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
 import { downloadText } from '../../utils/download';
-// ─── Manager Orders Panel ─────────────────────────────────────────────────────
 
-const PENDING_ORDERS = [
-  { id: '#1033', status: 'unpriced',         client: 'Client Name' },
-  { id: '#1031', status: 'pending_approval', client: 'Design Hub'  },
-];
-const WORKING_ORDERS = [
-  { id: '#1029', status: 'in_progress', client: 'Retail Plus',   product: 'Brochures',  qty: 3000, progress: 1200, paper: 'Gloss 170gsm' },
-  { id: '#1026', status: 'finishing',   client: 'Marketing Co.', product: 'Gift Bags',  qty: 800,  progress: 600,  paper: 'Kraft'        },
-];
-const COMPLETED_ORDERS = [
-  { id: '#1024', status: 'completed', client: 'Client Name', completedAt: '26 Apr 2026, 6:10 PM' },
-  { id: '#1020', status: 'completed', client: 'Ahmed Store', completedAt: '26 Apr 2026, 4:45 PM' },
-];
+// ─── Helper functions (shared) ───────────────────────────────────────────────
 
-const ORDER_DETAIL: Record<string, { product: string; qty: number; paper: string; notes: string }> = {
-  '#1033': { product: 'Packaging Sleeves', qty: 1500, paper: 'Glossy 300gsm', notes: 'Awaiting price approval from client.' },
-  '#1031': { product: 'Flyers A5',         qty: 2000, paper: 'Matt 130gsm',   notes: 'Pending client approval on design.' },
-  '#1024': { product: 'Packaging Sleeves', qty: 1500, paper: 'Glossy 300gsm', notes: 'Completed and dispatched.' },
-  '#1020': { product: 'Business Cards',    qty: 500,  paper: 'Silk 350gsm',   notes: 'Completed and collected by client.' },
-};
+function formatDate(isoDate: string | null): string {
+  if (!isoDate) return '—';
+  const d = new Date(isoDate);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
 
-const WORK_VIEW_STAGES: Record<string, { stage: string; status: string; updated: string }[]> = {
-  '#1029': [
-    { stage: 'File Approved', status: 'done',        updated: '25 Apr 2026, 9:00 AM'  },
-    { stage: 'Printing',      status: 'in_progress', updated: '26 Apr 2026, 11:30 AM' },
-    { stage: 'Finishing',     status: 'pending',     updated: '—'                     },
-  ],
-  '#1026': [
-    { stage: 'File Approved', status: 'done',        updated: '24 Apr 2026, 8:00 AM'  },
-    { stage: 'Printing',      status: 'done',        updated: '25 Apr 2026, 3:00 PM'  },
-    { stage: 'Finishing',     status: 'in_progress', updated: '26 Apr 2026, 10:00 AM' },
-  ],
-};
+function formatDateTime(isoDate: string | null): string {
+  if (!isoDate) return '—';
+  const d = new Date(isoDate);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function getShortOrderId(orderId: string): string {
+  const match = orderId.match(/ORD-(\d+)-/);
+  return match ? `#${match[1]}` : orderId;
+}
+
+function formatAmount(amount: number): string {
+  return `EGP ${amount.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+// ─── Manager Orders Panel ────────────────────────────────────────────────────
+
+interface OrderBrief {
+  id: string;
+  displayId: string;
+  client: string;
+  status: string;
+}
+
+interface WorkOrder extends OrderBrief {
+  product: string;
+  qty: number;
+  progress: number;
+  paper: string;
+}
+
+interface CompletedOrder extends OrderBrief {
+  completedAt: string;
+}
+
+interface OrderDetail {
+  product: string;
+  qty: number;
+  paper: string;
+  notes: string;
+}
+
+interface WorkStage {
+  stage: string;
+  status: string;
+  updated: string;
+}
 
 type PanelView =
-  | { kind: 'order';     id: string; client: string; status: string }
-  | { kind: 'work-view'; id: string; client: string; product: string; qty: number; progress: number; paper: string };
+  | { kind: 'order'; id: string; displayId: string; client: string; status: string }
+  | { kind: 'work-view'; id: string; displayId: string; client: string; product: string; qty: number; progress: number; paper: string };
 
 export function ManagerOrdersPanel() {
   const [view, setView] = useState<PanelView | null>(null);
+  const [pending, setPending] = useState<OrderBrief[]>([]);
+  const [working, setWorking] = useState<WorkOrder[]>([]);
+  const [completed, setCompleted] = useState<CompletedOrder[]>([]);
+  const [orderDetails, setOrderDetails] = useState<Record<string, OrderDetail>>({});
+  const [workStages, setWorkStages] = useState<Record<string, WorkStage[]>>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    Promise.all([
+      fetch('/data/json/orders.json').then(res => res.json()),
+      fetch('/data/json/batches.json').then(res => res.json()),
+      fetch('/data/json/clients.json').then(res => res.json())
+    ])
+      .then(([ordersData, batchesData, clientsData]) => {
+        const orders = ordersData;
+        const batches = batchesData;
+        const clientsMap = new Map(clientsData.map(c => [c.id, c.name]));
+
+        // Helper to build order brief
+        const buildBrief = (order: any): OrderBrief => ({
+          id: order.id,
+          displayId: getShortOrderId(order.id),
+          client: clientsMap.get(order.clientId) || 'Unknown',
+          status: order.status,
+        });
+
+        // Pending: unpriced_pending + priced_pending_confirmation
+        const pendingOrders = orders
+          .filter(o => o.status === 'unpriced_pending' || o.status === 'priced_pending_confirmation')
+          .map(buildBrief);
+
+        // Working: in_progress orders (or also from batches)
+        const workingOrders = orders
+          .filter(o => o.status === 'in_progress')
+          .map(buildBrief);
+
+        // Completed: completed or canceled
+        const completedOrders = orders
+          .filter(o => o.status === 'completed' || o.status === 'canceled')
+          .map(o => ({
+            ...buildBrief(o),
+            completedAt: formatDate(o.deliveryDate || o.orderDate),
+          }));
+
+        // Build order details (product, qty, paper, notes) from orders + batches
+        const details: Record<string, OrderDetail> = {};
+        orders.forEach((order: any) => {
+          const batch = batches.find(b => b.orderId === order.id);
+          details[order.id] = {
+            product: order.product,
+            qty: batch?.qty || order.specs?.qty || 0,
+            paper: order.specs?.paper || batch?.paper || '—',
+            notes: batch?.notes || order.specs?.description || '—',
+          };
+        });
+
+        // Build work view stages from batches
+        const stagesMap: Record<string, WorkStage[]> = {};
+        batches.forEach((batch: any) => {
+          if (batch.stages) {
+            stagesMap[batch.orderId] = batch.stages.map(s => ({
+              stage: s.stage,
+              status: s.status,
+              updated: formatDateTime(s.updatedAt),
+            }));
+          }
+        });
+
+        setPending(pendingOrders);
+        setWorking(workingOrders.map(w => {
+          const batch = batches.find(b => b.orderId === w.id);
+          return {
+            ...w,
+            product: w.product, // from order
+            qty: batch?.qty || 0,
+            progress: batch?.progress || 0,
+            paper: w.specs?.paper || batch?.paper || '—',
+          };
+        }));
+        setCompleted(completedOrders);
+        setOrderDetails(details);
+        setWorkStages(stagesMap);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setError('Could not load manager orders data.');
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) return <div className="loading-state">Loading orders…</div>;
+  if (error) return <div className="error-state">{error}</div>;
+
+  // Detail view for an order (pending or completed)
   if (view?.kind === 'order') {
-    const detail = ORDER_DETAIL[view.id];
+    const detail = orderDetails[view.id];
     return (
       <div>
         <button className="btn" style={{ marginBottom: 16 }} onClick={() => setView(null)}>← Back to Orders</button>
         <div className="box">
-          <h3 style={{ marginBottom: 12 }}>Order {view.id}</h3>
+          <h3 style={{ marginBottom: 12 }}>Order {view.displayId}</h3>
           <div className="form-grid-2" style={{ fontSize: 14 }}>
             <p><strong>Client:</strong> {view.client}</p>
             <p><strong>Status:</strong> <StatusBadge status={view.status} /></p>
@@ -69,20 +190,21 @@ export function ManagerOrdersPanel() {
     );
   }
 
+  // Work view for an in-progress order
   if (view?.kind === 'work-view') {
     const pct = view.qty > 0 ? Math.round((view.progress / view.qty) * 100) : 0;
-    const stages = WORK_VIEW_STAGES[view.id] ?? [];
+    const stages = workStages[view.id] || [];
     return (
       <div>
         <button className="btn" style={{ marginBottom: 16 }} onClick={() => setView(null)}>← Back to Orders</button>
         <div className="box">
-          <h3 style={{ marginBottom: 4 }}>Work View — {view.id}</h3>
+          <h3 style={{ marginBottom: 4 }}>Work View — {view.displayId}</h3>
           <p className="muted" style={{ fontSize: 13, marginBottom: 12 }}>{view.client} · {view.product}</p>
           <ProgressBar percent={pct} color={pct === 100 ? 'green' : pct >= 50 ? 'orange' : undefined} />
           <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6, marginBottom: 14 }}>
             {view.progress} / {view.qty} printed ({pct}%)
           </p>
-          <table>
+          <table className="orders-table">
             <thead><tr><th>Stage</th><th>Status</th><th>Updated At</th></tr></thead>
             <tbody>
               {stages.map(s => (
@@ -99,70 +221,77 @@ export function ManagerOrdersPanel() {
     );
   }
 
+  // Main table view
   return (
     <div className="stack">
       <div className="grid-2">
+        {/* Pending Orders */}
         <article className="table-wrap">
           <div className="table-head"><h3>Pending Orders</h3></div>
-          <table>
+          <table className="orders-table">
             <thead><tr><th>Order</th><th>Status</th><th>Client</th><th>Action</th></tr></thead>
             <tbody>
-              {PENDING_ORDERS.map((o) => (
+              {pending.map(o => (
                 <tr key={o.id}>
-                  <td>{o.id}</td>
+                  <td>{o.displayId}</td>
                   <td><StatusBadge status={o.status} /></td>
                   <td>{o.client}</td>
                   <td>
-                    <button className="btn" onClick={() => setView({ kind: 'order', id: o.id, client: o.client, status: o.status })}>
+                    <button className="btn" onClick={() => setView({ kind: 'order', id: o.id, displayId: o.displayId, client: o.client, status: o.status })}>
                       View
                     </button>
                   </td>
                 </tr>
               ))}
+              {pending.length === 0 && <tr><td colSpan={4}>No pending orders</td></tr>}
             </tbody>
           </table>
         </article>
 
+        {/* Working Orders */}
         <article className="table-wrap">
           <div className="table-head"><h3>Working Orders</h3></div>
-          <table>
+          <table className="orders-table">
             <thead><tr><th>Order</th><th>Status</th><th>Client</th><th>Action</th></tr></thead>
             <tbody>
-              {WORKING_ORDERS.map((o) => (
+              {working.map(o => (
                 <tr key={o.id}>
-                  <td>{o.id}</td>
+                  <td>{o.displayId}</td>
                   <td><StatusBadge status={o.status} /></td>
                   <td>{o.client}</td>
                   <td>
-                    <button className="btn" onClick={() => setView({ kind: 'work-view', id: o.id, client: o.client, product: o.product, qty: o.qty, progress: o.progress, paper: o.paper })}>
+                    <button className="btn" onClick={() => setView({ kind: 'work-view', id: o.id, displayId: o.displayId, client: o.client, product: o.product, qty: o.qty, progress: o.progress, paper: o.paper })}>
                       Work View
                     </button>
                   </td>
                 </tr>
               ))}
+              {working.length === 0 && <tr><td colSpan={4}>No working orders</td></tr>}
             </tbody>
           </table>
         </article>
       </div>
 
+      {/* Completed Orders */}
       <article className="table-wrap">
         <div className="table-head"><h3>Completed Orders</h3></div>
-        <table>
+        <table className="orders-table">
           <thead><tr><th>Order</th><th>Status</th><th>Client</th><th>Completed At</th><th>Action</th></tr></thead>
           <tbody>
-            {COMPLETED_ORDERS.map((o) => (
+            {completed.map(o => (
               <tr key={o.id}>
-                <td>{o.id}</td>
+                <td>{o.displayId}</td>
                 <td><StatusBadge status={o.status} /></td>
                 <td>{o.client}</td>
                 <td>{o.completedAt}</td>
                 <td>
-                  <button className="btn" onClick={() => setView({ kind: 'order', id: o.id, client: o.client, status: o.status })}>
+                  <button className="btn" onClick={() => setView({ kind: 'order', id: o.id, displayId: o.displayId, client: o.client, status: o.status })}>
                     View
                   </button>
                 </td>
               </tr>
             ))}
+            {completed.length === 0 && <tr><td colSpan={5}>No completed orders</td></tr>}
           </tbody>
         </table>
       </article>
@@ -172,50 +301,71 @@ export function ManagerOrdersPanel() {
 
 // ─── Batch Lookup Panel ───────────────────────────────────────────────────────
 
-interface Batch { code: string; order: string; client: string; status: string; date: string; }
-
-const BATCHES: Batch[] = [
-  { code: 'B-260426-P', order: '#1033', client: 'Client Name', status: 'unpriced',    date: '26 Apr 2026' },
-  { code: 'B-260425-M', order: '#1032', client: 'Ahmed Store', status: 'in_progress', date: '25 Apr 2026' },
-];
-
-const BATCH_ORDER_DETAIL: Record<string, { product: string; qty: number; paper: string; notes: string }> = {
-  '#1033': { product: 'Packaging Sleeves', qty: 1500, paper: 'Glossy 300gsm', notes: 'Awaiting price approval from client.' },
-  '#1032': { product: 'Stickers',          qty: 800,  paper: 'Vinyl',         notes: 'Printing in progress, 40% done.' },
-};
+interface BatchView {
+  code: string;
+  order: string;
+  client: string;
+  status: string;
+  date: string;
+}
 
 export function BatchLookupPanel() {
   const [query, setQuery] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [selected, setSelected] = useState<Batch | null>(null);
+  const [selected, setSelected] = useState<BatchView | null>(null);
+  const [batches, setBatches] = useState<BatchView[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const filtered = BATCHES.filter((b) => {
+  useEffect(() => {
+    Promise.all([
+      fetch('/data/json/batches.json').then(res => res.json()),
+      fetch('/data/json/orders.json').then(res => res.json()),
+      fetch('/data/json/clients.json').then(res => res.json())
+    ])
+      .then(([batchesData, ordersData, clientsData]) => {
+        const ordersMap = new Map(ordersData.map(o => [o.id, o]));
+        const clientsMap = new Map(clientsData.map(c => [c.id, c.name]));
+
+        const views: BatchView[] = batchesData.map((b: any) => {
+          const order = ordersMap.get(b.orderId);
+          return {
+            code: b.id,
+            order: order ? getShortOrderId(order.id) : b.orderId,
+            client: order ? clientsMap.get(order.clientId) || 'Unknown' : 'Unknown',
+            status: b.status,
+            date: formatDate(order?.orderDate || null),
+          };
+        });
+        setBatches(views);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setError('Could not load batch data.');
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) return <div className="loading-state">Loading batches…</div>;
+  if (error) return <div className="error-state">{error}</div>;
+
+  const filtered = batches.filter(b => {
     const q = query.toLowerCase();
     return !q || b.code.toLowerCase().includes(q) || b.order.toLowerCase().includes(q) || b.client.toLowerCase().includes(q);
   });
 
   if (selected) {
-    const detail = BATCH_ORDER_DETAIL[selected.order];
     return (
       <div>
-        <button className="btn" style={{ marginBottom: 16 }} onClick={() => setSelected(null)}>
-          ← Back to Batch List
-        </button>
-        <div className="box" style={{ marginBottom: 12 }}>
-          <h3 style={{ marginBottom: 12 }}>Order {selected.order}</h3>
+        <button className="btn" style={{ marginBottom: 16 }} onClick={() => setSelected(null)}>← Back to Batch List</button>
+        <div className="box">
+          <h3 style={{ marginBottom: 12 }}>Batch {selected.code}</h3>
           <div className="form-grid-2" style={{ fontSize: 14 }}>
-            <p><strong>Batch Code:</strong> {selected.code}</p>
+            <p><strong>Order:</strong> {selected.order}</p>
             <p><strong>Client:</strong> {selected.client}</p>
             <p><strong>Date:</strong> {selected.date}</p>
             <p><strong>Status:</strong> <StatusBadge status={selected.status} /></p>
-            {detail && (
-              <>
-                <p><strong>Product:</strong> {detail.product}</p>
-                <p><strong>Quantity:</strong> {detail.qty} pcs</p>
-                <p><strong>Paper / Material:</strong> {detail.paper}</p>
-                <p style={{ gridColumn: '1 / -1' }}><strong>Notes:</strong> {detail.notes}</p>
-              </>
-            )}
           </div>
         </div>
       </div>
@@ -248,22 +398,17 @@ export function BatchLookupPanel() {
             </div>
           )}
         </div>
-        <button
-          className="btn"
-          onClick={() => {
-            const header = 'Batch Code,Order,Client,Status,Date';
-            const rows = filtered.map(b => `${b.code},${b.order},${b.client},${b.status},${b.date}`);
-            downloadText('batch-export.csv', [header, ...rows]);
-          }}
-        >
+        <button className="btn" onClick={() => {
+          const header = 'Batch Code,Order,Client,Status,Date';
+          const rows = filtered.map(b => `${b.code},${b.order},${b.client},${b.status},${b.date}`);
+          downloadText('batch-export.csv', [header, ...rows]);
+        }}>
           Export CSV
         </button>
       </div>
       <div className="table-responsive">
         <table className="orders-table">
-          <thead>
-            <tr><th>Batch Code</th><th>Order</th><th>Client</th><th>Status</th><th>Date</th><th>Action</th></tr>
-          </thead>
+          <thead><tr><th>Batch Code</th><th>Order</th><th>Client</th><th>Status</th><th>Date</th><th>Action</th></tr></thead>
           <tbody>
             {filtered.length === 0
               ? <tr><td colSpan={6} className="no-results">No matching results</td></tr>
@@ -274,9 +419,7 @@ export function BatchLookupPanel() {
                   <td>{b.client}</td>
                   <td><StatusBadge status={b.status} /></td>
                   <td>{b.date}</td>
-                  <td>
-                    <button className="btn" onClick={() => setSelected(b)}>View</button>
-                  </td>
+                  <td><button className="btn" onClick={() => setSelected(b)}>View</button></td>
                 </tr>
               ))}
           </tbody>
@@ -288,26 +431,53 @@ export function BatchLookupPanel() {
 
 // ─── Accounting Panel ─────────────────────────────────────────────────────────
 
-interface Invoice { id: string; order: string; client: string; total: string; status: string; }
-interface AccStat  { label: string; value: string | number; sub: string; }
-
 export function AccountingPanel() {
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [stats, setStats]       = useState<AccStat[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState<string | null>(null);
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [stats, setStats] = useState<{ label: string; value: string | number; sub: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
-      fetch('/data/invoices.json').then(r => { if (!r.ok) throw new Error(); return r.json(); }),
-      fetch('/data/accounting-stats.json').then(r => { if (!r.ok) throw new Error(); return r.json(); }),
+      fetch('/data/json/invoices.json').then(res => res.json()),
+      fetch('/data/json/clients.json').then(res => res.json())
     ])
-      .then(([inv, st]) => { setInvoices(inv); setStats(st); setLoading(false); })
-      .catch(() => { setError('Could not load accounting data.'); setLoading(false); });
+      .then(([invoicesData, clientsData]) => {
+        const clientsMap = new Map(clientsData.map(c => [c.id, c.name]));
+        const enriched = invoicesData.map((inv: any) => ({
+          id: inv.id,
+          order: getShortOrderId(inv.orderId),
+          client: clientsMap.get(inv.clientId) || 'Unknown',
+          total: formatAmount(inv.amount),
+          status: inv.status,
+        }));
+
+        // Compute stats
+        const paidTotal = invoicesData.filter((i: any) => i.status === 'paid').reduce((s: number, i: any) => s + i.amount, 0);
+        const pendingTotal = invoicesData.filter((i: any) => i.status !== 'paid').reduce((s: number, i: any) => s + i.amount, 0);
+        const paidCount = invoicesData.filter((i: any) => i.status === 'paid').length;
+        const unpaidCount = invoicesData.filter((i: any) => i.status !== 'paid').length;
+
+        const statsData = [
+          { label: 'Revenue Snapshot', value: `EGP ${(paidTotal / 1000).toFixed(0)}K`, sub: 'Total paid invoices' },
+          { label: 'Pending Collection', value: `EGP ${(pendingTotal / 1000).toFixed(0)}K`, sub: 'Awaiting payment' },
+          { label: 'Paid Invoices', value: paidCount, sub: 'Paid to date' },
+          { label: 'Unpaid Invoices', value: unpaidCount, sub: 'Follow-up required' },
+        ];
+
+        setInvoices(enriched);
+        setStats(statsData);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setError('Could not load accounting data.');
+        setLoading(false);
+      });
   }, []);
 
   if (loading) return <div className="loading-state">Loading accounting data…</div>;
-  if (error)   return <div className="error-state">{error}</div>;
+  if (error) return <div className="error-state">{error}</div>;
 
   return (
     <div>
@@ -316,9 +486,7 @@ export function AccountingPanel() {
       </div>
       <div className="table-responsive">
         <table className="orders-table">
-          <thead>
-            <tr><th>Invoice #</th><th>Order</th><th>Client</th><th>Total</th><th>Status</th><th>Action</th></tr>
-          </thead>
+          <thead><tr><th>Invoice #</th><th>Order</th><th>Client</th><th>Total</th><th>Status</th><th>Action</th></tr></thead>
           <tbody>
             {invoices.map(inv => (
               <tr key={inv.id}>
@@ -349,26 +517,26 @@ export function AccountingPanel() {
 interface User { email: string; role: string; status: string; }
 
 export function SettingsPanel() {
-  const [users, setUsers]     = useState<User[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [pricing, setPricing] = useState({ owner: 'Senior Manager', threshold: '5000' });
   const [whatsapp, setWhatsapp] = useState({ number: '+20 100 123 4455', template: 'Hello {{client_name}}, your order {{order_id}} is now {{status}}.' });
-  const [editEmail, setEditEmail]   = useState<string | null>(null);
-  const [editRole, setEditRole]     = useState('');
+  const [editEmail, setEditEmail] = useState<string | null>(null);
+  const [editRole, setEditRole] = useState('');
   const [editStatus, setEditStatus] = useState('');
-  const [toast, setToast]           = useState('');
+  const [toast, setToast] = useState('');
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
   const startEdit = (u: User) => { setEditEmail(u.email); setEditRole(u.role); setEditStatus(u.status); };
-  const saveEdit  = () => {
+  const saveEdit = () => {
     setUsers(prev => prev.map(u => u.email === editEmail ? { ...u, role: editRole, status: editStatus } : u));
     setEditEmail(null);
     showToast('User updated.');
   };
 
   useEffect(() => {
-    fetch('/data/users.json')
+    fetch('/data/json/users.json')
       .then(r => { if (!r.ok) throw new Error(); return r.json(); })
       .then((data: User[]) => { setUsers(data); setLoading(false); })
       .catch(() => { setError('Could not load users.'); setLoading(false); });
@@ -405,9 +573,9 @@ export function SettingsPanel() {
       <article className="box">
         <h3>User Management</h3>
         {loading && <div className="loading-state">Loading users…</div>}
-        {error   && <div className="error-state">{error}</div>}
+        {error && <div className="error-state">{error}</div>}
         {!loading && !error && (
-          <table>
+          <table className="orders-table">
             <thead><tr><th>User</th><th>Role</th><th>Status</th><th>Action</th></tr></thead>
             <tbody>
               {users.map(u => editEmail === u.email ? (
@@ -447,31 +615,68 @@ export function SettingsPanel() {
 
 // ─── Production Panel ─────────────────────────────────────────────────────────
 
-interface Job { id: string; client: string; product: string; qty: number; status: string; progress: number; dueDate: string; paper: string; }
+interface ProductionJob {
+  id: string;
+  client: string;
+  product: string;
+  qty: number;
+  status: string;
+  progress: number;
+  dueDate: string;
+  paper: string;
+}
 
 export function ProductionPanel() {
-  const [jobs, setJobs]       = useState<Job[]>([]);
+  const [jobs, setJobs] = useState<ProductionJob[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState<string | null>(null);
-  const [query, setQuery]     = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
 
-  const pct = (j: Job) => j.qty > 0 ? Math.round((j.progress / j.qty) * 100) : 0;
+  const pct = (j: ProductionJob) => j.qty > 0 ? Math.round((j.progress / j.qty) * 100) : 0;
   const progressColor = (p: number): 'green' | 'orange' | undefined =>
     p === 100 ? 'green' : p >= 50 ? 'orange' : undefined;
 
   useEffect(() => {
-    fetch('/data/jobs.json')
-      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
-      .then((data: Job[]) => { setJobs(data); setLoading(false); })
-      .catch(() => { setError('Could not load production data.'); setLoading(false); });
+    Promise.all([
+      fetch('/data/json/batches.json').then(res => res.json()),
+      fetch('/data/json/orders.json').then(res => res.json()),
+      fetch('/data/json/clients.json').then(res => res.json())
+    ])
+      .then(([batchesData, ordersData, clientsData]) => {
+        const ordersMap = new Map(ordersData.map(o => [o.id, o]));
+        const clientsMap = new Map(clientsData.map(c => [c.id, c.name]));
+
+        const productionJobs: ProductionJob[] = batchesData
+          .filter((b: any) => b.status !== 'completed') // active jobs
+          .map((b: any) => {
+            const order = ordersMap.get(b.orderId);
+            return {
+              id: b.id,
+              client: order ? clientsMap.get(order.clientId) || 'Unknown' : 'Unknown',
+              product: b.product,
+              qty: b.qty,
+              status: b.status,
+              progress: b.progress,
+              dueDate: formatDate(b.deadline),
+              paper: order?.specs?.paper || b.paper || '—',
+            };
+          });
+        setJobs(productionJobs);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setError('Could not load production data.');
+        setLoading(false);
+      });
   }, []);
 
   if (loading) return <div className="loading-state">Loading jobs…</div>;
-  if (error)   return <div className="error-state">{error}</div>;
+  if (error) return <div className="error-state">{error}</div>;
 
-  const active    = jobs.filter(j => j.status !== 'completed').length;
-  const inProg    = jobs.filter(j => j.status === 'in_progress').length;
-  const onHold    = jobs.filter(j => j.status === 'on_hold').length;
+  const active = jobs.filter(j => j.status !== 'completed').length;
+  const inProg = jobs.filter(j => j.status === 'in_progress').length;
+  const onHold = jobs.filter(j => j.status === 'on_hold').length;
   const completed = jobs.filter(j => j.status === 'completed').length;
 
   const filtered = jobs.filter(j => {
@@ -482,10 +687,10 @@ export function ProductionPanel() {
   return (
     <div>
       <div className="grid-4" style={{ marginBottom: 14 }}>
-        <StatCard label="Active Jobs"  value={active}    sub="Currently in queue"   />
-        <StatCard label="In Progress"  value={inProg}    sub="Being worked on"      />
-        <StatCard label="On Hold"      value={onHold}    sub="Waiting on something" />
-        <StatCard label="Completed"    value={completed} sub="Finished jobs"        />
+        <StatCard label="Active Jobs" value={active} sub="Currently in queue" />
+        <StatCard label="In Progress" value={inProg} sub="Being worked on" />
+        <StatCard label="On Hold" value={onHold} sub="Waiting on something" />
+        <StatCard label="Completed" value={completed} sub="Finished jobs" />
       </div>
       <input
         className="input"
@@ -511,8 +716,7 @@ export function ProductionPanel() {
                 {j.progress} / {j.qty} printed ({pct(j)}%)
               </p>
             </article>
-          ))
-        }
+          ))}
       </div>
     </div>
   );
@@ -520,40 +724,69 @@ export function ProductionPanel() {
 
 // ─── Completed Jobs Panel ─────────────────────────────────────────────────────
 
-const COMPLETED_JOBS = [
-  {
-    id: 'Order #1024', done: 1500, total: 1500,
-    stages: [
-      { stage: 'Prepress',  status: 'done', updated: '26 Apr 2026, 9:00 AM'  },
-      { stage: 'Printing',  status: 'done', updated: '27 Apr 2026, 2:00 PM'  },
-      { stage: 'Finishing', status: 'done', updated: '27 Apr 2026, 6:10 PM'  },
-    ],
-    info: { client: 'Client Name', batch: 'B-260425-M', product: 'Packaging Sleeves', qty: 1500, completion: '27 Apr 2026' },
-  },
-  {
-    id: 'Order #1023', done: 800, total: 800,
-    stages: [
-      { stage: 'Prepress',  status: 'done', updated: '26 Apr 2026, 10:00 AM' },
-      { stage: 'Printing',  status: 'done', updated: '27 Apr 2026, 1:00 PM'  },
-      { stage: 'Finishing', status: 'done', updated: '27 Apr 2026, 4:45 PM'  },
-    ],
-    info: { client: 'Retail Plus', batch: 'B-260426-R', product: 'Stickers', qty: 800, completion: '27 Apr 2026' },
-  },
-];
-
 export function CompletedJobsPanel() {
+  const [jobs, setJobs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/data/json/batches.json').then(res => res.json()),
+      fetch('/data/json/orders.json').then(res => res.json()),
+      fetch('/data/json/clients.json').then(res => res.json())
+    ])
+      .then(([batchesData, ordersData, clientsData]) => {
+        const ordersMap = new Map(ordersData.map(o => [o.id, o]));
+        const clientsMap = new Map(clientsData.map(c => [c.id, c.name]));
+
+        const completedBatches = batchesData.filter((b: any) => b.status === 'completed');
+        const viewJobs = completedBatches.map((b: any) => {
+          const order = ordersMap.get(b.orderId);
+          const clientName = order ? clientsMap.get(order.clientId) || 'Unknown' : 'Unknown';
+          return {
+            id: b.id,
+            done: b.progress,
+            total: b.qty,
+            percent: 100,
+            stages: b.stages.map((s: any) => ({
+              stage: s.stage,
+              status: s.status,
+              updated: formatDateTime(s.updatedAt),
+            })),
+            info: {
+              client: clientName,
+              batch: b.id,
+              product: b.product,
+              qty: b.qty,
+              completion: formatDate(b.deadline || order?.deliveryDate),
+            },
+          };
+        });
+        setJobs(viewJobs);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setError('Could not load completed jobs.');
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) return <div className="loading-state">Loading completed jobs…</div>;
+  if (error) return <div className="error-state">{error}</div>;
+
   return (
     <div className="stack">
-      {COMPLETED_JOBS.map(j => (
+      {jobs.map(j => (
         <div key={j.id} className="split" style={{ marginBottom: 14 }}>
           <article className="box">
             <h3>Work Progress — {j.id}</h3>
             <p><strong>{j.done} / {j.total}</strong> completed (100%)</p>
             <ProgressBar percent={100} style={{ margin: '8px 0 14px' }} />
-            <table>
+            <table className="orders-table">
               <thead><tr><th>Stage</th><th>Status</th><th>Updated At</th></tr></thead>
               <tbody>
-                {j.stages.map(s => (
+                {j.stages.map((s: any) => (
                   <tr key={s.stage}>
                     <td>{s.stage}</td>
                     <td><StatusBadge status={s.status} /></td>
@@ -575,6 +808,7 @@ export function CompletedJobsPanel() {
           </aside>
         </div>
       ))}
+      {jobs.length === 0 && <p className="muted">No completed jobs.</p>}
     </div>
   );
 }

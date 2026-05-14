@@ -5,9 +5,36 @@ import StatusBadge from '../../components/StatusBadge';
 import { useNavigation } from '../../context/NavigationContext';
 import DocumentSection from '../../components/DocumentSection';
 
-// ── Types ──────────────────────────────────────────────────────────────────
+// Types for normalized JSON files
+interface Client {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  taxId: string;
+  since: string | null;          // ISO date string
+  stats: {
+    totalOrders: number;
+    totalSpent: number;
+  };
+}
 
-interface BasePricingRow {
+interface Order {
+  id: string;
+  clientId: string;
+  product: string;
+  status: string;
+  orderDate: string;
+  deliveryDate: string | null;
+  total: number | null;
+  paid: number | null;
+  paymentMethod: string | null;
+  invoiceId: string | null;
+  specs: Record<string, any>;
+}
+
+interface PricingRow {
   id: string;
   product: string;
   size: string;
@@ -17,73 +44,106 @@ interface BasePricingRow {
   active: boolean;
 }
 
-interface ClientPricingOverride {
-  id: string;
-  pricePerUnit: number;
-  active: boolean;
+// Helper: format date to "DD MMM YYYY"
+function formatDate(isoDate: string | null): string {
+  if (!isoDate) return '—';
+  const d = new Date(isoDate);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-interface ClientDetail {
-  id: string;
-  name: string;
-  phone: string;
-  address: string;
-  email: string;
-  stats: { label: string; value: string }[];
-  pricingOverrides?: ClientPricingOverride[];
-  orders: {
-    id: string;
-    product: string;
-    status: string;
-    date: string;
-    total: string;
-  }[];
+// Helper: format amount to EGP string
+function formatAmount(amount: number | null): string {
+  if (amount === null) return '—';
+  return `EGP ${amount.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-interface MergedPricingRow extends BasePricingRow {
-  pricePerUnit: number;
-  active: boolean;
+// Helper: extract short order number (e.g., "#1021" from "ORD-1021-2025")
+function getShortOrderId(fullId: string): string {
+  const match = fullId.match(/ORD-(\d+)-/);
+  return match ? `#${match[1]}` : fullId;
 }
 
-// ── Helper ─────────────────────────────────────────────────────────────────
+// Helper: compute "Customer Since" string from ISO date
+function formatCustomerSince(since: string | null): string {
+  if (!since) return '—';
+  const start = new Date(since);
+  const now = new Date();
+  let years = now.getFullYear() - start.getFullYear();
+  let months = now.getMonth() - start.getMonth();
+  if (months < 0) {
+    years--;
+    months += 12;
+  }
+  if (years > 0) {
+    return `${years} year${years !== 1 ? 's' : ''}, ${months} month${months !== 1 ? 's' : ''}`;
+  }
+  return `${months} month${months !== 1 ? 's' : ''}`;
+}
+
+// Helper: compute average order price from totalSpent and totalOrders
+function getAverageOrderPrice(totalSpent: number, totalOrders: number): string {
+  if (totalOrders === 0) return 'EGP 0';
+  const avg = totalSpent / totalOrders;
+  return `EGP ${avg.toLocaleString('en-EG', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+}
+
+// Helper: format currency for stats
+function formatStatsAmount(amount: number): string {
+  return `EGP ${amount.toLocaleString('en-EG', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+}
 
 function fmt(n: number) {
   return n.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-// ── Component ──────────────────────────────────────────────────────────────
-
 export default function ClientDetail() {
-  const { id: clientId = 'client-detail-ahmed' } = useParams<{ id: string }>();
+  const { id: clientId = 'CL-001' } = useParams<{ id: string }>();
   const { navigateTopLevel } = useNavigation();
 
-  const [client, setClient]         = useState<ClientDetail | null>(null);
-  const [pricing, setPricing]       = useState<MergedPricingRow[]>([]);
-  const [loading, setLoading]       = useState(true);
-  const [error, setError]           = useState<string | null>(null);
-  const [editId, setEditId]         = useState<string | null>(null);
-  const [editPrice, setEditPrice]   = useState('');
+  const [client, setClient] = useState<Client | null>(null);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [pricing, setPricing] = useState<PricingRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Pricing edit local state (mock – no persistence)
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editPrice, setEditPrice] = useState('');
   const [editMinQty, setEditMinQty] = useState('');
-  const [toast, setToast]           = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
-      fetch('/data/pricing.json').then(r => { if (!r.ok) throw new Error(); return r.json() as Promise<BasePricingRow[]>; }),
-      fetch('/data/clients-detail.json').then(r => { if (!r.ok) throw new Error(); return r.json() as Promise<ClientDetail[]>; }),
+      fetch('/data/json/clients.json').then(res => {
+        if (!res.ok) throw new Error('Failed to load clients');
+        return res.json();
+      }),
+      fetch('/data/json/orders.json').then(res => {
+        if (!res.ok) throw new Error('Failed to load orders');
+        return res.json();
+      }),
+      fetch('/data/json/pricing.json').then(res => {
+        if (!res.ok) throw new Error('Failed to load pricing');
+        return res.json();
+      })
     ])
-      .then(([basePricing, clients]) => {
-        const found = clients.find(c => c.id === clientId);
-        if (!found) { setError(`Client with ID "${clientId}" not found.`); setLoading(false); return; }
+      .then(([clientsData, ordersData, pricingData]) => {
+        const clients: Client[] = clientsData;
+        const allOrders: Order[] = ordersData;
+        const basePricing: PricingRow[] = pricingData;
 
-        const merged: MergedPricingRow[] = basePricing.map(base => {
-          const override = found.pricingOverrides?.find(o => o.id === base.id);
-          return override
-            ? { ...base, pricePerUnit: override.pricePerUnit, active: override.active }
-            : { ...base };
-        });
+        const foundClient = clients.find(c => c.id === clientId);
+        if (!foundClient) {
+          setError(`Client with ID "${clientId}" not found.`);
+          setLoading(false);
+          return;
+        }
 
-        setClient(found);
-        setPricing(merged);
+        const clientOrders = allOrders.filter(o => o.clientId === clientId);
+        setClient(foundClient);
+        setOrders(clientOrders);
+        setPricing(basePricing);
         setLoading(false);
       })
       .catch(err => {
@@ -99,7 +159,8 @@ export default function ClientDetail() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  const startEdit = (row: MergedPricingRow) => {
+  // Pricing edit handlers (local only)
+  const startEdit = (row: PricingRow) => {
     setEditId(row.id);
     setEditPrice(String(row.pricePerUnit));
     setEditMinQty(String(row.minQty));
@@ -107,19 +168,18 @@ export default function ClientDetail() {
 
   const saveEdit = (rowId: string) => {
     const price = parseFloat(editPrice);
-    const qty   = parseInt(editMinQty, 10);
+    const qty = parseInt(editMinQty, 10);
     if (isNaN(price) || price <= 0 || isNaN(qty) || qty <= 0) return;
     setPricing(ps => ps.map(p => p.id === rowId ? { ...p, pricePerUnit: price, minQty: qty } : p));
     setEditId(null);
-    setToast('Price updated.');
+    setToast('Price updated (local only).');
   };
 
   const toggleActive = (rowId: string) => {
     setPricing(ps => ps.map(p => p.id === rowId ? { ...p, active: !p.active } : p));
   };
 
-  // ── Loading / error states ─────────────────────────────────────────────
-
+  // Loading / error states
   if (loading) {
     return (
       <AppShell role="owner" activePage="client-management">
@@ -138,7 +198,28 @@ export default function ClientDetail() {
     );
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────
+  // Compute stats from clientOrders
+  const totalOrders = orders.length;
+  const totalSpent = orders.reduce((sum, o) => sum + (o.total || 0), 0);
+  const avgOrderPrice = getAverageOrderPrice(totalSpent, totalOrders);
+  const customerSince = formatCustomerSince(client.since);
+  const totalSpentFormatted = formatStatsAmount(totalSpent);
+
+  const stats = [
+    { label: 'Total Number of Orders', value: totalOrders.toString() },
+    { label: 'Average Order Price', value: avgOrderPrice },
+    { label: 'Customer Since', value: customerSince },
+    { label: 'Total Amount Spent', value: totalSpentFormatted },
+  ];
+
+  // Past orders display
+  const pastOrders = orders.map(order => ({
+    id: getShortOrderId(order.id),
+    product: order.product,
+    status: order.status,
+    date: formatDate(order.orderDate),
+    total: formatAmount(order.total),
+  }));
 
   return (
     <AppShell role="owner" activePage="client-management">
@@ -149,17 +230,17 @@ export default function ClientDetail() {
         </button>
       </header>
 
-      {/* ── Info ── */}
+      {/* Info & Stats */}
       <section className="box">
         <div className="form-grid-2">
           <p><strong>Name:</strong> {client.name}</p>
           <p><strong>Phone Number:</strong> {client.phone}</p>
-          <p><strong>Address:</strong> {client.address}</p>
+          <p><strong>Address:</strong> {client.address || '—'}</p>
           <p><strong>Email:</strong> {client.email}</p>
         </div>
         <div className="line" />
         <div className="stats-grid">
-          {client.stats.map(s => (
+          {stats.map(s => (
             <div key={s.label} className="stat-item">
               <p>{s.label}</p>
               <h4>{s.value}</h4>
@@ -168,7 +249,7 @@ export default function ClientDetail() {
         </div>
       </section>
 
-      {/* ── Documents ── */}
+      {/* Documents */}
       <section className="box" style={{ marginTop: 14 }}>
         <div className="table-head" style={{ marginBottom: 14 }}>
           <h3>Documents</h3>
@@ -176,18 +257,18 @@ export default function ClientDetail() {
             Click a document to expand its preview. Rename, download, or remove files below.
           </p>
         </div>
-        <DocumentSection clientId={clientId} />
+        <DocumentSection clientId={client.id} />
       </section>
 
-      {/* ── Client Pricing ── */}
+      {/* Client Pricing (base pricing + local edits) */}
       <section className="box" style={{ marginTop: 14 }}>
         <div className="table-head" style={{ marginBottom: 14 }}>
           <h3>Client Pricing</h3>
           <p style={{ fontSize: 13, color: 'var(--muted)' }}>
-            Overrides default pricing for this client. Click Edit to change a row.
+            Standard pricing table. Edits are local only.
           </p>
         </div>
-        <table>
+        <table className="orders-table">
           <thead>
             <tr>
               <th>Product</th>
@@ -282,10 +363,10 @@ export default function ClientDetail() {
         </table>
       </section>
 
-      {/* ── Past Orders ── */}
+      {/* Past Orders */}
       <section className="table-wrap" style={{ marginTop: 14 }}>
         <h3>Past Orders</h3>
-        <table>
+        <table className="orders-table">
           <thead>
             <tr>
               <th>Order ID</th>
@@ -296,20 +377,23 @@ export default function ClientDetail() {
             </tr>
           </thead>
           <tbody>
-            {client.orders.map(o => (
-              <tr key={o.id}>
-                <td>{o.id}</td>
-                <td>{o.product}</td>
-                <td><StatusBadge status={o.status} /></td>
-                <td>{o.date}</td>
-                <td>{o.total}</td>
-              </tr>
-            ))}
+            {pastOrders.length === 0 ? (
+              <tr><td colSpan={5} className="no-results">No past orders</td></tr>
+            ) : (
+              pastOrders.map(o => (
+                <tr key={o.id}>
+                  <td>{o.id}</td>
+                  <td>{o.product}</td>
+                  <td><StatusBadge status={o.status} /></td>
+                  <td>{o.date}</td>
+                  <td>{o.total}</td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </section>
 
-      {/* ── Toast ── */}
       {toast && (
         <div style={{
           position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',

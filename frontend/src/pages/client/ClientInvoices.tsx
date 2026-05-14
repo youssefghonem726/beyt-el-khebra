@@ -5,16 +5,40 @@ import StatusBadge from '../../components/StatusBadge';
 import { downloadText } from '../../utils/download';
 import { useNavigation } from '../../context/NavigationContext';
 
+// Updated Invoice interface to match new invoices.json
 interface Invoice {
-  id: string;
-  order: string;
-  issued: string;
-  due: string;
-  amount: string;
-  status: string;
+  id: string;           // e.g. "INV-9021"
+  orderId: string;      // e.g. "ORD-1021-2025"
+  clientId: string;     // e.g. "CL-001"
+  issued: string;       // ISO date "2025-04-21"
+  due: string;          // ISO date "2025-04-28"
+  paidDate: string | null;
+  amount: number;       // numeric, not string
+  status: string;       // "paid", "pending", "overdue", "unpaid"
+  vatRate: number;
+  items: Array<any>;
+  notes: string;
 }
 
-export default function ClientInvoices() {
+// Helper to format ISO date to "DD MMM YYYY"
+function formatDate(isoDate: string): string {
+  if (!isoDate) return '—';
+  const date = new Date(isoDate);
+  if (isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+// Helper to format amount as currency
+function formatAmount(amount: number): string {
+  return amount.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+interface Props {
+  /** The ID of the currently logged‑in client (e.g., "CL-001") */
+  clientId: string;
+}
+
+export default function ClientInvoices({ clientId = "CL-001" }: Props) {
   const { navigateTopLevel } = useNavigation();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,15 +50,14 @@ export default function ClientInvoices() {
   const [paidSet, setPaidSet] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    fetch('/data/client-invoices-detail.json')
+    fetch('/data/json/invoices.json')
       .then((response) => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         return response.json();
       })
       .then((data: Invoice[]) => {
-        setInvoices(data);
+        const clientInvoices = data.filter(inv => inv.clientId === clientId);
+        setInvoices(clientInvoices);
         setLoading(false);
       })
       .catch((err) => {
@@ -42,7 +65,7 @@ export default function ClientInvoices() {
         setError('Could not load your invoices. Please try again later.');
         setLoading(false);
       });
-  }, []);
+  }, [clientId]);
 
   const filtered = invoices.filter((inv) => {
     const matchQ = !query || inv.id.toLowerCase().includes(query.toLowerCase());
@@ -96,6 +119,7 @@ export default function ClientInvoices() {
                     <option value="paid">Paid</option>
                     <option value="pending">Pending</option>
                     <option value="overdue">Overdue</option>
+                    <option value="unpaid">Unpaid</option>
                   </select>
                 </div>
                 <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>Apply</button>
@@ -122,10 +146,10 @@ export default function ClientInvoices() {
                 : filtered.map((inv) => (
                   <tr key={inv.id}>
                     <td><strong>{inv.id}</strong></td>
-                    <td>{inv.order}</td>
-                    <td>{inv.issued}</td>
-                    <td>{inv.due}</td>
-                    <td>{inv.amount}</td>
+                    <td>{inv.orderId}</td>
+                    <td>{formatDate(inv.issued)}</td>
+                    <td>{formatDate(inv.due)}</td>
+                    <td>{formatAmount(inv.amount)}</td>
                     <td><StatusBadge status={inv.status} /></td>
                     <td>
                       <div className="action-buttons">
@@ -139,10 +163,10 @@ export default function ClientInvoices() {
                         {(inv.status === 'paid' || paidSet.has(inv.id)) && (
                           <button className="btn btn-sm btn-outline" onClick={() => downloadText(`invoice-${inv.id}.txt`, [
                             `INVOICE: ${inv.id}`,
-                            `Order:       ${inv.order}`,
-                            `Date Issued: ${inv.issued}`,
-                            `Due Date:    ${inv.due}`,
-                            `Amount:      ${inv.amount} EGP`,
+                            `Order:       ${inv.orderId}`,
+                            `Date Issued: ${formatDate(inv.issued)}`,
+                            `Due Date:    ${formatDate(inv.due)}`,
+                            `Amount:      ${formatAmount(inv.amount)} EGP`,
                             `Status:      ${inv.status}`,
                           ])}>Download</button>
                         )}
@@ -187,7 +211,7 @@ export default function ClientInvoices() {
               <input className="input" placeholder="Name on card" />
             </div>
             <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>
-              Amount: <strong>{invoices.find(i => i.id === payingId)?.amount} EGP</strong>
+              Amount: <strong>{formatAmount(invoices.find(i => i.id === payingId)?.amount || 0)} EGP</strong>
             </p>
             <button className="btn primary block" onClick={() => {
               setPaidSet(s => { const n = new Set(s); n.add(payingId!); return n; });

@@ -15,6 +15,8 @@ interface Document {
   sizeKB: number;
   uploadedDate: string;
   reorderCount: number;
+  ownerType: 'client' | 'template' | 'order';
+  ownerId: string;
 }
 
 interface ReorderOptions {
@@ -23,7 +25,12 @@ interface ReorderOptions {
   size: string;
 }
 
-export default function DocumentManagement() {
+interface Props {
+  /** Client ID (e.g., "CL-001") – defaults to CL-001 */
+  clientId?: string;
+}
+
+export default function DocumentManagement({ clientId = 'CL-001' }: Props) {
   const { navigateTopLevel } = useNavigation();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,9 +47,9 @@ export default function DocumentManagement() {
   const [uploadCustomName, setUploadCustomName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch documents from JSON file
+  // Fetch documents from normalized JSON and filter by client
   useEffect(() => {
-    fetch('/data/documents.json')
+    fetch('/data/json/documents.json')
       .then((response) => {
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -50,7 +57,9 @@ export default function DocumentManagement() {
         return response.json();
       })
       .then((data: Document[]) => {
-        setDocuments(data);
+        // Filter documents belonging to this client
+        const clientDocs = data.filter(doc => doc.ownerType === 'client' && doc.ownerId === clientId);
+        setDocuments(clientDocs);
         setLoading(false);
       })
       .catch((err) => {
@@ -58,7 +67,7 @@ export default function DocumentManagement() {
         setError('Could not load your documents. Please try again later.');
         setLoading(false);
       });
-  }, []);
+  }, [clientId]);
 
   useEffect(() => {
     if (toastMessage) {
@@ -76,7 +85,7 @@ export default function DocumentManagement() {
     setToastMessage(message);
   };
 
-  // Compute stats from documents
+  // Compute stats from filtered documents
   const totalDocuments = documents.length;
   let maxReorder = 0;
   let mostOrderedName = '—';
@@ -169,9 +178,6 @@ export default function DocumentManagement() {
   const handleFileSelect = (file: File) => {
     const ext = file.name.split('.').pop()?.toUpperCase() || '';
     const validTypes = ['PDF', 'AI', 'PSD', 'JPG', 'JPEG', 'PNG'];
-    if (ext === 'JPEG') {
-      // type remains JPG for consistency
-    }
     if (!validTypes.includes(ext)) {
       alert('Unsupported format. Use PDF, AI, PSD, JPG, or PNG.');
       return false;
@@ -199,6 +205,8 @@ export default function DocumentManagement() {
       sizeKB: uploadFile.size / 1024,
       uploadedDate: new Date().toISOString().slice(0, 10),
       reorderCount: 0,
+      ownerType: 'client',
+      ownerId: clientId,
     };
     setDocuments((prev) => [newDoc, ...prev]);
     showToast(`📄 ${finalName} uploaded`);

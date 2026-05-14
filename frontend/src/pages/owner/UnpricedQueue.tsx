@@ -5,11 +5,12 @@ import StatCard from '../../components/StatCard';
 import { useNavigation } from '../../context/NavigationContext';
 
 interface UnpricedJob {
-  id: string;
+  id: string;          // order ID (e.g., ORD-1033-2026)
+  displayId: string;   // short ID for display (e.g., "#1033")
   client: string;
   product: string;
   qty: number;
-  deadline: string;
+  deadline: string;    // formatted date string
 }
 
 interface PricingState {
@@ -26,6 +27,19 @@ interface PriceListRow {
   active: boolean;
 }
 
+// Helper functions
+function formatDate(isoDate: string | null): string {
+  if (!isoDate) return '—';
+  const d = new Date(isoDate);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function getShortOrderId(fullId: string): string {
+  const match = fullId.match(/ORD-(\d+)-/);
+  return match ? `#${match[1]}` : fullId;
+}
+
 export default function UnpricedQueue() {
   const { navigateTopLevel } = useNavigation();
   const [jobs, setJobs] = useState<UnpricedJob[]>([]);
@@ -36,15 +50,49 @@ export default function UnpricedQueue() {
   const [priced, setPriced] = useState<Set<string>>(new Set());
   const [priceList, setPriceList] = useState<PriceListRow[]>([]);
 
+  // Fetch unpriced orders, clients, batches
   useEffect(() => {
-    fetch('/data/unpriced-jobs.json')
-      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-      .then((data: UnpricedJob[]) => { setJobs(data); setLoading(false); })
-      .catch(err => { console.error(err); setError('Could not load queue data.'); setLoading(false); });
+    Promise.all([
+      fetch('/data/json/orders.json').then(res => res.json()),
+      fetch('/data/json/clients.json').then(res => res.json()),
+      fetch('/data/json/batches.json').then(res => res.json())
+    ])
+      .then(([ordersData, clientsData, batchesData]) => {
+        const clientsMap = new Map(clientsData.map((c: any) => [c.id, c.name]));
+        const batchesMap = new Map(batchesData.map((b: any) => [b.orderId, b]));
+
+        // Filter orders that are unpriced_pending
+        const unpricedOrders = ordersData.filter((o: any) => o.status === 'unpriced_pending');
+
+        const jobList: UnpricedJob[] = unpricedOrders.map((order: any) => {
+          const batch = batchesMap.get(order.id);
+          // Get quantity from batch if available, else from order specs
+          const qty = batch?.qty || order.specs?.qty || 0;
+          // Get deadline from batch if available, else from order deliveryDate (or default)
+          const deadlineIso = batch?.deadline || order.deliveryDate;
+          return {
+            id: order.id,
+            displayId: getShortOrderId(order.id),
+            client: clientsMap.get(order.clientId) || 'Unknown',
+            product: order.product,
+            qty,
+            deadline: formatDate(deadlineIso),
+          };
+        });
+
+        setJobs(jobList);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('Failed to load unpriced queue:', err);
+        setError('Could not load unpriced jobs. Please try again later.');
+        setLoading(false);
+      });
   }, []);
 
+  // Fetch pricing list (unchanged)
   useEffect(() => {
-    fetch('/data/pricing.json')
+    fetch('/data/json/pricing.json')
       .then(r => r.ok ? r.json() : Promise.reject())
       .then((data: PriceListRow[]) => setPriceList(data.filter(p => p.active)))
       .catch(() => {});
@@ -106,7 +154,7 @@ export default function UnpricedQueue() {
           return (
             <article key={j.id} className="card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                <h4>{j.id}</h4>
+                <h4>{j.displayId}</h4>
                 <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 6, background: '#fef3cd', color: '#856404', fontWeight: 600 }}>
                   UNPRICED
                 </span>
@@ -127,7 +175,7 @@ export default function UnpricedQueue() {
 
               {isOpen && (
                 <div style={{ marginTop: 14, padding: '16px', background: 'var(--surface-2, #f8f9fb)', borderRadius: 8, border: '1px solid var(--border)' }}>
-                  <h4 style={{ marginBottom: 14, fontSize: 14 }}>Set Price for {j.id}</h4>
+                  <h4 style={{ marginBottom: 14, fontSize: 14 }}>Set Price for {j.displayId}</h4>
 
                   {priceList.length > 0 && (
                     <div className="field" style={{ marginBottom: 12 }}>

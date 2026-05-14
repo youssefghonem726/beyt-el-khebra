@@ -3,11 +3,19 @@ import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import { useNavigation } from '../../context/NavigationContext';
 
+// Updated Client interface to match the new normalized clients.json
 interface Client {
+  id: string;           // e.g. "CL-001"
   name: string;
   email: string;
   phone: string;
-  page: string;
+  address: string;
+  taxId: string;
+  since: string | null;
+  stats: {
+    totalOrders: number;
+    totalSpent: number;
+  };
 }
 
 interface PricingRow {
@@ -39,15 +47,17 @@ export default function ClientManagement() {
   const [editMinQty, setEditMinQty]   = useState('');
   const [toast, setToast]             = useState<string | null>(null);
 
+  // Fetch clients from the new normalized JSON file
   useEffect(() => {
-    fetch('/data/clients.json')
+    fetch('/data/json/clients.json')
       .then(r => { if (!r.ok) throw new Error(); return r.json(); })
       .then((data: Client[]) => { setClients(data); setLoading(false); })
       .catch(() => { setError('Could not load client data.'); setLoading(false); });
   }, []);
 
+  // Pricing stays the same (already clean)
   useEffect(() => {
-    fetch('/data/pricing.json')
+    fetch('/data/json/pricing.json')
       .then(r => { if (!r.ok) throw new Error(); return r.json(); })
       .then((data: PricingRow[]) => { setPricing(data); setPricingLoading(false); })
       .catch(() => setPricingLoading(false));
@@ -136,10 +146,14 @@ export default function ClientManagement() {
         <div className="client-grid">
           {filtered.map(c => (
             <a
-              key={c.name}
+              key={c.id}
               className="client-card-link"
               href="#"
-              onClick={e => { e.preventDefault(); if (c.page) navigateTopLevel(`/owner/clients/${c.page}`); }}
+              onClick={e => { 
+                e.preventDefault(); 
+                // Navigate using the client's ID (old "page" field is removed)
+                navigateTopLevel(`/owner/clients/${c.id}`);
+              }}
             >
               <h3>{c.name}</h3>
               <p>{c.email}</p>
@@ -150,7 +164,7 @@ export default function ClientManagement() {
         </div>
       </section>
 
-      {/* ── Pricing table ── */}
+      {/* ── Pricing table (unchanged) ── */}
       <section className="table-wrap">
         <div className="table-head" style={{ marginBottom: 14 }}>
           <h3>Product Pricing</h3>
@@ -219,7 +233,7 @@ export default function ClientManagement() {
                     >
                       {row.active ? 'Active' : 'Inactive'}
                     </span>
-                   </td>
+                  </td>
 
                   <td style={{ textAlign: 'center' }}>
                     {editId === row.id ? (
@@ -230,8 +244,8 @@ export default function ClientManagement() {
                     ) : (
                       <button className="btn" style={{ padding: '4px 12px', fontSize: 12 }} onClick={() => startEdit(row)}>Edit</button>
                     )}
-                   </td>
-                 </tr>
+                  </td>
+                </tr>
               ))}
             </tbody>
           </table>

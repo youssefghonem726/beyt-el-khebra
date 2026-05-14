@@ -6,9 +6,64 @@ import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
 import { useNavigation } from '../../context/NavigationContext';
 
-interface Step  { label: string; done: boolean; current: boolean; }
-interface Update { time: string; message: string; type: 'done' | 'info' | 'warn'; }
+interface TimelineItem {
+  label: string;
+  date: string | null;
+  done: boolean;
+}
 
+interface Order {
+  id: string;
+  clientId: string;
+  product: string;
+  status: string;
+  orderDate: string;
+  deliveryDate: string | null;
+  total: number | null;
+  paid: number | null;
+  paymentMethod: string | null;
+  invoiceId: string | null;
+  specs: Record<string, any>;
+  timeline: TimelineItem[];
+}
+
+interface Batch {
+  id: string;
+  orderId: string;
+  progress: number;
+  status: string;
+  deadline: string | null;
+  stages: any[];
+}
+
+interface Delivery {
+  id: string;
+  orderId: string;
+  status: string;
+  scheduledDate: string;
+}
+
+// Step display for tracking
+interface TrackingStep {
+  label: string;
+  done: boolean;
+  current: boolean;
+}
+
+// Update entry
+interface TrackingUpdate {
+  time: string;
+  message: string;
+  type: 'done' | 'info' | 'warn';
+}
+
+// Detail row
+interface DetailRow {
+  label: string;
+  value: string;
+}
+
+// All data for tracking view
 interface TrackingData {
   id: string;
   product: string;
@@ -18,199 +73,218 @@ interface TrackingData {
   estimatedDelivery: string;
   total: string;
   progress: number;
-  steps: Step[];
-  updates: Update[];
-  details: { label: string; value: string }[];
+  steps: TrackingStep[];
+  updates: TrackingUpdate[];
+  details: DetailRow[];
   invoiceId?: string;
 }
 
-const TRACKING: Record<string, TrackingData> = {
-  '1021': {
-    id: '#1021', product: 'Business Cards', status: 'priced_pending_confirmation',
-    currentStatusLabel: 'Awaiting your confirmation to begin production.',
-    orderDate: '21 Apr 2025', estimatedDelivery: '25 Apr 2025', total: 'EGP 1,200.00',
-    progress: 30,
-    steps: [
-      { label: 'Order Submitted',    done: true,  current: false },
-      { label: 'Priced',             done: true,  current: false },
-      { label: 'Awaiting Approval',  done: false, current: true  },
-      { label: 'In Production',      done: false, current: false },
-      { label: 'Quality Check',      done: false, current: false },
-      { label: 'Delivered',          done: false, current: false },
-    ],
-    updates: [
-      { time: '21 Apr 2025, 11:00 AM', message: 'Quote sent to client — awaiting confirmation.',           type: 'info' },
-      { time: '21 Apr 2025, 10:30 AM', message: 'Order priced successfully. Total: EGP 1,200.00.',         type: 'done' },
-      { time: '21 Apr 2025, 10:00 AM', message: 'Order #1021 received and assigned for pricing.',          type: 'done' },
-    ],
-    details: [
-      { label: 'Product',       value: 'Business Cards' },
-      { label: 'Quantity',      value: '500 pcs' },
-      { label: 'Size',          value: '9 × 5.5 cm' },
-      { label: 'Paper Type',    value: 'Matte 350gsm' },
-      { label: 'Color',         value: 'Full Color' },
-      { label: 'Finish',        value: 'Matte' },
-      { label: 'Files',         value: '1 file uploaded' },
-      { label: 'Special Notes', value: 'Double-sided printing' },
-    ],
-    invoiceId: 'INV-9021',
-  },
+function formatDate(isoDate: string | null): string {
+  if (!isoDate) return '—';
+  const date = new Date(isoDate);
+  if (isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
 
-  '1020': {
-    id: '#1020', product: 'Flyers A5', status: 'in_progress',
-    currentStatusLabel: 'Your order is currently being printed.',
-    orderDate: '18 Apr 2025', estimatedDelivery: '23 Apr 2025', total: 'EGP 2,400.00',
-    progress: 55,
-    steps: [
-      { label: 'Order Submitted', done: true,  current: false },
-      { label: 'Priced',          done: true,  current: false },
-      { label: 'Confirmed',       done: true,  current: false },
-      { label: 'In Production',   done: false, current: true  },
-      { label: 'Quality Check',   done: false, current: false },
-      { label: 'Delivered',       done: false, current: false },
-    ],
-    updates: [
-      { time: '20 Apr 2025, 02:00 PM', message: 'Printing started — 1,100 / 2,000 sheets done.',           type: 'info' },
-      { time: '20 Apr 2025, 09:00 AM', message: 'Files approved. Job sent to press.',                       type: 'done' },
-      { time: '19 Apr 2025, 03:00 PM', message: 'Delivery delayed by 1 day due to press queue.',           type: 'warn' },
-      { time: '18 Apr 2025, 10:30 AM', message: 'Client confirmed quote. Order moved to production queue.', type: 'done' },
-      { time: '18 Apr 2025, 09:00 AM', message: 'Order #1020 received and priced.',                         type: 'done' },
-    ],
-    details: [
-      { label: 'Product',       value: 'Flyers A5' },
-      { label: 'Quantity',      value: '2,000 pcs' },
-      { label: 'Size',          value: 'A5 (148 × 210 mm)' },
-      { label: 'Paper Type',    value: 'Glossy 130gsm' },
-      { label: 'Color',         value: 'Full Color' },
-      { label: 'Finish',        value: 'Glossy' },
-      { label: 'Files',         value: '2 files uploaded' },
-      { label: 'Special Notes', value: '—' },
-    ],
-  },
+function formatDateTime(isoDate: string | null): string {
+  if (!isoDate) return '—';
+  const date = new Date(isoDate);
+  if (isNaN(date.getTime())) return '—';
+  return date.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
 
-  '1018': {
-    id: '#1018', product: 'Posters A3', status: 'unpriced_pending',
-    currentStatusLabel: 'Your order is being reviewed for pricing.',
-    orderDate: '15 Apr 2025', estimatedDelivery: '—', total: '—',
-    progress: 10,
-    steps: [
-      { label: 'Order Submitted', done: true,  current: false },
-      { label: 'Under Review',    done: false, current: true  },
-      { label: 'Priced',          done: false, current: false },
-      { label: 'In Production',   done: false, current: false },
-      { label: 'Quality Check',   done: false, current: false },
-      { label: 'Delivered',       done: false, current: false },
-    ],
-    updates: [
-      { time: '15 Apr 2025, 04:00 PM', message: 'Order assigned to pricing team. Expected quote within 24 hours.', type: 'info' },
-      { time: '15 Apr 2025, 02:00 PM', message: 'Order #1018 received successfully.',                              type: 'done' },
-    ],
-    details: [
-      { label: 'Product',       value: 'Posters A3' },
-      { label: 'Quantity',      value: '100 pcs' },
-      { label: 'Size',          value: 'A3 (297 × 420 mm)' },
-      { label: 'Paper Type',    value: 'Satin 170gsm' },
-      { label: 'Color',         value: 'Full Color' },
-      { label: 'Finish',        value: 'Satin' },
-      { label: 'Files',         value: '1 file uploaded' },
-      { label: 'Special Notes', value: '—' },
-    ],
-  },
+function formatAmount(amount: number | null): string {
+  if (amount === null) return '—';
+  return `EGP ${amount.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
 
-  '1015': {
-    id: '#1015', product: 'Stickers', status: 'completed',
-    currentStatusLabel: 'Order completed and delivered on time.',
-    orderDate: '10 Apr 2025', estimatedDelivery: '14 Apr 2025', total: 'EGP 850.00',
-    progress: 100,
-    steps: [
-      { label: 'Order Submitted', done: true, current: false },
-      { label: 'Priced',          done: true, current: false },
-      { label: 'Confirmed',       done: true, current: false },
-      { label: 'In Production',   done: true, current: false },
-      { label: 'Quality Check',   done: true, current: false },
-      { label: 'Delivered',       done: true, current: false },
-    ],
-    updates: [
-      { time: '14 Apr 2025, 02:00 PM', message: 'Order delivered to client. Confirmed receipt.',              type: 'done' },
-      { time: '14 Apr 2025, 09:00 AM', message: 'Order dispatched for delivery.',                             type: 'done' },
-      { time: '13 Apr 2025, 02:00 PM', message: 'Quality check passed. All 500 stickers approved.',          type: 'done' },
-      { time: '11 Apr 2025, 08:00 AM', message: 'Production started — die-cut vinyl stickers.',               type: 'done' },
-      { time: '10 Apr 2025, 10:45 AM', message: 'Client confirmed quote. Order moved to production queue.',   type: 'done' },
-      { time: '10 Apr 2025, 09:00 AM', message: 'Order #1015 received and priced.',                           type: 'done' },
-    ],
-    details: [
-      { label: 'Product',       value: 'Stickers (Die-cut)' },
-      { label: 'Quantity',      value: '500 pcs' },
-      { label: 'Size',          value: '5 × 5 cm (round)' },
-      { label: 'Paper Type',    value: 'Vinyl Matte' },
-      { label: 'Color',         value: 'Full Color' },
-      { label: 'Finish',        value: 'Matte Lamination' },
-      { label: 'Files',         value: '1 file uploaded' },
-      { label: 'Special Notes', value: 'Waterproof vinyl requested' },
-    ],
-    invoiceId: 'INV-9015',
-  },
+function getProgressColor(progress: number): 'green' | 'orange' | undefined {
+  if (progress === 100) return 'green';
+  if (progress > 0) return 'orange';
+  return undefined;
+}
 
-  '1012': {
-    id: '#1012', product: 'Banners', status: 'canceled',
-    currentStatusLabel: 'This order was canceled at client request.',
-    orderDate: '05 Apr 2025', estimatedDelivery: '—', total: '—',
-    progress: 0,
-    steps: [
-      { label: 'Order Submitted', done: true,  current: false },
-      { label: 'Priced',          done: true,  current: false },
-      { label: 'Canceled',        done: false, current: true  },
-      { label: 'In Production',   done: false, current: false },
-      { label: 'Quality Check',   done: false, current: false },
-      { label: 'Delivered',       done: false, current: false },
-    ],
-    updates: [
-      { time: '06 Apr 2025, 09:00 AM', message: 'Order canceled at client request. No charges applied.', type: 'warn' },
-      { time: '05 Apr 2025, 11:00 AM', message: 'Order priced: pending client confirmation.',            type: 'done' },
-      { time: '05 Apr 2025, 10:00 AM', message: 'Order #1012 received.',                                 type: 'done' },
-    ],
-    details: [
-      { label: 'Product',       value: 'Roll-up Banners' },
-      { label: 'Quantity',      value: '2 pcs' },
-      { label: 'Size',          value: '85 × 200 cm' },
-      { label: 'Paper Type',    value: 'PVC Banner' },
-      { label: 'Color',         value: 'Full Color' },
-      { label: 'Finish',        value: '—' },
-      { label: 'Files',         value: 'None uploaded' },
-      { label: 'Special Notes', value: 'Canceled by client request' },
-    ],
-  },
-};
+// Map order status to user-friendly label
+function getCurrentStatusLabel(order: Order, progress: number): string {
+  if (order.status === 'canceled') return 'This order was canceled.';
+  if (order.status === 'completed') return 'Order completed and delivered.';
+  if (order.status === 'unpriced_pending') return 'Your order is being reviewed for pricing.';
+  if (order.status === 'priced_pending_confirmation') return 'Awaiting your confirmation to begin production.';
+  if (order.status === 'in_progress') {
+    if (progress >= 80) return 'Almost ready – final quality check.';
+    return 'Your order is currently being produced.';
+  }
+  return 'Order status unknown.';
+}
 
-const progressColor = (p: number): 'green' | 'orange' | undefined =>
-  p === 100 ? 'green' : p >= 50 ? 'orange' : undefined;
+// Build steps from timeline
+function buildSteps(timeline: TimelineItem[], progress: number, status: string): TrackingStep[] {
+  if (!timeline.length) {
+    // Fallback steps if no timeline
+    return [
+      { label: 'Order Submitted', done: status !== 'unpriced_pending', current: false },
+      { label: 'Pricing', done: status !== 'unpriced_pending' && status !== 'priced_pending_confirmation', current: status === 'priced_pending_confirmation' },
+      { label: 'Production', done: status === 'in_progress' && progress > 0, current: status === 'in_progress' && progress <= 80 },
+      { label: 'Quality Check', done: status === 'completed', current: false },
+      { label: 'Delivered', done: status === 'completed', current: false },
+    ];
+  }
 
-const updateDot: Record<Update['type'], { bg: string; color: string }> = {
-  done: { bg: '#d1fae5', color: '#065f46' },
-  info: { bg: '#dbeafe', color: '#1e40af' },
-  warn: { bg: '#fef3c7', color: '#92400e' },
-};
+  // Use timeline items as steps, determine current based on first incomplete
+  let foundCurrent = false;
+  return timeline.map(item => {
+    if (!item.done && !foundCurrent) {
+      foundCurrent = true;
+      return { label: item.label, done: false, current: true };
+    }
+    return { label: item.label, done: item.done, current: false };
+  });
+}
 
-export default function TrackOrder() {
+// Build updates from timeline (use dates as "time")
+function buildUpdates(timeline: TimelineItem[], order: Order): TrackingUpdate[] {
+  const updates: TrackingUpdate[] = [];
+  
+  // Add timeline entries with dates
+  timeline.forEach(item => {
+    if (item.date) {
+      updates.push({
+        time: formatDateTime(item.date),
+        message: `${item.label} ${item.done ? 'completed' : 'pending'}.`,
+        type: item.done ? 'done' : 'info',
+      });
+    }
+  });
+  
+  // Add special messages based on order status
+  if (order.status === 'priced_pending_confirmation') {
+    updates.unshift({
+      time: formatDateTime(order.orderDate),
+      message: `Quote sent – total ${formatAmount(order.total)}. Awaiting confirmation.`,
+      type: 'info',
+    });
+  }
+  if (order.status === 'canceled') {
+    updates.push({
+      time: formatDateTime(new Date().toISOString()),
+      message: 'Order canceled at client request.',
+      type: 'warn',
+    });
+  }
+  
+  // Sort by time (most recent first)
+  return updates.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+}
+
+// Build details from order specs
+function buildDetails(order: Order): DetailRow[] {
+  const details: DetailRow[] = [
+    { label: 'Product', value: order.product },
+    { label: 'Quantity', value: order.specs?.qty ? `${order.specs.qty} pcs` : '—' },
+    { label: 'Size', value: order.specs?.size || '—' },
+    { label: 'Paper / Material', value: order.specs?.paper || '—' },
+    { label: 'Color', value: order.specs?.color || '—' },
+    { label: 'Finish', value: order.specs?.finish || '—' },
+    { label: 'Files', value: order.specs?.description ? 'Files provided' : '—' },
+  ];
+  if (order.specs?.description) {
+    details.push({ label: 'Description', value: order.specs.description });
+  }
+  return details;
+}
+
+interface Props {
+  /** Client ID (e.g., "CL-001") – defaults to CL-001 */
+  clientId?: string;
+}
+
+export default function TrackOrder({ clientId = 'CL-001' }: Props) {
   const { id: urlId } = useParams<{ id: string }>();
   const { navigateTopLevel } = useNavigation();
-  const [orderId, setOrderId] = useState(urlId ? urlId.replace('#', '') : '');
+  const [orderIdInput, setOrderIdInput] = useState(urlId ? urlId.replace('#', '') : '');
   const [result, setResult] = useState<TrackingData | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleTrack = (idOverride?: string) => {
-    const key = (idOverride ?? orderId).replace('#', '').trim();
-    const found = TRACKING[key];
-    if (found) { setResult(found); setNotFound(false); }
-    else        { setResult(null); setNotFound(true);  }
+  const fetchAndTrack = async (id: string) => {
+    if (!id.trim()) return;
+    setLoading(true);
+    setNotFound(false);
+    setResult(null);
+    
+    try {
+      const [ordersRes, batchesRes, deliveriesRes] = await Promise.all([
+        fetch('/data/json/orders.json'),
+        fetch('/data/json/batches.json'),
+        fetch('/data/json/deliveries.json'),
+      ]);
+      
+      if (!ordersRes.ok) throw new Error('Failed to load orders');
+      const orders: Order[] = await ordersRes.json();
+      const batches: Batch[] = batchesRes.ok ? await batchesRes.json() : [];
+      const deliveries: Delivery[] = deliveriesRes.ok ? await deliveriesRes.json() : [];
+      
+      // Find order: by full ID or by extracting numeric part (e.g., "1021" from "ORD-1021-2025")
+      const searchId = id.trim();
+      let order = orders.find(o => o.id === searchId && o.clientId === clientId);
+      if (!order) {
+        // Try to match by numeric suffix (e.g., "1021" matches "ORD-1021-2025")
+        order = orders.find(o => o.clientId === clientId && o.id.includes(`-${searchId}-`));
+      }
+      
+      if (!order) {
+        setNotFound(true);
+        setLoading(false);
+        return;
+      }
+      
+      const batch = batches.find(b => b.orderId === order.id);
+      const delivery = deliveries.find(d => d.orderId === order.id);
+      
+      const progress = batch?.progress ?? (order.status === 'completed' ? 100 : order.status === 'canceled' ? 0 : 30);
+      const estimatedDelivery = delivery?.scheduledDate ?? order.deliveryDate;
+      
+      const steps = buildSteps(order.timeline || [], progress, order.status);
+      const updates = buildUpdates(order.timeline || [], order);
+      const details = buildDetails(order);
+      
+      const trackingData: TrackingData = {
+        id: order.id,
+        product: order.product,
+        status: order.status,
+        currentStatusLabel: getCurrentStatusLabel(order, progress),
+        orderDate: formatDate(order.orderDate),
+        estimatedDelivery: formatDate(estimatedDelivery),
+        total: formatAmount(order.total),
+        progress,
+        steps,
+        updates,
+        details,
+        invoiceId: order.invoiceId || undefined,
+      };
+      
+      setResult(trackingData);
+    } catch (err) {
+      console.error('Tracking error:', err);
+      setNotFound(true);
+    } finally {
+      setLoading(false);
+    }
   };
-
-  useEffect(() => { if (urlId) handleTrack(urlId); }, [urlId]);
-
+  
+  const handleTrack = (idOverride?: string) => {
+    const id = (idOverride ?? orderIdInput).replace('#', '').trim();
+    if (id) fetchAndTrack(id);
+  };
+  
+  useEffect(() => {
+    if (urlId) handleTrack(urlId);
+  }, [urlId, clientId]);
+  
   return (
     <AppShell role="client" activePage="my-orders">
       <Topbar title="Track Order" />
-
+      
       {/* Search */}
       <section className="box center-card" style={{ marginBottom: 14 }}>
         <h2 style={{ marginBottom: 6 }}>Track Your Order</h2>
@@ -219,21 +293,23 @@ export default function TrackOrder() {
           <input
             className="input"
             type="text"
-            placeholder="Enter Order ID (e.g. #1021)"
-            value={orderId}
-            onChange={(e) => { setOrderId(e.target.value); setResult(null); setNotFound(false); }}
+            placeholder="Enter Order ID (e.g. ORD-1021-2025 or #1021)"
+            value={orderIdInput}
+            onChange={(e) => { setOrderIdInput(e.target.value); setResult(null); setNotFound(false); }}
             onKeyDown={(e) => e.key === 'Enter' && handleTrack()}
           />
-          <button className="btn primary" onClick={() => handleTrack()}>Track Order</button>
+          <button className="btn primary" onClick={() => handleTrack()} disabled={loading}>
+            {loading ? 'Searching...' : 'Track Order'}
+          </button>
         </div>
         {notFound && (
           <p style={{ color: 'var(--accent)', fontSize: 13, marginTop: 8 }}>
-            No order found for "{orderId}". Please check the ID and try again.
+            No order found for "{orderIdInput}". Please check the ID and try again.
           </p>
         )}
       </section>
-
-      {result && (
+      
+      {result && !loading && (
         <>
           {/* Status banner */}
           <section className="box" style={{ marginBottom: 14 }}>
@@ -243,17 +319,17 @@ export default function TrackOrder() {
                 <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>{result.currentStatusLabel}</h2>
                 <p style={{ fontSize: 13, color: 'var(--muted)' }}>
                   Ordered: {result.orderDate} &nbsp;·&nbsp; Est. Delivery: {result.estimatedDelivery}
-                  {result.total !== '—' && <>&nbsp;·&nbsp; Total: <strong>{result.total}</strong></>}
+                  {result.total !== 'EGP —' && <>&nbsp;·&nbsp; Total: <strong>{result.total}</strong></>}
                 </p>
               </div>
               <StatusBadge status={result.status} />
             </div>
-
-            <ProgressBar percent={result.progress} color={progressColor(result.progress)} />
+            
+            <ProgressBar percent={result.progress} color={getProgressColor(result.progress)} />
             <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6, marginBottom: 20 }}>
               {result.progress}% complete
             </p>
-
+            
             {/* Step tracker */}
             <div style={{ display: 'flex', gap: 0, position: 'relative' }}>
               {result.steps.map((step, i) => {
@@ -290,30 +366,34 @@ export default function TrackOrder() {
               })}
             </div>
           </section>
-
+          
           <div className="grid-2" style={{ marginBottom: 14 }}>
             {/* Tracking updates */}
             <section className="box">
               <h3 style={{ marginBottom: 14 }}>Tracking Updates</h3>
-              <div style={{ display: 'grid', gap: 10 }}>
-                {result.updates.map((u, i) => {
-                  const dot = updateDot[u.type];
-                  return (
-                    <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                      <div style={{
-                        width: 10, height: 10, borderRadius: '50%', marginTop: 4, flexShrink: 0,
-                        background: dot.bg, border: `2px solid ${dot.color}`,
-                      }} />
-                      <div>
-                        <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)', marginBottom: 2 }}>{u.message}</p>
-                        <p style={{ fontSize: 11, color: 'var(--muted)' }}>{u.time}</p>
+              {result.updates.length === 0 ? (
+                <p className="muted" style={{ fontSize: 13 }}>No updates yet.</p>
+              ) : (
+                <div style={{ display: 'grid', gap: 10 }}>
+                  {result.updates.map((u, i) => {
+                    const dotColor = u.type === 'done' ? '#2c9a4b' : u.type === 'warn' ? '#e89023' : '#3498db';
+                    return (
+                      <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                        <div style={{
+                          width: 10, height: 10, borderRadius: '50%', marginTop: 4, flexShrink: 0,
+                          background: dotColor,
+                        }} />
+                        <div>
+                          <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)', marginBottom: 2 }}>{u.message}</p>
+                          <p style={{ fontSize: 11, color: 'var(--muted)' }}>{u.time}</p>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </section>
-
+            
             {/* Order details */}
             <section className="box">
               <h3 style={{ marginBottom: 14 }}>Order Details</h3>
@@ -327,7 +407,7 @@ export default function TrackOrder() {
               </div>
             </section>
           </div>
-
+          
           {/* Actions */}
           <section className="box" style={{ marginBottom: 14 }}>
             <div className="table-head">

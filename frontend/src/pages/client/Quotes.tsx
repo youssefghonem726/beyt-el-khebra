@@ -14,24 +14,56 @@ interface PricingRow {
   active: boolean;
 }
 
+interface QuoteItem {
+  description: string;
+  qty: number;
+  unitPrice: number;
+}
+
 interface Quote {
   id: string;
-  order: string;
+  orderId: string;
+  clientId: string;
   status: string;
-  amount: string;
-  action: {
-    label: string;
-    page: string;
-  };
+  vatRate: number;
+  validUntil?: string;
+  invoiceId?: string;
+  items: QuoteItem[];
+  notes: string;
+}
+
+interface QuoteSummary {
+  id: string;
+  orderId: string;
+  status: string;
+  amount: number;
+  actionLabel: string;
+  actionPage: string;
 }
 
 function fmt(n: number) {
   return n.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-export default function Quotes() {
+function computeAmount(items: QuoteItem[], vatRate: number): number {
+  const subtotal = items.reduce((sum, i) => sum + i.qty * i.unitPrice, 0);
+  return subtotal + subtotal * vatRate;
+}
+
+function normalizeStatus(raw: string): string {
+  const lower = raw.toLowerCase();
+  if (lower.includes('awaiting') || lower === 'awaiting confirmation') return 'awaiting_confirmation';
+  if (lower === 'approved') return 'approved';
+  return raw.toLowerCase().replace(/\s+/g, '_');
+}
+
+interface Props {
+  clientId?: string;
+}
+
+export default function Quotes({ clientId = 'CL-001' }: Props) {
   const { navigateTopLevel } = useNavigation();
-  const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [quotes, setQuotes] = useState<QuoteSummary[]>([]);
   const [pricing, setPricing] = useState<PricingRow[]>([]);
   const [showPricing, setShowPricing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -39,17 +71,44 @@ export default function Quotes() {
 
   useEffect(() => {
     Promise.all([
-      fetch('/data/quotes.json').then(res => {
+      fetch('/data/json/quotes.json').then(res => {
         if (!res.ok) throw new Error('Failed to load quotes');
         return res.json();
       }),
-      fetch('/data/pricing.json').then(res => {
+      fetch('/data/json/pricing.json').then(res => {
         if (!res.ok) throw new Error('Failed to load pricing');
         return res.json();
       })
     ])
       .then(([quotesData, pricingData]) => {
-        setQuotes(quotesData);
+        const clientQuotes = quotesData.filter((q: Quote) => q.clientId === clientId);
+        
+        const summaries: QuoteSummary[] = clientQuotes.map((q: Quote) => {
+          const amount = computeAmount(q.items, q.vatRate);
+          const normalizedStatus = normalizeStatus(q.status);
+          
+          let actionLabel = '';
+          let actionPage = '';
+          
+          if (normalizedStatus === 'awaiting_confirmation') {
+            actionLabel = 'Review Quote';
+            actionPage = `/client/quotes/${q.id}`;
+          } else if (normalizedStatus === 'approved' && q.invoiceId) {
+            actionLabel = 'View Invoice';
+            actionPage = `/client/invoices/${q.invoiceId}`;
+          }
+          
+          return {
+            id: q.id,
+            orderId: q.orderId,
+            status: normalizedStatus,
+            amount,
+            actionLabel,
+            actionPage,
+          };
+        });
+        
+        setQuotes(summaries);
         setPricing(pricingData.filter((p: PricingRow) => p.active));
         setLoading(false);
       })
@@ -58,7 +117,7 @@ export default function Quotes() {
         setError('Could not load quotes or pricing. Please try again later.');
         setLoading(false);
       });
-  }, []);
+  }, [clientId]);
 
   if (loading) {
     return (
@@ -89,7 +148,7 @@ export default function Quotes() {
             Request New Quote
           </button>
         </div>
-        <table>
+        <table className="orders-table">
           <thead>
             <tr>
               <th>Quote ID</th>
@@ -100,19 +159,25 @@ export default function Quotes() {
             </tr>
           </thead>
           <tbody>
-            {quotes.map(q => (
-              <tr key={q.id}>
-                <td>{q.id}</td>
-                <td>{q.order}</td>
-                <td><StatusBadge status={q.status} /></td>
-                <td style={{ fontWeight: 600 }}>{q.amount}</td>
-                <td>
-                  <button className="btn" onClick={() => navigateTopLevel(q.action.page)}>
-                    {q.action.label}
-                  </button>
-                </td>
+            {quotes.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="no-results">No quotes available.</td>
               </tr>
-            ))}
+            ) : (
+              quotes.map(q => (
+                <tr key={q.id}>
+                  <td>{q.id}</td>
+                  <td>{q.orderId}</td>
+                  <td><StatusBadge status={q.status} /></td>
+                  <td style={{ fontWeight: 600 }}>EGP {fmt(q.amount)}</td>
+                  <td>
+                    <button className="btn" onClick={() => navigateTopLevel(q.actionPage)}>
+                      {q.actionLabel}
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </section>
@@ -134,7 +199,7 @@ export default function Quotes() {
           pricing.length === 0 ? (
             <p style={{ color: 'var(--muted)', fontSize: 13 }}>Pricing not available.</p>
           ) : (
-            <table>
+            <table className="orders-table">
               <thead>
                 <tr>
                   <th>Product</th>
