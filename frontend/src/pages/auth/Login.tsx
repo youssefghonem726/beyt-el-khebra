@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AuthShell from '../../components/AuthShell';
 import supabase from '../../lib/supabase';
-import { getRoleHomePage } from '../../App';
+import { getRoleHomePage, getRoleFromAccessToken } from '../../App';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -22,8 +22,12 @@ export default function Login() {
       return;
     }
 
-    const role = data.user?.app_metadata?.user_role ?? 'client';
-    navigate(getRoleHomePage(role));
+ const accessToken = data.session?.access_token;
+const role = getRoleFromAccessToken(accessToken);
+
+
+
+navigate(getRoleHomePage(role));
   };
 
   const handleGoogleLogin = async () => {
