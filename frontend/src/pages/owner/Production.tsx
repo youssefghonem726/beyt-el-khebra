@@ -4,6 +4,8 @@ import Topbar from '../../components/Topbar';
 import StatCard from '../../components/StatCard';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
+// ─── API imports ──────────────────────────────────────────────────────────
+import { getBatches, getOrders, getClients } from '../../lib/api';
 
 interface Stage {
   stage: string;
@@ -27,7 +29,7 @@ interface Job {
   stages: Stage[];
 }
 
-// Helper functions
+// Helper functions (unchanged)
 function formatDate(isoDate: string | null): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
@@ -70,19 +72,27 @@ export default function Production() {
   const [showWorkView, setShowWorkView] = useState(false);
 
   useEffect(() => {
-    Promise.all([
-      fetch('/data/json/batches.json').then(res => res.json()),
-      fetch('/data/json/orders.json').then(res => res.json()),
-      fetch('/data/json/clients.json').then(res => res.json())
-    ])
-      .then(([batchesData, ordersData, clientsData]) => {
+    const fetchData = async () => {
+      try {
+        // Fetch data via API layer
+        const [batchesRes, ordersRes, clientsRes] = await Promise.all([
+          getBatches(),
+          getOrders(),
+          getClients(),
+        ]);
+
+        const batchesData = batchesRes.data.data;
+        const ordersData = ordersRes.data.data;
+        const clientsData = clientsRes.data.data.results; // paginated
+
+        // Build lookup maps
         const ordersMap = new Map(ordersData.map((o: any) => [o.id, o]));
         const clientsMap = new Map(clientsData.map((c: any) => [c.id, c.name]));
 
         const jobList: Job[] = batchesData.map((batch: any) => {
           const order = ordersMap.get(batch.orderId);
           const clientName = order ? clientsMap.get(order.clientId) || 'Unknown' : 'Unknown';
-          const paper = order?.specs?.paper || (batch.paper) || '—';
+          const paper = order?.specs?.paper || batch.paper || '—';
           const dueDate = formatDate(batch.deadline);
           const stages = (batch.stages || []).map((s: any) => ({
             ...s,
@@ -90,11 +100,11 @@ export default function Production() {
           }));
 
           return {
-            id: batch.id,                     // e.g., "B-260425-M"
+            id: batch.id,
             client: clientName,
             product: batch.product,
             qty: batch.qty,
-            status: batch.status,             // e.g., "in_progress", "completed", "on_hold"
+            status: batch.status,
             progress: batch.progress,
             dueDate,
             paper,
@@ -108,13 +118,15 @@ export default function Production() {
 
         setJobs(jobList);
         if (jobList.length > 0) setSelectedJob(jobList[0]);
-        setLoading(false);
-      })
-      .catch((err) => {
+      } catch (err) {
         console.error('Failed to load production data:', err);
         setError('Could not load production data. Please try again later.');
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+
+    fetchData();
   }, []);
 
   const pct = (j: Job) => j.qty > 0 ? Math.round((j.progress / j.qty) * 100) : 0;

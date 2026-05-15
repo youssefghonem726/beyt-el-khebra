@@ -40,8 +40,6 @@ const wrap = <T>(data: T, message = 'OK'): AxiosResponse<ApiSuccess<T>> => ({
   config: {} as never,
 })
 
-// ─── Deliveries ──────────────────────────────────────────────────────────────
-
 export const getDeliveries = async (): Promise<AxiosResponse<ApiSuccess<Delivery[]>>> => {
   await delay()
   return wrap(await load<Delivery[]>('deliveries'), 'Deliveries fetched successfully')

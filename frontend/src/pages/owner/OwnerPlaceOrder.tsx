@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
+// ─── API imports ──────────────────────────────────────────────────────────
+import { getClients, getDocuments } from '../../lib/api';
 
-// ── Types from normalized JSON ──────────────────────────────────────
+// ── Types (unchanged) ────────────────────────────────────────────────────
 type ItemType = 'book' | 'booklet' | 'card' | 'sticker' | 'poster';
 
 interface PackageItem {
@@ -66,10 +68,19 @@ export default function OwnerPlaceOrder() {
   const [notes, setNotes]                   = useState('');
   const [submitted, setSubmitted]           = useState(false);
 
+  // ── New client creation state ──────────────────────────────────────────
+  const [showNewClientForm, setShowNewClientForm] = useState(false);
+  const [newClientName, setNewClientName]         = useState('');
+  const [newClientEmail, setNewClientEmail]       = useState('');
+  const [newClientPhone, setNewClientPhone]       = useState('');
+
   const [localPreviewFile, setLocalPreviewFile]       = useState<File | null>(null);
   const [localPreviewUrl, setLocalPreviewUrl]         = useState<string | null>(null);
   const [localCoverPreviewFile, setLocalCoverPreviewFile] = useState<File | null>(null);
   const [localCoverPreviewUrl, setLocalCoverPreviewUrl]   = useState<string | null>(null);
+
+  // ── Document -> Item type selector ─────────────────────────────────────
+  const [docItemType, setDocItemType] = useState<ItemType>('card');
 
   const handleLocalFilePreview = useCallback((file: File | null) => {
     if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
@@ -103,24 +114,32 @@ export default function OwnerPlaceOrder() {
   }, [localPreviewUrl, localCoverPreviewUrl]);
 
   useEffect(() => {
-    fetch('/data/json/clients.json')
-      .then(r => r.json())
-      .then(setClients)
-      .catch(() => {});
+    (async () => {
+      try {
+        const res = await getClients();
+        setClients(res.data.data.results);
+      } catch (err) {
+        console.error('Failed to load clients:', err);
+      }
+    })();
   }, []);
 
   useEffect(() => {
-    fetch('/data/json/documents.json')
-      .then(r => r.json())
-      .then(setAllDocs)
-      .catch(() => {});
+    (async () => {
+      try {
+        const res = await getDocuments();
+        setAllDocs(res.data.data);
+      } catch (err) {
+        console.error('Failed to load documents:', err);
+      }
+    })();
   }, []);
 
   const selectedClient = clients.find(c => c.id === selectedClientId);
-  // Filter documents belonging to this client
   const clientDocs = allDocs.filter(doc => doc.ownerType === 'client' && doc.ownerId === selectedClientId);
   const selectedDoc = clientDocs.find(d => d.id === selectedDocId) ?? null;
 
+  // ── Helpers (unchanged) ──────────────────────────────────────────────────
   function resetOrder() {
     setOrderType(null);
     setItems([]);
@@ -132,6 +151,7 @@ export default function OwnerPlaceOrder() {
     if (localPreviewUrl) { URL.revokeObjectURL(localPreviewUrl); setLocalPreviewUrl(null); }
     setLocalCoverPreviewFile(null);
     if (localCoverPreviewUrl) { URL.revokeObjectURL(localCoverPreviewUrl); setLocalCoverPreviewUrl(null); }
+    setDocItemType('card');
   }
 
   function resetAll() {
@@ -144,13 +164,98 @@ export default function OwnerPlaceOrder() {
   const updateItem = (id: string, data: Record<string, any>) => setItems(p => p.map(i => i.id === id ? { ...i, data } : i));
   const removeItem = (id: string) => setItems(p => p.filter(i => i.id !== id));
 
-  // Helper to map client name (from datalist) to client id
-  const handleClientNameChange = (name: string) => {
-    const found = clients.find(c => c.name === name);
-    setSelectedClientId(found ? found.id : '');
-    resetOrder();
+  // ── Add selected document as a new package item ────────────────────────
+  const handleAddDocumentAsItem = () => {
+    if (!selectedDoc) return;
+    const newItem: PackageItem = {
+      id: crypto.randomUUID(),
+      type: docItemType,
+      data: {
+        docId: selectedDoc.id,
+        docName: selectedDoc.name,
+        docFileName: selectedDoc.fileName,
+      },
+    };
+    setItems(prev => [...prev, newItem]);
+    // Do not clear selection – document can be used as attachment and as item
   };
 
+  // ── Client selection / creation ────────────────────────────────────────
+  const handleClientNameChange = (name: string) => {
+    const found = clients.find(c => c.name === name);
+    if (found) {
+      setSelectedClientId(found.id);
+      resetOrder();
+      setShowNewClientForm(false);
+      setNewClientName('');
+      setNewClientEmail('');
+      setNewClientPhone('');
+    } else {
+      setSelectedClientId('');
+      setNewClientName(name);
+      setShowNewClientForm(true);
+    }
+  };
+
+  const createNewClient = () => {
+    if (!newClientName.trim()) return;
+    const newId = `CL-${crypto.randomUUID().slice(0, 6)}`;
+    const newClient: Client = {
+      id: newId,
+      name: newClientName,
+      email: newClientEmail || '',
+      phone: newClientPhone || '',
+      address: '',
+      taxId: '',
+      since: null,
+      stats: { totalOrders: 0, totalSpent: 0 },
+    };
+    console.log('[MOCK] Creating new client:', newClient);
+    setClients(prev => [...prev, newClient]);
+    setSelectedClientId(newId);
+    resetOrder();
+    setShowNewClientForm(false);
+    setNewClientName('');
+    setNewClientEmail('');
+    setNewClientPhone('');
+  };
+
+  // ── Order submission handlers ───────────────────────────────────────────
+  const handlePackageSubmit = async (pkgItems: PackageItem[], doc: ClientDocument | null, clientName: string) => {
+    const orderData = {
+      type: 'package',
+      client: clientName,
+      clientId: selectedClientId,
+      items: pkgItems,
+      attachedDocumentId: doc?.id ?? null,
+      notes,
+    };
+    console.log('[MOCK] Submitting package order:', orderData);
+    setSubmitted(true);
+  };
+
+  const handleSingleSubmit = async (
+    itemType: string,
+    data: Record<string, any>,
+    doc: ClientDocument | null,
+    previewFile: File | null,
+    clientName: string
+  ) => {
+    const orderData = {
+      type: 'single',
+      client: clientName,
+      clientId: selectedClientId,
+      itemType,
+      specs: data,
+      attachedDocumentId: doc?.id ?? null,
+      previewFile: previewFile ? { name: previewFile.name, size: previewFile.size } : null,
+      notes,
+    };
+    console.log('[MOCK] Submitting single order:', orderData);
+    setSubmitted(true);
+  };
+
+  // ── Submission success view ─────────────────────────────────────────────
   if (submitted) {
     return (
       <AppShell role="owner" activePage="owner-place-order">
@@ -173,11 +278,12 @@ export default function OwnerPlaceOrder() {
     );
   }
 
+  // ── Main UI ─────────────────────────────────────────────────────────────
   return (
     <AppShell role="owner" activePage="owner-place-order">
       <Topbar title="Place Order" />
 
-      {/* Client selector – uses name for display, stores id internally */}
+      {/* Client selector (unchanged) */}
       <section className="box mb-5">
         <h3 className="section-heading">Select Client</h3>
         <div className="client-selector">
@@ -195,11 +301,6 @@ export default function OwnerPlaceOrder() {
             <datalist id="owner-clients-list">
               {clients.map(c => <option key={c.id} value={c.name} />)}
             </datalist>
-            {selectedClientId && !selectedClient && (
-              <p className="new-client-hint">
-                New client — no existing record found.
-              </p>
-            )}
           </div>
           {selectedClient && (
             <div className="client-card-mini">
@@ -208,10 +309,33 @@ export default function OwnerPlaceOrder() {
               <span className="client-card-mini__detail">{selectedClient.phone}</span>
             </div>
           )}
+          {showNewClientForm && (
+            <div className="box mt-3 p-3" style={{ background: '#f8f9ff' }}>
+              <h4 style={{ marginTop: 0 }}>Create New Client</h4>
+              <div className="form-grid-2">
+                <div className="field">
+                  <label className="field-label">Full Name *</label>
+                  <input className="input" type="text" value={newClientName} onChange={e => setNewClientName(e.target.value)} placeholder="Client name" />
+                </div>
+                <div className="field">
+                  <label className="field-label">Email</label>
+                  <input className="input" type="email" value={newClientEmail} onChange={e => setNewClientEmail(e.target.value)} placeholder="e.g. client@example.com" />
+                </div>
+                <div className="field">
+                  <label className="field-label">Phone</label>
+                  <input className="input" type="text" value={newClientPhone} onChange={e => setNewClientPhone(e.target.value)} placeholder="+20 1xx xxx xxxx" />
+                </div>
+              </div>
+              <div style={{ marginTop: 10, display: 'flex', gap: 10 }}>
+                <button className="btn primary" onClick={createNewClient}>Create & Select</button>
+                <button className="btn" onClick={() => { setShowNewClientForm(false); setNewClientName(''); }}>Cancel</button>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
-      {/* Order type picker – only if a valid client is selected */}
+      {/* Order type picker */}
       {selectedClient && !orderType && (
         <section className="order-type-picker">
           <p className="picker-intro">
@@ -237,6 +361,32 @@ export default function OwnerPlaceOrder() {
           <section className="split panel-wrapper">
             <div className="panel-left">
               <DocLibrary docs={clientDocs} selectedDocId={selectedDocId} onSelect={setSelectedDocId} />
+
+              {/* NEW: Add selected document as item */}
+              {selectedDocId && selectedDoc && (
+                <div className="box" style={{ marginTop: 12 }}>
+                  <h4 style={{ marginTop: 0 }}>Add document as item</h4>
+                  <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 14, fontWeight: 500 }}>{selectedDoc.name}</span>
+                    <select
+                      className="select"
+                      value={docItemType}
+                      onChange={e => setDocItemType(e.target.value as ItemType)}
+                      style={{ width: 160 }}
+                    >
+                      {ITEM_TYPES.map(t => (
+                        <option key={t.id} value={t.id}>{t.icon} {t.label}</option>
+                      ))}
+                    </select>
+                    <button className="btn primary" onClick={handleAddDocumentAsItem}>
+                      Add as Item
+                    </button>
+                  </div>
+                  <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>
+                    This will create a new {ITEM_TYPES.find(t => t.id === docItemType)?.label} item referencing this document.
+                  </p>
+                </div>
+              )}
 
               <div className="box">
                 <h3 className="add-items-heading">Add Items to Your Package</h3>
@@ -282,14 +432,14 @@ export default function OwnerPlaceOrder() {
                 selectedClient={selectedClient.name}
                 items={items}
                 selectedDoc={selectedDoc}
-                onSubmit={() => setSubmitted(true)}
+                onSubmit={() => handlePackageSubmit(items, selectedDoc, selectedClient.name)}
               />
             </aside>
           </section>
         </>
       )}
 
-      {/* Individual order UI */}
+      {/* Individual order UI (unchanged) */}
       {orderType === 'single' && selectedClient && (
         <>
           <button className="global-back-btn" onClick={resetOrder}>← Back</button>
@@ -429,7 +579,7 @@ export default function OwnerPlaceOrder() {
                 singleData={singleData}
                 selectedDoc={selectedDoc}
                 localPreviewFile={localPreviewFile}
-                onSubmit={() => setSubmitted(true)}
+                onSubmit={() => handleSingleSubmit(singleType, singleData, selectedDoc, localPreviewFile, selectedClient.name)}
               />
               {(selectedDoc || localPreviewFile) && (
                 <PdfPreviewPanel

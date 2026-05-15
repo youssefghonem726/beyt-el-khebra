@@ -20,6 +20,10 @@ const invoicesClients = USE_MOCK
   ? await import('./mock/invoicesClients.mock')
   : await import('./invoicesClientsSettingsService')
 
+const documents = USE_MOCK
+  ? await import('./mock/documents.mock')
+  : await import('./documentsService');
+
 // ─── Dashboard ───────────────────────────────────────────────────────────────
 export const { getDashboardStats } = ordersQuotes
 
@@ -38,6 +42,11 @@ export const {
   updateOrder,
   deleteOrder,
 } = ordersQuotes
+
+// ─── Documents ──────────────────────────────────────────────────────────────────
+export const { 
+  getDocuments 
+} = documents;
 
 // ─── Quotes ──────────────────────────────────────────────────────────────────
 export const {

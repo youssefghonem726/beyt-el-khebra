@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import { useNavigation } from '../../context/NavigationContext';
+// ─── Replace manual fetch with API service ────────────────────────────────
+import { getNotifications } from '../../lib/api';
 
 interface Notification {
   id: number;
   title: string;
   body: string;
-  // other fields (time, unread, action) are optional – not used in display
 }
 
 export default function OwnerNotifications() {
@@ -17,30 +18,20 @@ export default function OwnerNotifications() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch('/data/json/notifications-owner.json')
-      .then((response) => {
-        if (!response.ok) {
-          // If file not found, treat as empty list (no notifications)
-          if (response.status === 404) {
-            setNotifications([]);
-            setLoading(false);
-            return null;
-          }
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-      })
-      .then((data: Notification[] | null) => {
-        if (data !== null) {
-          setNotifications(data);
-        }
-        setLoading(false);
-      })
-      .catch((err) => {
+    const fetchData = async () => {
+      try {
+        const res = await getNotifications();
+        // Data is inside res.data.data
+        setNotifications(res.data.data);
+      } catch (err) {
         console.error('Failed to load notifications:', err);
         setError('Could not load notifications. Please try again later.');
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+
+    fetchData();
   }, []);
 
   if (loading) {

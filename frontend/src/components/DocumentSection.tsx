@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
+import { getDocuments } from '../lib/api';               // your new API function
+import type { Document } from '../../lib/api/types';       // or from where you export it
 
-// ── Types ──────────────────────────────────────────────────────────────────
-
+// ── Local display type (unchanged) ──────────────────────────────────────────
 export interface ClientDocument {
   id: string;
   name: string;
@@ -16,8 +17,7 @@ interface Props {
   clientId: string;
 }
 
-// ── Config ─────────────────────────────────────────────────────────────────
-
+// ── Config ──────────────────────────────────────────────────────────────────
 const TYPE_COLORS: Record<string, string> = {
   PDF   : '#e53e3e',
   AI    : '#f97316',
@@ -33,8 +33,7 @@ function formatSize(kb: number): string {
   return `${kb} KB`;
 }
 
-// ── DocumentSection ────────────────────────────────────────────────────────
-
+// ── DocumentSection ─────────────────────────────────────────────────────────
 export default function DocumentSection({ clientId }: Props) {
   const [docs, setDocs]                       = useState<ClientDocument[]>([]);
   const [loading, setLoading]                 = useState(true);
@@ -45,33 +44,38 @@ export default function DocumentSection({ clientId }: Props) {
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
 
-  // ── Fetch ────────────────────────────────────────────────────────────────
-
+  // ── Fetch via API ─────────────────────────────────────────────────────────
   useEffect(() => {
-    setLoading(true);
-    setError(null);
+    let cancelled = false;
 
-    fetch('/data/documents.json')
-      .then(r => { if (!r.ok) throw new Error('Failed to load documents.'); return r.json() as Promise<ClientDocument[]>; })
-      .then(data => {
-        setDocs(data);
-        setLoading(false);
-      })
-      .catch(err => {
+    const fetchDocuments = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const res = await getDocuments({ ownerType: 'client', ownerId: clientId });
+        if (!cancelled) {
+          // Data matches our ClientDocument interface, extra fields are ignored
+          setDocs(res.data.data);
+        }
+      } catch (err) {
         console.error(err);
-        setError('Could not load documents.');
-        setLoading(false);
-      });
+        if (!cancelled) setError('Could not load documents.');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    fetchDocuments();
+    return () => { cancelled = true; };
   }, [clientId]);
 
   // ── Rename focus ─────────────────────────────────────────────────────────
-
   useEffect(() => {
     if (renamingId) renameInputRef.current?.focus();
   }, [renamingId]);
 
-  // ── Handlers ─────────────────────────────────────────────────────────────
-
+  // ── Handlers (unchanged) ──────────────────────────────────────────────────
   const toggleExpand = (id: string) => {
     setExpandedId(prev => (prev === id ? null : id));
     setRenamingId(null);
@@ -110,7 +114,6 @@ export default function DocumentSection({ clientId }: Props) {
 
   const handleDownload = (doc: ClientDocument, e: React.MouseEvent) => {
     e.stopPropagation();
-    // Generate a placeholder text blob using the available metadata
     const text = [
       `Name:           ${doc.name}`,
       `File:           ${doc.fileName}`,
@@ -129,7 +132,6 @@ export default function DocumentSection({ clientId }: Props) {
   };
 
   // ── Render states ─────────────────────────────────────────────────────────
-
   if (loading) {
     return <div className="loading-state" style={{ fontSize: 13, padding: '10px 0' }}>Loading documents…</div>;
   }
@@ -147,7 +149,6 @@ export default function DocumentSection({ clientId }: Props) {
   }
 
   // ── Main render ───────────────────────────────────────────────────────────
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {docs.map(doc => {

@@ -5,6 +5,8 @@ import StatCard from '../../components/StatCard';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
 import { useNavigation } from '../../context/NavigationContext';
+// ─── Replace manual fetches with API services ──────────────────────────────
+import { getDeliveries, getClients } from '../../lib/api';
 
 // Types for normalized data
 interface DeliveryRaw {
@@ -15,13 +17,9 @@ interface DeliveryRaw {
   driver: string;
   company: string;
   phone: string;
-  status: string;      // 'on_time', 'delayed', 'lost_in_transit', 'scheduled', 'in_transit', 'delivered', 'cancelled'
+  status: string;
   progress: number;
-  scheduledDate: string; // ISO date
-}
-
-interface Order {
-  id: string;
+  scheduledDate: string;
 }
 
 interface Client {
@@ -31,7 +29,7 @@ interface Client {
 
 // Combined delivery for UI
 interface Delivery {
-  order: string;      // short order ID e.g., "#1021"
+  order: string;
   client: string;
   id: string;
   address: string;
@@ -45,7 +43,7 @@ interface Delivery {
 
 type ActionPanel = 'reschedule' | 'address' | 'cancel' | null;
 
-// Helper: extract short order number (e.g., "#1021" from "ORD-1021-2025")
+// Helper: extract short order number
 function getShortOrderId(fullId: string): string {
   const match = fullId.match(/ORD-(\d+)-/);
   return match ? `#${match[1]}` : fullId;
@@ -68,34 +66,28 @@ export default function DeliveryTracking() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [selected, setSelected]     = useState<Delivery | null>(null);
 
-  // Action panel state
   const [activeAction, setActiveAction] = useState<ActionPanel>(null);
   const [rescheduleDate, setRescheduleDate] = useState('');
   const [newAddress, setNewAddress]   = useState('');
   const [toast, setToast]             = useState<string | null>(null);
 
+  // Fetch deliveries and clients via API
   useEffect(() => {
-    Promise.all([
-      fetch('/data/json/deliveries.json').then(res => {
-        if (!res.ok) throw new Error(`Deliveries HTTP ${res.status}`);
-        return res.json();
-      }),
-      fetch('/data/json/orders.json').then(res => {
-        if (!res.ok) throw new Error(`Orders HTTP ${res.status}`);
-        return res.json();
-      }),
-      fetch('/data/json/clients.json').then(res => {
-        if (!res.ok) throw new Error(`Clients HTTP ${res.status}`);
-        return res.json();
-      })
-    ])
-      .then(([deliveriesRaw, ordersRaw, clientsRaw]) => {
-        const ordersMap: Record<string, Order> = {};
-        ordersRaw.forEach((o: Order) => { ordersMap[o.id] = o; });
-        const clientsMap: Record<string, string> = {};
-        clientsRaw.forEach((c: Client) => { clientsMap[c.id] = c.name; });
+    const fetchData = async () => {
+      try {
+        const [deliveriesRes, clientsRes] = await Promise.all([
+          getDeliveries(),
+          getClients(),
+        ]);
 
-        const deliveryList: Delivery[] = deliveriesRaw.map((d: DeliveryRaw) => ({
+        const deliveriesRaw: DeliveryRaw[] = deliveriesRes.data.data;
+        const clientsList: Client[] = clientsRes.data.data.results; // paginated
+
+        // Build client name map
+        const clientsMap: Record<string, string> = {};
+        clientsList.forEach(c => { clientsMap[c.id] = c.name; });
+
+        const deliveryList: Delivery[] = deliveriesRaw.map((d) => ({
           order: getShortOrderId(d.orderId),
           client: clientsMap[d.clientId] || 'Unknown Client',
           id: d.id,
@@ -110,13 +102,15 @@ export default function DeliveryTracking() {
 
         setDeliveries(deliveryList);
         if (deliveryList.length > 0) setSelected(deliveryList[0]);
-        setLoading(false);
-      })
-      .catch(err => {
+      } catch (err) {
         console.error('Failed to load delivery data:', err);
         setError('Could not load delivery data. Please try again later.');
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+
+    fetchData();
   }, []);
 
   useEffect(() => {
@@ -125,7 +119,7 @@ export default function DeliveryTracking() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  // Apply changes to a delivery in state (local mock update)
+  // Apply changes locally (mock behaviour)
   const applyUpdate = (orderShortId: string, changes: Partial<Delivery>, message: string) => {
     setDeliveries(ds => ds.map(d => d.order === orderShortId ? { ...d, ...changes } : d));
     setSelected(s => s?.order === orderShortId ? { ...s, ...changes } : s);
@@ -281,7 +275,6 @@ export default function DeliveryTracking() {
               </p>
             ) : (
               <>
-                {/* Mark as Delivered */}
                 <button
                   className="btn primary block"
                   onClick={() => applyUpdate(selected.order, { status: 'delivered', progress: 100, color: 'green' }, `✓ ${selected.order} marked as delivered.`)}
@@ -289,7 +282,6 @@ export default function DeliveryTracking() {
                   Mark as Delivered
                 </button>
 
-                {/* Reschedule */}
                 <button
                   className="btn block"
                   style={{ marginTop: 8 }}
@@ -320,7 +312,6 @@ export default function DeliveryTracking() {
                   </div>
                 )}
 
-                {/* Change Address */}
                 <button
                   className="btn block"
                   style={{ marginTop: 8 }}
@@ -351,7 +342,6 @@ export default function DeliveryTracking() {
                   </div>
                 )}
 
-                {/* Cancel Delivery */}
                 <button
                   className="btn block"
                   style={{ marginTop: 8, color: '#d9534f' }}
