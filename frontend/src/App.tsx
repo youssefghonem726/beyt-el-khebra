@@ -56,15 +56,29 @@ const Page = ({ children }: { children: React.ReactNode }) => (
 // Role hierarchy — higher number = more access
 export const ROLE_HIERARCHY: Record<string, number> = {
   client: 0,
+  staff: 1,
   manager: 1,
   owner: 2,
 };
 
-// Shared utility: call this after login to get the right landing page
 export function getRoleHomePage(role: string): string {
-  if (role === "owner") return "/owner";
-  if (role === "manager") return "/manager/jobs";
+  const normalizedRole = role?.toLowerCase();
+
+  if (normalizedRole === "owner") return "/owner";
+  if (normalizedRole === "manager" || normalizedRole === "staff") return "/manager/jobs";
+
   return "/client";
+}
+
+export function getRoleFromAccessToken(accessToken?: string): string {
+  if (!accessToken) return "client";
+
+  try {
+    const payload = JSON.parse(atob(accessToken.split(".")[1]));
+    return payload.user_role || "client";
+  } catch {
+    return "client";
+  }
 }
 
 // Protected Route using AuthContext with bypass
@@ -83,7 +97,10 @@ function ProtectedRoute({
   if (loading) return <div>Loading...</div>;
   if (!user) return <Navigate to={redirectTo} replace />;
 
-  const role = user.app_metadata?.user_role ?? "client";
+  const authData = localStorage.getItem("sb-vmrgqbmsvuathzpelqzz-auth-token");
+  const accessToken = authData ? JSON.parse(authData).access_token : undefined;
+  const role = getRoleFromAccessToken(accessToken);
+
   const hasAccess = ROLE_HIERARCHY[role] >= ROLE_HIERARCHY[requiredRole];
 
   if (!hasAccess) return <Navigate to={getRoleHomePage(role)} replace />;
