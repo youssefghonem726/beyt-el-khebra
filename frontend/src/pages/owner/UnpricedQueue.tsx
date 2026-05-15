@@ -3,6 +3,8 @@ import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatCard from '../../components/StatCard';
 import { useNavigation } from '../../context/NavigationContext';
+// ─── API imports ─────────────────────────────────────────────────────────
+import { getOrders, getClients, getBatches, getSettings, submitQuoteForOrder } from '../../lib/api';
 
 interface UnpricedJob {
   id: string;          // order ID (e.g., ORD-1033-2026)
@@ -27,7 +29,7 @@ interface PriceListRow {
   active: boolean;
 }
 
-// Helper functions
+// Helper functions (unchanged)
 function formatDate(isoDate: string | null): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
@@ -50,25 +52,32 @@ export default function UnpricedQueue() {
   const [priced, setPriced] = useState<Set<string>>(new Set());
   const [priceList, setPriceList] = useState<PriceListRow[]>([]);
 
-  // Fetch unpriced orders, clients, batches
+  // Load all necessary data
   useEffect(() => {
-    Promise.all([
-      fetch('/data/json/orders.json').then(res => res.json()),
-      fetch('/data/json/clients.json').then(res => res.json()),
-      fetch('/data/json/batches.json').then(res => res.json())
-    ])
-      .then(([ordersData, clientsData, batchesData]) => {
-        const clientsMap = new Map(clientsData.map((c: any) => [c.id, c.name]));
-        const batchesMap = new Map(batchesData.map((b: any) => [b.orderId, b]));
+    const fetchData = async () => {
+      try {
+        const [ordersRes, clientsRes, batchesRes, settingsRes] = await Promise.all([
+          getOrders(),
+          getClients(),
+          getBatches(),
+          getSettings(),
+        ]);
 
-        // Filter orders that are unpriced_pending
-        const unpricedOrders = ordersData.filter((o: any) => o.status === 'unpriced_pending');
+        const orders = ordersRes.data.data;
+        const clients = clientsRes.data.data.results; // paginated
+        const batches = batchesRes.data.data;
+        const settings = settingsRes.data.data;
+
+        // Build lookup maps
+        const clientsMap = new Map(clients.map((c: any) => [c.id, c.name]));
+        const batchesMap = new Map(batches.map((b: any) => [b.orderId, b]));
+
+        // Filter unpriced orders
+        const unpricedOrders = orders.filter((o: any) => o.status === 'unpriced_pending');
 
         const jobList: UnpricedJob[] = unpricedOrders.map((order: any) => {
           const batch = batchesMap.get(order.id);
-          // Get quantity from batch if available, else from order specs
           const qty = batch?.qty || order.specs?.qty || 0;
-          // Get deadline from batch if available, else from order deliveryDate (or default)
           const deadlineIso = batch?.deadline || order.deliveryDate;
           return {
             id: order.id,
@@ -81,21 +90,16 @@ export default function UnpricedQueue() {
         });
 
         setJobs(jobList);
-        setLoading(false);
-      })
-      .catch(err => {
+        setPriceList(settings.pricing.filter((p: any) => p.active)); // active pricing rows
+      } catch (err) {
         console.error('Failed to load unpriced queue:', err);
         setError('Could not load unpriced jobs. Please try again later.');
+      } finally {
         setLoading(false);
-      });
-  }, []);
+      }
+    };
 
-  // Fetch pricing list (unchanged)
-  useEffect(() => {
-    fetch('/data/json/pricing.json')
-      .then(r => r.ok ? r.json() : Promise.reject())
-      .then((data: PriceListRow[]) => setPriceList(data.filter(p => p.active)))
-      .catch(() => {});
+    fetchData();
   }, []);
 
   const openPricing = (id: string) => {
@@ -103,9 +107,31 @@ export default function UnpricedQueue() {
     setPricing({ unitPrice: '', vatRate: '14', notes: '' });
   };
 
-  const submitPrice = (job: UnpricedJob) => {
-    setPriced(s => { const n = new Set(s); n.add(job.id); return n; });
-    setPricingId(null);
+  const submitPrice = async (job: UnpricedJob) => {
+    if (!pricing.unitPrice || parseFloat(pricing.unitPrice) <= 0) return;
+
+    const total = getTotal(job.qty);
+    const quotePayload = {
+      vatRate: parseFloat(pricing.vatRate),
+      items: [
+        {
+          description: job.product,
+          qty: job.qty,
+          unitPrice: parseFloat(pricing.unitPrice),
+        },
+      ],
+      notes: pricing.notes,
+    };
+
+    try {
+      // Call API to submit the quote (mock logs, real calls backend)
+      await submitQuoteForOrder(job.id, quotePayload);
+      // Mark as priced in UI
+      setPriced((s) => { const n = new Set(s); n.add(job.id); return n; });
+      setPricingId(null);
+    } catch (err) {
+      console.error('Failed to submit quote:', err);
+    }
   };
 
   const unitPrice = parseFloat(pricing.unitPrice) || 0;

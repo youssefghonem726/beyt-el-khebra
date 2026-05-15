@@ -1,12 +1,19 @@
-// OwnerPanels.tsx (updated)
+// OwnerPanels.tsx (full refactored version)
 
 import { useState, useEffect } from 'react';
 import StatCard from '../../components/StatCard';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
 import { downloadText } from '../../utils/download';
+import {
+  getOrders,
+  getBatches,
+  getClients,
+  getInvoices,
+  getUsers,
+} from '../../lib/api';
 
-// ─── Helper functions (shared) ───────────────────────────────────────────────
+// ─── Helpers (unchanged) ───────────────────────────────────────────────────
 
 function formatDate(isoDate: string | null): string {
   if (!isoDate) return '—';
@@ -31,7 +38,7 @@ function formatAmount(amount: number): string {
   return `EGP ${amount.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-// ─── Manager Orders Panel ────────────────────────────────────────────────────
+// ─── Manager Orders Panel ─────────────────────────────────────────────────
 
 interface OrderBrief {
   id: string;
@@ -79,17 +86,18 @@ export function ManagerOrdersPanel() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([
-      fetch('/data/json/orders.json').then(res => res.json()),
-      fetch('/data/json/batches.json').then(res => res.json()),
-      fetch('/data/json/clients.json').then(res => res.json())
-    ])
-      .then(([ordersData, batchesData, clientsData]) => {
-        const orders = ordersData;
-        const batches = batchesData;
-        const clientsMap = new Map(clientsData.map(c => [c.id, c.name]));
+    (async () => {
+      try {
+        const [ordersRes, batchesRes, clientsRes] = await Promise.all([
+          getOrders(),
+          getBatches(),
+          getClients(),
+        ]);
+        const orders = ordersRes.data.data;
+        const batches = batchesRes.data.data;
+        const clients = clientsRes.data.data.results;
+        const clientsMap = new Map(clients.map(c => [c.id, c.name]));
 
-        // Helper to build order brief
         const buildBrief = (order: any): OrderBrief => ({
           id: order.id,
           displayId: getShortOrderId(order.id),
@@ -97,28 +105,24 @@ export function ManagerOrdersPanel() {
           status: order.status,
         });
 
-        // Pending: unpriced_pending + priced_pending_confirmation
         const pendingOrders = orders
-          .filter(o => o.status === 'unpriced_pending' || o.status === 'priced_pending_confirmation')
+          .filter((o: any) => o.status === 'unpriced_pending' || o.status === 'priced_pending_confirmation')
           .map(buildBrief);
 
-        // Working: in_progress orders (or also from batches)
         const workingOrders = orders
-          .filter(o => o.status === 'in_progress')
+          .filter((o: any) => o.status === 'in_progress')
           .map(buildBrief);
 
-        // Completed: completed or canceled
         const completedOrders = orders
-          .filter(o => o.status === 'completed' || o.status === 'canceled')
-          .map(o => ({
+          .filter((o: any) => o.status === 'completed' || o.status === 'canceled')
+          .map((o: any) => ({
             ...buildBrief(o),
             completedAt: formatDate(o.deliveryDate || o.orderDate),
           }));
 
-        // Build order details (product, qty, paper, notes) from orders + batches
         const details: Record<string, OrderDetail> = {};
         orders.forEach((order: any) => {
-          const batch = batches.find(b => b.orderId === order.id);
+          const batch = batches.find((b: any) => b.orderId === order.id);
           details[order.id] = {
             product: order.product,
             qty: batch?.qty || order.specs?.qty || 0,
@@ -127,11 +131,10 @@ export function ManagerOrdersPanel() {
           };
         });
 
-        // Build work view stages from batches
         const stagesMap: Record<string, WorkStage[]> = {};
         batches.forEach((batch: any) => {
           if (batch.stages) {
-            stagesMap[batch.orderId] = batch.stages.map(s => ({
+            stagesMap[batch.orderId] = batch.stages.map((s: any) => ({
               stage: s.stage,
               status: s.status,
               updated: formatDateTime(s.updatedAt),
@@ -140,11 +143,11 @@ export function ManagerOrdersPanel() {
         });
 
         setPending(pendingOrders);
-        setWorking(workingOrders.map(w => {
-          const batch = batches.find(b => b.orderId === w.id);
+        setWorking(workingOrders.map((w: any) => {
+          const batch = batches.find((b: any) => b.orderId === w.id);
           return {
             ...w,
-            product: w.product, // from order
+            product: w.product,
             qty: batch?.qty || 0,
             progress: batch?.progress || 0,
             paper: w.specs?.paper || batch?.paper || '—',
@@ -153,19 +156,19 @@ export function ManagerOrdersPanel() {
         setCompleted(completedOrders);
         setOrderDetails(details);
         setWorkStages(stagesMap);
-        setLoading(false);
-      })
-      .catch(err => {
+      } catch (err) {
         console.error(err);
         setError('Could not load manager orders data.');
+      } finally {
         setLoading(false);
-      });
+      }
+    })();
   }, []);
 
   if (loading) return <div className="loading-state">Loading orders…</div>;
   if (error) return <div className="error-state">{error}</div>;
 
-  // Detail view for an order (pending or completed)
+  // View rendering (unchanged from original)
   if (view?.kind === 'order') {
     const detail = orderDetails[view.id];
     return (
@@ -190,7 +193,6 @@ export function ManagerOrdersPanel() {
     );
   }
 
-  // Work view for an in-progress order
   if (view?.kind === 'work-view') {
     const pct = view.qty > 0 ? Math.round((view.progress / view.qty) * 100) : 0;
     const stages = workStages[view.id] || [];
@@ -225,7 +227,6 @@ export function ManagerOrdersPanel() {
   return (
     <div className="stack">
       <div className="grid-2">
-        {/* Pending Orders */}
         <article className="table-wrap">
           <div className="table-head"><h3>Pending Orders</h3></div>
           <table className="orders-table">
@@ -236,19 +237,13 @@ export function ManagerOrdersPanel() {
                   <td>{o.displayId}</td>
                   <td><StatusBadge status={o.status} /></td>
                   <td>{o.client}</td>
-                  <td>
-                    <button className="btn" onClick={() => setView({ kind: 'order', id: o.id, displayId: o.displayId, client: o.client, status: o.status })}>
-                      View
-                    </button>
-                  </td>
+                  <td><button className="btn" onClick={() => setView({ kind: 'order', id: o.id, displayId: o.displayId, client: o.client, status: o.status })}>View</button></td>
                 </tr>
               ))}
               {pending.length === 0 && <tr><td colSpan={4}>No pending orders</td></tr>}
             </tbody>
           </table>
         </article>
-
-        {/* Working Orders */}
         <article className="table-wrap">
           <div className="table-head"><h3>Working Orders</h3></div>
           <table className="orders-table">
@@ -259,11 +254,7 @@ export function ManagerOrdersPanel() {
                   <td>{o.displayId}</td>
                   <td><StatusBadge status={o.status} /></td>
                   <td>{o.client}</td>
-                  <td>
-                    <button className="btn" onClick={() => setView({ kind: 'work-view', id: o.id, displayId: o.displayId, client: o.client, product: o.product, qty: o.qty, progress: o.progress, paper: o.paper })}>
-                      Work View
-                    </button>
-                  </td>
+                  <td><button className="btn" onClick={() => setView({ kind: 'work-view', id: o.id, displayId: o.displayId, client: o.client, product: o.product, qty: o.qty, progress: o.progress, paper: o.paper })}>Work View</button></td>
                 </tr>
               ))}
               {working.length === 0 && <tr><td colSpan={4}>No working orders</td></tr>}
@@ -271,8 +262,6 @@ export function ManagerOrdersPanel() {
           </table>
         </article>
       </div>
-
-      {/* Completed Orders */}
       <article className="table-wrap">
         <div className="table-head"><h3>Completed Orders</h3></div>
         <table className="orders-table">
@@ -284,11 +273,7 @@ export function ManagerOrdersPanel() {
                 <td><StatusBadge status={o.status} /></td>
                 <td>{o.client}</td>
                 <td>{o.completedAt}</td>
-                <td>
-                  <button className="btn" onClick={() => setView({ kind: 'order', id: o.id, displayId: o.displayId, client: o.client, status: o.status })}>
-                    View
-                  </button>
-                </td>
+                <td><button className="btn" onClick={() => setView({ kind: 'order', id: o.id, displayId: o.displayId, client: o.client, status: o.status })}>View</button></td>
               </tr>
             ))}
             {completed.length === 0 && <tr><td colSpan={5}>No completed orders</td></tr>}
@@ -299,7 +284,7 @@ export function ManagerOrdersPanel() {
   );
 }
 
-// ─── Batch Lookup Panel ───────────────────────────────────────────────────────
+// ─── Batch Lookup Panel ───────────────────────────────────────────────────
 
 interface BatchView {
   code: string;
@@ -318,12 +303,16 @@ export function BatchLookupPanel() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([
-      fetch('/data/json/batches.json').then(res => res.json()),
-      fetch('/data/json/orders.json').then(res => res.json()),
-      fetch('/data/json/clients.json').then(res => res.json())
-    ])
-      .then(([batchesData, ordersData, clientsData]) => {
+    (async () => {
+      try {
+        const [batchesRes, ordersRes, clientsRes] = await Promise.all([
+          getBatches(),
+          getOrders(),
+          getClients(),
+        ]);
+        const batchesData = batchesRes.data.data;
+        const ordersData = ordersRes.data.data;
+        const clientsData = clientsRes.data.data.results;
         const ordersMap = new Map(ordersData.map(o => [o.id, o]));
         const clientsMap = new Map(clientsData.map(c => [c.id, c.name]));
 
@@ -338,13 +327,13 @@ export function BatchLookupPanel() {
           };
         });
         setBatches(views);
-        setLoading(false);
-      })
-      .catch(err => {
+      } catch (err) {
         console.error(err);
         setError('Could not load batch data.');
+      } finally {
         setLoading(false);
-      });
+      }
+    })();
   }, []);
 
   if (loading) return <div className="loading-state">Loading batches…</div>;
@@ -376,24 +365,11 @@ export function BatchLookupPanel() {
     <div>
       <div className="table-head" style={{ marginBottom: 12 }}>
         <div className="search-container" style={{ flex: 1 }}>
-          <input
-            className="input"
-            type="search"
-            placeholder="Search by batch code, order ID, or client..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
+          <input className="input" type="search" placeholder="Search by batch code, order ID, or client..." value={query} onChange={(e) => setQuery(e.target.value)} />
           <button className="filter-icon" type="button" onClick={() => setDropdownOpen(o => !o)}>▼</button>
           {dropdownOpen && (
             <div className="filter-dropdown show">
-              <div className="field">
-                <label>Status</label>
-                <select className="select">
-                  <option value="">All Status</option>
-                  <option>Active</option>
-                  <option>Completed</option>
-                </select>
-              </div>
+              <div className="field"><label>Status</label><select className="select"><option value="">All Status</option><option>Active</option><option>Completed</option></select></div>
               <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>Apply</button>
             </div>
           )}
@@ -402,9 +378,7 @@ export function BatchLookupPanel() {
           const header = 'Batch Code,Order,Client,Status,Date';
           const rows = filtered.map(b => `${b.code},${b.order},${b.client},${b.status},${b.date}`);
           downloadText('batch-export.csv', [header, ...rows]);
-        }}>
-          Export CSV
-        </button>
+        }}>Export CSV</button>
       </div>
       <div className="table-responsive">
         <table className="orders-table">
@@ -414,11 +388,8 @@ export function BatchLookupPanel() {
               ? <tr><td colSpan={6} className="no-results">No matching results</td></tr>
               : filtered.map(b => (
                 <tr key={b.code}>
-                  <td>{b.code}</td>
-                  <td>{b.order}</td>
-                  <td>{b.client}</td>
-                  <td><StatusBadge status={b.status} /></td>
-                  <td>{b.date}</td>
+                  <td>{b.code}</td><td>{b.order}</td><td>{b.client}</td>
+                  <td><StatusBadge status={b.status} /></td><td>{b.date}</td>
                   <td><button className="btn" onClick={() => setSelected(b)}>View</button></td>
                 </tr>
               ))}
@@ -429,7 +400,7 @@ export function BatchLookupPanel() {
   );
 }
 
-// ─── Accounting Panel ─────────────────────────────────────────────────────────
+// ─── Accounting Panel ─────────────────────────────────────────────────────
 
 export function AccountingPanel() {
   const [invoices, setInvoices] = useState<any[]>([]);
@@ -438,12 +409,13 @@ export function AccountingPanel() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([
-      fetch('/data/json/invoices.json').then(res => res.json()),
-      fetch('/data/json/clients.json').then(res => res.json())
-    ])
-      .then(([invoicesData, clientsData]) => {
+    (async () => {
+      try {
+        const [invoicesRes, clientsRes] = await Promise.all([getInvoices(), getClients()]);
+        const invoicesData = invoicesRes.data.data;
+        const clientsData = clientsRes.data.data.results;
         const clientsMap = new Map(clientsData.map(c => [c.id, c.name]));
+
         const enriched = invoicesData.map((inv: any) => ({
           id: inv.id,
           order: getShortOrderId(inv.orderId),
@@ -452,28 +424,25 @@ export function AccountingPanel() {
           status: inv.status,
         }));
 
-        // Compute stats
         const paidTotal = invoicesData.filter((i: any) => i.status === 'paid').reduce((s: number, i: any) => s + i.amount, 0);
         const pendingTotal = invoicesData.filter((i: any) => i.status !== 'paid').reduce((s: number, i: any) => s + i.amount, 0);
         const paidCount = invoicesData.filter((i: any) => i.status === 'paid').length;
         const unpaidCount = invoicesData.filter((i: any) => i.status !== 'paid').length;
 
-        const statsData = [
+        setStats([
           { label: 'Revenue Snapshot', value: `EGP ${(paidTotal / 1000).toFixed(0)}K`, sub: 'Total paid invoices' },
           { label: 'Pending Collection', value: `EGP ${(pendingTotal / 1000).toFixed(0)}K`, sub: 'Awaiting payment' },
           { label: 'Paid Invoices', value: paidCount, sub: 'Paid to date' },
           { label: 'Unpaid Invoices', value: unpaidCount, sub: 'Follow-up required' },
-        ];
-
+        ]);
         setInvoices(enriched);
-        setStats(statsData);
-        setLoading(false);
-      })
-      .catch(err => {
+      } catch (err) {
         console.error(err);
         setError('Could not load accounting data.');
+      } finally {
         setLoading(false);
-      });
+      }
+    })();
   }, []);
 
   if (loading) return <div className="loading-state">Loading accounting data…</div>;
@@ -490,19 +459,9 @@ export function AccountingPanel() {
           <tbody>
             {invoices.map(inv => (
               <tr key={inv.id}>
-                <td>{inv.id}</td>
-                <td>{inv.order}</td>
-                <td>{inv.client}</td>
-                <td>{inv.total}</td>
-                <td><StatusBadge status={inv.status} /></td>
-                <td>
-                  <button className="btn" onClick={() => downloadText(`invoice-${inv.id}.txt`, [
-                    `INVOICE: ${inv.id}`, `Order:  ${inv.order}`,
-                    `Client: ${inv.client}`, `Total:  ${inv.total}`, `Status: ${inv.status}`,
-                  ])}>
-                    Download
-                  </button>
-                </td>
+                <td>{inv.id}</td><td>{inv.order}</td><td>{inv.client}</td>
+                <td>{inv.total}</td><td><StatusBadge status={inv.status} /></td>
+                <td><button className="btn" onClick={() => downloadText(`invoice-${inv.id}.txt`, [`INVOICE: ${inv.id}`, `Order:  ${inv.order}`, `Client: ${inv.client}`, `Total:  ${inv.total}`, `Status: ${inv.status}`])}>Download</button></td>
               </tr>
             ))}
           </tbody>
@@ -512,7 +471,7 @@ export function AccountingPanel() {
   );
 }
 
-// ─── Settings Panel ───────────────────────────────────────────────────────────
+// ─── Settings Panel ───────────────────────────────────────────────────────
 
 interface User { email: string; role: string; status: string; }
 
@@ -536,10 +495,17 @@ export function SettingsPanel() {
   };
 
   useEffect(() => {
-    fetch('/data/json/users.json')
-      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
-      .then((data: User[]) => { setUsers(data); setLoading(false); })
-      .catch(() => { setError('Could not load users.'); setLoading(false); });
+    (async () => {
+      try {
+        const res = await getUsers();
+        setUsers(res.data.data); // getUsers returns ApiSuccess<UserProfile[]>, data is the array
+      } catch (err) {
+        console.error(err);
+        setError('Could not load users.');
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
   return (
@@ -547,29 +513,15 @@ export function SettingsPanel() {
       <article className="box">
         <h3>Pricing Roles</h3>
         <div className="form-grid-2">
-          <div className="field">
-            <label>Pricing Owner</label>
-            <input className="input" type="text" value={pricing.owner} onChange={e => setPricing(p => ({ ...p, owner: e.target.value }))} />
-          </div>
-          <div className="field">
-            <label>Approval Threshold (EGP)</label>
-            <input className="input" type="number" value={pricing.threshold} onChange={e => setPricing(p => ({ ...p, threshold: e.target.value }))} />
-          </div>
+          <div className="field"><label>Pricing Owner</label><input className="input" type="text" value={pricing.owner} onChange={e => setPricing(p => ({ ...p, owner: e.target.value }))} /></div>
+          <div className="field"><label>Approval Threshold (EGP)</label><input className="input" type="number" value={pricing.threshold} onChange={e => setPricing(p => ({ ...p, threshold: e.target.value }))} /></div>
         </div>
       </article>
-
       <article className="box">
         <h3>Notification Format (WhatsApp)</h3>
-        <div className="field">
-          <label>WhatsApp Business Number</label>
-          <input className="input" type="text" value={whatsapp.number} onChange={e => setWhatsapp(w => ({ ...w, number: e.target.value }))} />
-        </div>
-        <div className="field">
-          <label>Message Template</label>
-          <textarea className="textarea" value={whatsapp.template} onChange={e => setWhatsapp(w => ({ ...w, template: e.target.value }))} />
-        </div>
+        <div className="field"><label>WhatsApp Business Number</label><input className="input" type="text" value={whatsapp.number} onChange={e => setWhatsapp(w => ({ ...w, number: e.target.value }))} /></div>
+        <div className="field"><label>Message Template</label><textarea className="textarea" value={whatsapp.template} onChange={e => setWhatsapp(w => ({ ...w, template: e.target.value }))} /></div>
       </article>
-
       <article className="box">
         <h3>User Management</h3>
         {loading && <div className="loading-state">Loading users…</div>}
@@ -581,26 +533,13 @@ export function SettingsPanel() {
               {users.map(u => editEmail === u.email ? (
                 <tr key={u.email}>
                   <td>{u.email}</td>
-                  <td>
-                    <select className="select" value={editRole} onChange={e => setEditRole(e.target.value)}>
-                      <option>Owner</option><option>Manager</option><option>Staff</option>
-                    </select>
-                  </td>
-                  <td>
-                    <select className="select" value={editStatus} onChange={e => setEditStatus(e.target.value)}>
-                      <option>Active</option><option>Inactive</option>
-                    </select>
-                  </td>
-                  <td style={{ display: 'flex', gap: 6 }}>
-                    <button className="btn primary" onClick={saveEdit}>Save</button>
-                    <button className="btn" onClick={() => setEditEmail(null)}>Cancel</button>
-                  </td>
+                  <td><select className="select" value={editRole} onChange={e => setEditRole(e.target.value)}><option>Owner</option><option>Manager</option><option>Staff</option></select></td>
+                  <td><select className="select" value={editStatus} onChange={e => setEditStatus(e.target.value)}><option>Active</option><option>Inactive</option></select></td>
+                  <td style={{ display: 'flex', gap: 6 }}><button className="btn primary" onClick={saveEdit}>Save</button><button className="btn" onClick={() => setEditEmail(null)}>Cancel</button></td>
                 </tr>
               ) : (
                 <tr key={u.email}>
-                  <td>{u.email}</td>
-                  <td>{u.role}</td>
-                  <td><StatusBadge status={u.status} /></td>
+                  <td>{u.email}</td><td>{u.role}</td><td><StatusBadge status={u.status} /></td>
                   <td><button className="btn" onClick={() => startEdit(u)}>Edit</button></td>
                 </tr>
               ))}
@@ -613,7 +552,7 @@ export function SettingsPanel() {
   );
 }
 
-// ─── Production Panel ─────────────────────────────────────────────────────────
+// ─── Production Panel ─────────────────────────────────────────────────────
 
 interface ProductionJob {
   id: string;
@@ -633,21 +572,20 @@ export function ProductionPanel() {
   const [query, setQuery] = useState('');
 
   const pct = (j: ProductionJob) => j.qty > 0 ? Math.round((j.progress / j.qty) * 100) : 0;
-  const progressColor = (p: number): 'green' | 'orange' | undefined =>
-    p === 100 ? 'green' : p >= 50 ? 'orange' : undefined;
+  const progressColor = (p: number): 'green' | 'orange' | undefined => p === 100 ? 'green' : p >= 50 ? 'orange' : undefined;
 
   useEffect(() => {
-    Promise.all([
-      fetch('/data/json/batches.json').then(res => res.json()),
-      fetch('/data/json/orders.json').then(res => res.json()),
-      fetch('/data/json/clients.json').then(res => res.json())
-    ])
-      .then(([batchesData, ordersData, clientsData]) => {
+    (async () => {
+      try {
+        const [batchesRes, ordersRes, clientsRes] = await Promise.all([getBatches(), getOrders(), getClients()]);
+        const batchesData = batchesRes.data.data;
+        const ordersData = ordersRes.data.data;
+        const clientsData = clientsRes.data.data.results;
         const ordersMap = new Map(ordersData.map(o => [o.id, o]));
         const clientsMap = new Map(clientsData.map(c => [c.id, c.name]));
 
         const productionJobs: ProductionJob[] = batchesData
-          .filter((b: any) => b.status !== 'completed') // active jobs
+          .filter((b: any) => b.status !== 'completed')
           .map((b: any) => {
             const order = ordersMap.get(b.orderId);
             return {
@@ -662,13 +600,13 @@ export function ProductionPanel() {
             };
           });
         setJobs(productionJobs);
-        setLoading(false);
-      })
-      .catch(err => {
+      } catch (err) {
         console.error(err);
         setError('Could not load production data.');
+      } finally {
         setLoading(false);
-      });
+      }
+    })();
   }, []);
 
   if (loading) return <div className="loading-state">Loading jobs…</div>;
@@ -692,29 +630,19 @@ export function ProductionPanel() {
         <StatCard label="On Hold" value={onHold} sub="Waiting on something" />
         <StatCard label="Completed" value={completed} sub="Finished jobs" />
       </div>
-      <input
-        className="input"
-        type="search"
-        placeholder="Search by job ID, client or product…"
-        value={query}
-        onChange={e => setQuery(e.target.value)}
-        style={{ marginBottom: 12 }}
-      />
+      <input className="input" type="search" placeholder="Search by job ID, client or product…" value={query} onChange={e => setQuery(e.target.value)} style={{ marginBottom: 12 }} />
       <div className="job-cards">
         {filtered.length === 0
           ? <p className="muted">No matching jobs.</p>
           : filtered.map(j => (
             <article key={j.id} className="card" style={{ marginBottom: 10 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                <h4>{j.id}</h4>
-                <StatusBadge status={j.status} />
+                <h4>{j.id}</h4><StatusBadge status={j.status} />
               </div>
               <p><strong>Client:</strong> {j.client} | <strong>Product:</strong> {j.product} — {j.qty} pcs</p>
               <p style={{ marginBottom: 6 }}><strong>Due:</strong> {j.dueDate}</p>
               <ProgressBar percent={pct(j)} color={progressColor(pct(j))} />
-              <p style={{ fontSize: 11, marginTop: 4, color: 'var(--muted)' }}>
-                {j.progress} / {j.qty} printed ({pct(j)}%)
-              </p>
+              <p style={{ fontSize: 11, marginTop: 4, color: 'var(--muted)' }}>{j.progress} / {j.qty} printed ({pct(j)}%)</p>
             </article>
           ))}
       </div>
@@ -722,7 +650,7 @@ export function ProductionPanel() {
   );
 }
 
-// ─── Completed Jobs Panel ─────────────────────────────────────────────────────
+// ─── Completed Jobs Panel ─────────────────────────────────────────────────
 
 export function CompletedJobsPanel() {
   const [jobs, setJobs] = useState<any[]>([]);
@@ -730,12 +658,12 @@ export function CompletedJobsPanel() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([
-      fetch('/data/json/batches.json').then(res => res.json()),
-      fetch('/data/json/orders.json').then(res => res.json()),
-      fetch('/data/json/clients.json').then(res => res.json())
-    ])
-      .then(([batchesData, ordersData, clientsData]) => {
+    (async () => {
+      try {
+        const [batchesRes, ordersRes, clientsRes] = await Promise.all([getBatches(), getOrders(), getClients()]);
+        const batchesData = batchesRes.data.data;
+        const ordersData = ordersRes.data.data;
+        const clientsData = clientsRes.data.data.results;
         const ordersMap = new Map(ordersData.map(o => [o.id, o]));
         const clientsMap = new Map(clientsData.map(c => [c.id, c.name]));
 
@@ -763,13 +691,13 @@ export function CompletedJobsPanel() {
           };
         });
         setJobs(viewJobs);
-        setLoading(false);
-      })
-      .catch(err => {
+      } catch (err) {
         console.error(err);
         setError('Could not load completed jobs.');
+      } finally {
         setLoading(false);
-      });
+      }
+    })();
   }, []);
 
   if (loading) return <div className="loading-state">Loading completed jobs…</div>;
@@ -788,9 +716,7 @@ export function CompletedJobsPanel() {
               <tbody>
                 {j.stages.map((s: any) => (
                   <tr key={s.stage}>
-                    <td>{s.stage}</td>
-                    <td><StatusBadge status={s.status} /></td>
-                    <td>{s.updated}</td>
+                    <td>{s.stage}</td><td><StatusBadge status={s.status} /></td><td>{s.updated}</td>
                   </tr>
                 ))}
               </tbody>

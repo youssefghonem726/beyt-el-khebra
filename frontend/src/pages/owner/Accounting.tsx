@@ -7,42 +7,29 @@ import SearchFilter from '../../components/SearchFilter';
 import ClientSummary from '../../components/ClientSummary';
 import { downloadText } from '../../utils/download';
 import { useNavigation } from '../../context/NavigationContext';
+// ─── Replace manual fetch with API services ─────────────────────────────────
+import { getInvoices, getClients } from '../../lib/api';
+import type { Invoice as ApiInvoice, Client as ApiClient } from '../../lib/api';
 
-// Types for normalized data
-interface Invoice {
-  id: string;
-  orderId: string;
-  clientId: string;
-  issued: string;
-  due: string;
-  paidDate: string | null;
-  amount: number;
-  status: string;          // 'paid', 'pending', 'overdue', 'unpaid'
-  vatRate: number;
-  items: any[];
-  notes: string;
-}
-
+// ─── Local types (unchanged) ─────────────────────────────────────────────────
 interface Client {
   id: string;
   name: string;
 }
 
-// Display invoice (same shape as before)
 interface DisplayInvoice {
   id: string;
-  order: string;          // orderId (full or short)
+  order: string;
   client: string;
-  total: string;          // formatted amount
+  total: string;
   status: string;
 }
 
-// Helper: format amount to EGP string
+// ─── Helpers (unchanged) ─────────────────────────────────────────────────────
 function formatAmount(amount: number): string {
   return `EGP ${amount.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-// Helper: extract short order number (e.g., "#1033" from "ORD-1033-2026")
 function getShortOrderId(fullId: string): string {
   const match = fullId.match(/ORD-(\d+)-/);
   return match ? `#${match[1]}` : fullId;
@@ -57,25 +44,24 @@ export default function Accounting() {
   const [filteredInvoices, setFilteredInvoices] = useState<DisplayInvoice[]>([]);
 
   useEffect(() => {
-    Promise.all([
-      fetch('/data/json/invoices.json').then(res => {
-        if (!res.ok) throw new Error(`Invoices HTTP ${res.status}`);
-        return res.json();
-      }),
-      fetch('/data/json/clients.json').then(res => {
-        if (!res.ok) throw new Error(`Clients HTTP ${res.status}`);
-        return res.json();
-      })
-    ])
-      .then(([invoicesData, clientsData]) => {
-        const rawInvoices: Invoice[] = invoicesData;
-        const clients: Client[] = clientsData;
+    const fetchData = async () => {
+      try {
+        // Use the API calls – they return AxiosResponse<ApiSuccess<T>>
+        const [invRes, clientRes] = await Promise.all([
+          getInvoices(),
+          getClients(),
+        ]);
+
+        const rawInvoices: ApiInvoice[] = invRes.data.data;
+        const apiClients: ApiClient[] = clientRes.data.data.results;
         
-        // Create a client name map
+        // Build a client name map (we only need id → name)
         const clientMap: Record<string, string> = {};
-        clients.forEach(c => { clientMap[c.id] = c.name; });
-        
-        // Map to display invoices
+        apiClients.forEach(c => {
+          clientMap[c.id] = c.name;
+        });
+
+        // Map to DisplayInvoice list
         const displayList: DisplayInvoice[] = rawInvoices.map(inv => ({
           id: inv.id,
           order: getShortOrderId(inv.orderId),
@@ -83,45 +69,44 @@ export default function Accounting() {
           total: formatAmount(inv.amount),
           status: inv.status,
         }));
-        
+
         // Compute financial stats from raw invoices
-        // Revenue Snapshot: total amount of *paid* invoices (all time)
         const totalPaid = rawInvoices
           .filter(inv => inv.status === 'paid')
           .reduce((sum, inv) => sum + inv.amount, 0);
-        
-        // Pending Collection: sum of unpaid + pending + overdue
+
         const pendingUnpaid = rawInvoices
           .filter(inv => inv.status !== 'paid')
           .reduce((sum, inv) => sum + inv.amount, 0);
-        
+
         const paidCount = rawInvoices.filter(inv => inv.status === 'paid').length;
         const unpaidCount = rawInvoices.filter(inv => inv.status !== 'paid').length;
-        
-        // Format large numbers with 'K' shorthand (approximate, mimics the static example)
+
         const formatLarge = (num: number): string => {
-          if (num >= 1000000) return `EGP ${(num / 1000000).toFixed(0)}M`;
-          if (num >= 1000) return `EGP ${(num / 1000).toFixed(0)}K`;
+          if (num >= 1_000_000) return `EGP ${(num / 1_000_000).toFixed(0)}M`;
+          if (num >= 1_000) return `EGP ${(num / 1_000).toFixed(0)}K`;
           return `EGP ${num.toFixed(0)}`;
         };
-        
+
         const computedStats = [
           { label: 'Revenue Snapshot', value: formatLarge(totalPaid), sub: 'Total paid invoices' },
           { label: 'Pending Collection', value: formatLarge(pendingUnpaid), sub: 'Awaiting payment' },
           { label: 'Paid Invoices', value: paidCount, sub: 'Paid to date' },
           { label: 'Unpaid Invoices', value: unpaidCount, sub: 'Follow-up required' },
         ];
-        
+
         setInvoices(displayList);
         setStats(computedStats);
         setFilteredInvoices(displayList);
-        setLoading(false);
-      })
-      .catch((err) => {
+      } catch (err) {
         console.error('Failed to load accounting data:', err);
         setError('Could not load accounting data. Please try again later.');
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+
+    fetchData();
   }, []);
 
   const handleSearch = (query: string, filter: string) => {
@@ -143,6 +128,7 @@ export default function Accounting() {
     setFilteredInvoices(result);
   };
 
+  // ─── Loading / Error / Normal render (identical structure) ─────────────────
   if (loading) {
     return (
       <AppShell role="owner" activePage="accounting">
@@ -185,7 +171,6 @@ export default function Accounting() {
           <StatCard key={idx} label={stat.label} value={stat.value} sub={stat.sub} />
         ))}
       </section>
-      {/* ClientSummary expects invoices in the same shape (DisplayInvoice[]) */}
       <ClientSummary invoices={invoices} />
       <section className="table-wrap">
         <div className="table-head">

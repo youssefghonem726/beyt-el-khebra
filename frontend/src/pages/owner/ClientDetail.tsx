@@ -4,8 +4,10 @@ import AppShell from '../../components/AppShell';
 import StatusBadge from '../../components/StatusBadge';
 import { useNavigation } from '../../context/NavigationContext';
 import DocumentSection from '../../components/DocumentSection';
+// ─── Replace manual fetch with API services ─────────────────────────────────
+import { getClients, getOrders, getSettings } from '../../lib/api';
 
-// Types for normalized JSON files
+// ─── Local types (unchanged, must match the JSON/mock data) ─────────────────
 interface Client {
   id: string;
   name: string;
@@ -13,7 +15,7 @@ interface Client {
   phone: string;
   address: string;
   taxId: string;
-  since: string | null;          // ISO date string
+  since: string | null;
   stats: {
     totalOrders: number;
     totalSpent: number;
@@ -44,7 +46,7 @@ interface PricingRow {
   active: boolean;
 }
 
-// Helper: format date to "DD MMM YYYY"
+// ─── Helpers (unchanged) ─────────────────────────────────────────────────────
 function formatDate(isoDate: string | null): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
@@ -52,43 +54,33 @@ function formatDate(isoDate: string | null): string {
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-// Helper: format amount to EGP string
 function formatAmount(amount: number | null): string {
   if (amount === null) return '—';
   return `EGP ${amount.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-// Helper: extract short order number (e.g., "#1021" from "ORD-1021-2025")
 function getShortOrderId(fullId: string): string {
   const match = fullId.match(/ORD-(\d+)-/);
   return match ? `#${match[1]}` : fullId;
 }
 
-// Helper: compute "Customer Since" string from ISO date
 function formatCustomerSince(since: string | null): string {
   if (!since) return '—';
   const start = new Date(since);
   const now = new Date();
   let years = now.getFullYear() - start.getFullYear();
   let months = now.getMonth() - start.getMonth();
-  if (months < 0) {
-    years--;
-    months += 12;
-  }
-  if (years > 0) {
-    return `${years} year${years !== 1 ? 's' : ''}, ${months} month${months !== 1 ? 's' : ''}`;
-  }
+  if (months < 0) { years--; months += 12; }
+  if (years > 0) return `${years} year${years !== 1 ? 's' : ''}, ${months} month${months !== 1 ? 's' : ''}`;
   return `${months} month${months !== 1 ? 's' : ''}`;
 }
 
-// Helper: compute average order price from totalSpent and totalOrders
 function getAverageOrderPrice(totalSpent: number, totalOrders: number): string {
   if (totalOrders === 0) return 'EGP 0';
   const avg = totalSpent / totalOrders;
   return `EGP ${avg.toLocaleString('en-EG', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
-// Helper: format currency for stats
 function formatStatsAmount(amount: number): string {
   return `EGP ${amount.toLocaleString('en-EG', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
@@ -107,36 +99,29 @@ export default function ClientDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Pricing edit local state (mock – no persistence)
   const [editId, setEditId] = useState<string | null>(null);
   const [editPrice, setEditPrice] = useState('');
   const [editMinQty, setEditMinQty] = useState('');
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([
-      fetch('/data/json/clients.json').then(res => {
-        if (!res.ok) throw new Error('Failed to load clients');
-        return res.json();
-      }),
-      fetch('/data/json/orders.json').then(res => {
-        if (!res.ok) throw new Error('Failed to load orders');
-        return res.json();
-      }),
-      fetch('/data/json/pricing.json').then(res => {
-        if (!res.ok) throw new Error('Failed to load pricing');
-        return res.json();
-      })
-    ])
-      .then(([clientsData, ordersData, pricingData]) => {
-        const clients: Client[] = clientsData;
-        const allOrders: Order[] = ordersData;
-        const basePricing: PricingRow[] = pricingData;
+    const fetchData = async () => {
+      try {
+        // Fetch data through the API layer (mock or real based on VITE_USE_MOCK)
+        const [clientsRes, ordersRes, settingsRes] = await Promise.all([
+          getClients(),
+          getOrders(),
+          getSettings(),
+        ]);
+
+        // Unwrap the data
+        const clients: Client[] = clientsRes.data.data.results; // paginated
+        const allOrders: Order[] = ordersRes.data.data;
+        const basePricing: PricingRow[] = settingsRes.data.data.pricing;
 
         const foundClient = clients.find(c => c.id === clientId);
         if (!foundClient) {
           setError(`Client with ID "${clientId}" not found.`);
-          setLoading(false);
           return;
         }
 
@@ -144,13 +129,15 @@ export default function ClientDetail() {
         setClient(foundClient);
         setOrders(clientOrders);
         setPricing(basePricing);
-        setLoading(false);
-      })
-      .catch(err => {
+      } catch (err) {
         console.error('Failed to load data:', err);
         setError('Could not load client data. Please try again later.');
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+
+    fetchData();
   }, [clientId]);
 
   useEffect(() => {
@@ -159,7 +146,7 @@ export default function ClientDetail() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  // Pricing edit handlers (local only)
+  // Pricing edit handlers (unchanged)
   const startEdit = (row: PricingRow) => {
     setEditId(row.id);
     setEditPrice(String(row.pricePerUnit));
@@ -198,7 +185,7 @@ export default function ClientDetail() {
     );
   }
 
-  // Compute stats from clientOrders
+  // Compute stats
   const totalOrders = orders.length;
   const totalSpent = orders.reduce((sum, o) => sum + (o.total || 0), 0);
   const avgOrderPrice = getAverageOrderPrice(totalSpent, totalOrders);
@@ -212,13 +199,13 @@ export default function ClientDetail() {
     { label: 'Total Amount Spent', value: totalSpentFormatted },
   ];
 
-  // Past orders display
   const pastOrders = orders.map(order => ({
-    id: getShortOrderId(order.id),
-    product: order.product,
-    status: order.status,
-    date: formatDate(order.orderDate),
-    total: formatAmount(order.total),
+  id: getShortOrderId(order.id),   // displayed in the table
+  fullId: order.id,                // unique key for React
+  product: order.product,
+  status: order.status,
+  date: formatDate(order.orderDate),
+  total: formatAmount(order.total),
   }));
 
   return (
@@ -260,7 +247,38 @@ export default function ClientDetail() {
         <DocumentSection clientId={client.id} />
       </section>
 
-      {/* Client Pricing (base pricing + local edits) */}
+      {/* Past Orders */}
+      <section className="table-wrap" style={{ marginTop: 14 }}>
+        <h3>Past Orders</h3>
+        <table className="orders-table">
+          <thead>
+            <tr>
+              <th>Order ID</th>
+              <th>Product</th>
+              <th>Status</th>
+              <th>Date</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pastOrders.length === 0 ? (
+              <tr><td colSpan={5} className="no-results">No past orders</td></tr>
+            ) : (
+              pastOrders.map(o => (
+                <tr key={o.fullId}>
+                  <td>{o.id}</td>
+                  <td>{o.product}</td>
+                  <td><StatusBadge status={o.status} /></td>
+                  <td>{o.date}</td>
+                  <td>{o.total}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </section>
+
+       {/* Client Pricing */}
       <section className="box" style={{ marginTop: 14 }}>
         <div className="table-head" style={{ marginBottom: 14 }}>
           <h3>Client Pricing</h3>
@@ -286,29 +304,13 @@ export default function ClientDetail() {
                 <td style={{ fontWeight: 500 }}>{row.product}</td>
                 <td>{row.size}</td>
                 <td>{row.paper}</td>
-
                 {editId === row.id ? (
                   <>
                     <td style={{ textAlign: 'right' }}>
-                      <input
-                        className="input"
-                        type="number"
-                        min="0.01"
-                        step="0.01"
-                        value={editPrice}
-                        onChange={e => setEditPrice(e.target.value)}
-                        style={{ width: 90, textAlign: 'right', padding: '4px 8px' }}
-                      />
+                      <input className="input" type="number" min="0.01" step="0.01" value={editPrice} onChange={e => setEditPrice(e.target.value)} style={{ width: 90, textAlign: 'right', padding: '4px 8px' }} />
                     </td>
                     <td style={{ textAlign: 'center' }}>
-                      <input
-                        className="input"
-                        type="number"
-                        min="1"
-                        value={editMinQty}
-                        onChange={e => setEditMinQty(e.target.value)}
-                        style={{ width: 70, textAlign: 'center', padding: '4px 8px' }}
-                      />
+                      <input className="input" type="number" min="1" value={editMinQty} onChange={e => setEditMinQty(e.target.value)} style={{ width: 70, textAlign: 'center', padding: '4px 8px' }} />
                     </td>
                   </>
                 ) : (
@@ -317,79 +319,23 @@ export default function ClientDetail() {
                     <td style={{ textAlign: 'center' }}>{row.minQty}</td>
                   </>
                 )}
-
                 <td style={{ textAlign: 'center' }}>
-                  <span
-                    className={`status ${row.active ? 'done' : 'canceled'}`}
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => toggleActive(row.id)}
-                    title="Click to toggle"
-                  >
+                  <span className={`status ${row.active ? 'done' : 'canceled'}`} style={{ cursor: 'pointer' }} onClick={() => toggleActive(row.id)} title="Click to toggle">
                     {row.active ? 'Active' : 'Inactive'}
                   </span>
                 </td>
-
                 <td style={{ textAlign: 'center' }}>
                   {editId === row.id ? (
                     <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
-                      <button
-                        className="btn primary"
-                        style={{ padding: '4px 12px', fontSize: 12 }}
-                        onClick={() => saveEdit(row.id)}
-                      >
-                        Save
-                      </button>
-                      <button
-                        className="btn"
-                        style={{ padding: '4px 12px', fontSize: 12 }}
-                        onClick={() => setEditId(null)}
-                      >
-                        Cancel
-                      </button>
+                      <button className="btn primary" style={{ padding: '4px 12px', fontSize: 12 }} onClick={() => saveEdit(row.id)}>Save</button>
+                      <button className="btn" style={{ padding: '4px 12px', fontSize: 12 }} onClick={() => setEditId(null)}>Cancel</button>
                     </div>
                   ) : (
-                    <button
-                      className="btn"
-                      style={{ padding: '4px 12px', fontSize: 12 }}
-                      onClick={() => startEdit(row)}
-                    >
-                      Edit
-                    </button>
+                    <button className="btn" style={{ padding: '4px 12px', fontSize: 12 }} onClick={() => startEdit(row)}>Edit</button>
                   )}
                 </td>
               </tr>
             ))}
-          </tbody>
-        </table>
-      </section>
-
-      {/* Past Orders */}
-      <section className="table-wrap" style={{ marginTop: 14 }}>
-        <h3>Past Orders</h3>
-        <table className="orders-table">
-          <thead>
-            <tr>
-              <th>Order ID</th>
-              <th>Product</th>
-              <th>Status</th>
-              <th>Date</th>
-              <th>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pastOrders.length === 0 ? (
-              <tr><td colSpan={5} className="no-results">No past orders</td></tr>
-            ) : (
-              pastOrders.map(o => (
-                <tr key={o.id}>
-                  <td>{o.id}</td>
-                  <td>{o.product}</td>
-                  <td><StatusBadge status={o.status} /></td>
-                  <td>{o.date}</td>
-                  <td>{o.total}</td>
-                </tr>
-              ))
-            )}
           </tbody>
         </table>
       </section>
