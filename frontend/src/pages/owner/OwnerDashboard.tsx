@@ -4,6 +4,8 @@ import Topbar from '../../components/Topbar';
 import StatCard from '../../components/StatCard';
 import StatusBadge from '../../components/StatusBadge';
 import { BatchLookupPanel, AccountingPanel, SettingsPanel, ProductionPanel, CompletedJobsPanel, ManagerOrdersPanel } from './OwnerPanels';
+// Import the new API functions
+import { getDashboardStats, getBatches } from '../../lib/api';
 
 interface Stat {
   label: string;
@@ -21,26 +23,6 @@ interface QuickList {
 
 type FloatingView = 'accounting' | 'batch-lookup' | 'settings' | 'production' | 'completed-jobs' | 'manager-orders';
 
-// Normalized data interfaces
-interface Order {
-  id: string;
-  clientId: string;
-  status: string;
-  total: number | null;
-}
-
-interface Batch {
-  id: string;
-  orderId: string;
-  status: string;  // 'in_progress', 'completed', 'pending_approval', etc.
-}
-
-interface Invoice {
-  id: string;
-  amount: number;
-  status: string;  // 'paid', 'pending', 'unpaid', 'overdue'
-}
-
 export default function OwnerDashboard() {
   const [stats, setStats] = useState<Stat[]>([]);
   const [quickLists, setQuickLists] = useState<QuickList[]>([]);
@@ -49,86 +31,58 @@ export default function OwnerDashboard() {
   const [floatingView, setFloatingView] = useState<FloatingView | null>(null);
 
   useEffect(() => {
-    Promise.all([
-      fetch('/data/json/orders.json').then(res => res.json()),
-      fetch('/data/json/batches.json').then(res => res.json()),
-      fetch('/data/json/invoices.json').then(res => res.json())
-    ])
-      .then(([ordersData, batchesData, invoicesData]) => {
-        const orders: Order[] = ordersData;
-        const batches: Batch[] = batchesData;
-        const invoices: Invoice[] = invoicesData;
+    const fetchData = async () => {
+      try {
+        // Fetch dashboard statistics from the API
+        const statsRes = await getDashboardStats();
+        const dashboardStats = statsRes.data.data; // DashboardStats type
 
-        // ---------- Compute stats ----------
-        // 1. Unpriced Orders: orders with status 'unpriced_pending'
-        const unpricedCount = orders.filter(o => o.status === 'unpriced_pending').length;
-
-        // 2. Active Jobs: batches that are not completed and not canceled
-        const activeJobs = batches.filter(b => b.status !== 'completed' && b.status !== 'canceled').length;
-
-        // 3. Revenue Snapshot: sum of all paid invoices (current month? For simplicity, total paid)
-        const totalPaid = invoices
-          .filter(inv => inv.status === 'paid')
-          .reduce((sum, inv) => sum + inv.amount, 0);
-        const revenueFormatted = totalPaid >= 1000 
-          ? `EGP ${(totalPaid / 1000).toFixed(0)}K` 
-          : `EGP ${totalPaid.toFixed(0)}`;
-
-        // 4. Accounting Items: invoices not paid (pending, unpaid, overdue)
-        const accountingItems = invoices.filter(inv => inv.status !== 'paid').length;
+        // Format revenue for display
+        const revenueFormatted = dashboardStats.totalRevenue >= 1000
+          ? `EGP ${(dashboardStats.totalRevenue / 1000).toFixed(0)}K`
+          : `EGP ${dashboardStats.totalRevenue.toFixed(0)}`;
 
         setStats([
-          { label: 'Unpriced Orders', value: unpricedCount, sub: 'Need manager pricing' },
-          { label: 'Active Jobs', value: activeJobs, sub: 'Production in progress' },
+          { label: 'Unpriced Orders', value: dashboardStats.unpricedOrders, sub: 'Need manager pricing' },
+          { label: 'Active Jobs', value: dashboardStats.activeJobs, sub: 'Production in progress' },
           { label: 'Revenue Snapshot', value: revenueFormatted, sub: 'Total paid invoices' },
-          { label: 'Accounting Items', value: accountingItems, sub: 'Need finance follow-up' }
+          { label: 'Accounting Items', value: dashboardStats.accountingItems, sub: 'Need finance follow-up' }
         ]);
 
-        // ---------- Compute quick lists ----------
-        // Pending Orders: unpriced_pending + priced_pending_confirmation
-        const pendingOrders = orders.filter(o => 
-          o.status === 'unpriced_pending' || o.status === 'priced_pending_confirmation'
-        ).length;
-
-        // Working Orders: orders with status 'in_progress' (could also match batches in progress)
-        const workingOrders = orders.filter(o => o.status === 'in_progress').length;
-
-        // Completed Orders: orders with status 'completed' or 'canceled'
-        const completedOrders = orders.filter(o => 
-          o.status === 'completed' || o.status === 'canceled'
-        ).length;
-
+        // Optionally fetch active batches if you need additional data (not strictly needed for quick lists)
+        // We'll use dashboard stats directly
         setQuickLists([
           {
             list: 'Pending Orders',
-            count: pendingOrders,
+            count: dashboardStats.pendingOrders,
             status: 'awaiting_work',
             action: 'Review and price urgent batches',
             page: 'owner-manager-orders'
           },
           {
             list: 'Working Orders',
-            count: workingOrders,
+            count: dashboardStats.activeJobs,
             status: 'in_production',
             action: 'Track production progress',
             page: 'owner-production'
           },
           {
             list: 'Completed Orders',
-            count: completedOrders,
+            count: dashboardStats.completedOrders,
             status: 'ready_for_archive',
             action: 'Validate completion and billing',
             page: 'owner-completed-jobs'
           }
         ]);
-
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error('Failed to load normalized data:', err);
+      } catch (err) {
+        console.error('Failed to load dashboard data:', err);
         setError('Could not load dashboard data. Please try again later.');
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+
+    fetchData();
   }, []);
 
   const handleQuickListOpen = (page: string) => {
