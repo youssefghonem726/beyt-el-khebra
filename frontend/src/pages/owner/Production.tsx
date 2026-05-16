@@ -4,8 +4,10 @@ import Topbar from '../../components/Topbar';
 import StatCard from '../../components/StatCard';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
-// ─── API imports ──────────────────────────────────────────────────────────
-import { getBatches, getOrders, getClients } from '../../lib/api';
+// Direct service imports – bypasses VITE_USE_MOCK
+import { getBatches } from '../../lib/api/batchesService';
+import { getOrders } from '../../lib/api/ordersQuotesService';
+import { getClients } from '../../lib/api/invoicesClientsSettingsService';
 
 interface Stage {
   stage: string;
@@ -74,7 +76,6 @@ export default function Production() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch data via API layer
         const [batchesRes, ordersRes, clientsRes] = await Promise.all([
           getBatches(),
           getOrders(),
@@ -118,9 +119,14 @@ export default function Production() {
 
         setJobs(jobList);
         if (jobList.length > 0) setSelectedJob(jobList[0]);
-      } catch (err) {
-        console.error('Failed to load production data:', err);
-        setError('Could not load production data. Please try again later.');
+      } catch (err: any) {
+        // If batches endpoint is 404 (not yet built), show empty list
+        if (err?.response?.status === 404) {
+          setJobs([]);
+        } else {
+          console.error('Failed to load production data:', err);
+          setError('Could not load production data. Please try again later.');
+        }
       } finally {
         setLoading(false);
       }
@@ -345,7 +351,6 @@ export default function Production() {
                 </button>
               </div>
               <div style={{ padding: 20 }}>
-                {/* Work Progress */}
                 <h3 style={{ marginBottom: 8 }}>Work Progress — {selectedJob.id}</h3>
                 <ProgressBar percent={p} color={p === 100 ? 'green' : p >= 50 ? 'orange' : undefined} />
                 <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 6, marginBottom: 16 }}>
@@ -365,8 +370,6 @@ export default function Production() {
                     ))}
                   </tbody>
                 </table>
-
-                {/* Job Info */}
                 <h3 style={{ marginBottom: 12 }}>Job Info</h3>
                 <div className="form-grid-2" style={{ fontSize: 14, gap: 8 }}>
                   <p><strong>Client:</strong> {selectedJob.client}</p>
