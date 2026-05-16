@@ -4,21 +4,12 @@ import AppShell from '../../components/AppShell';
 import StatusBadge from '../../components/StatusBadge';
 import { useNavigation } from '../../context/NavigationContext';
 import DocumentSection from '../../components/DocumentSection';
-// Direct service imports – bypasses VITE_USE_MOCK
+// Direct service imports
 import { getOrders } from '../../lib/api/ordersQuotesService';
 import { getClients } from '../../lib/api/invoicesClientsSettingsService';
+import { getPricingByUser, updatePricing } from '../../lib/api/pricingService';
 import type { Client } from '../../lib/api/invoicesClientsSettingsService';
-
-// ─── Types for orders (from backend) ──────────────────────────────────────
-interface BackendOrder {
-  id: number;
-  customer: number;
-  status: string;
-  total_price?: number | null;
-  created_at?: string;
-  upload?: { file_name?: string };
-  // ... other fields as needed
-}
+import type { PricingRow } from '../../lib/api/pricingService';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 function formatDate(isoDate: string | null): string {
@@ -54,38 +45,72 @@ function formatStatsAmount(amount: number): string {
   return `EGP ${amount.toLocaleString('en-EG', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
+// ─── Pricing display helper ───────────────────────────────────────────────
+const PRICING_LABELS: { key: keyof PricingRow; label: string }[] = [
+  { key: 'Front', label: 'Front' },
+  { key: 'Front_and_back', label: 'Front & Back' },
+  { key: 'Digital_Cover_300g', label: 'Digital Cover 300g' },
+  { key: 'Digital_Cover_200g', label: 'Digital Cover 200g' },
+  { key: 'Offset_Cover_200g', label: 'Offset Cover 200g' },
+  { key: 'Offset_Cover_300g', label: 'Offset Cover 300g' },
+  { key: 'Coil_size_10', label: 'Coil Size 10' },
+  { key: 'Coil_size_12', label: 'Coil Size 12' },
+  { key: 'Coil_size_14', label: 'Coil Size 14' },
+  { key: 'Coil_size_16', label: 'Coil Size 16' },
+  { key: 'Coil_size_18', label: 'Coil Size 18' },
+  { key: 'Coil_size_20', label: 'Coil Size 20' },
+  { key: 'Coil_size_22', label: 'Coil Size 22' },
+  { key: 'Coil_size_25', label: 'Coil Size 25' },
+  { key: 'Coil_size_28', label: 'Coil Size 28' },
+  { key: 'Coil_size_30', label: 'Coil Size 30' },
+  { key: 'Coil_size_32', label: 'Coil Size 32' },
+  { key: 'Coil_size_35', label: 'Coil Size 35' },
+];
+
 export default function ClientDetail() {
   const { id: clientId = '0' } = useParams<{ id: string }>();
   const { navigateTopLevel } = useNavigation();
 
   const [client, setClient] = useState<Client | null>(null);
-  const [orders, setOrders] = useState<BackendOrder[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [pricing, setPricing] = useState<PricingRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Inline editing state for pricing
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [clientsRes, ordersRes] = await Promise.all([
+        const numericClientId = Number(clientId);
+
+        const [clientsRes, ordersRes, pricingRes] = await Promise.all([
           getClients(),
           getOrders(),
+          getPricingByUser(numericClientId).catch(() => null), // 404 returns null
         ]);
 
         const clients: Client[] = clientsRes.data.data.results;
-        const allOrders: BackendOrder[] = ordersRes.data.data;
+        const allOrders = ordersRes.data.data;
 
-        const numericClientId = Number(clientId);
         const foundClient = clients.find(c => Number(c.id) === numericClientId);
         if (!foundClient) {
           setError(`Client with ID "${clientId}" not found.`);
           return;
         }
 
-        // Filter orders by customer field (user ID)
-        const clientOrders = allOrders.filter(o => o.customer === numericClientId);
+        const clientOrders = allOrders.filter((o: any) => o.customer === numericClientId);
 
         setClient(foundClient);
         setOrders(clientOrders);
+
+        // Pricing might be null if not set
+        if (pricingRes && pricingRes.data?.data) {
+          setPricing(pricingRes.data.data);
+        }
       } catch (err) {
         console.error('Failed to load data:', err);
         setError('Could not load client data. Please try again later.');
@@ -96,6 +121,35 @@ export default function ClientDetail() {
 
     fetchData();
   }, [clientId]);
+
+  // Inline edit handlers
+  const startEdit = (field: string, currentValue: number | null) => {
+    setEditingField(field);
+    setEditValue(currentValue !== null && currentValue !== undefined ? String(currentValue) : '');
+  };
+
+  const cancelEdit = () => {
+    setEditingField(null);
+    setEditValue('');
+  };
+
+  const saveEdit = async (field: string) => {
+    if (!pricing) return;
+    const value = parseFloat(editValue);
+    if (isNaN(value) || value < 0) return;
+
+    setSaving(true);
+    try {
+      const updated = { ...pricing, [field]: value };
+      const res = await updatePricing(pricing.id, { [field]: value });
+      setPricing(res.data.data);
+      setEditingField(null);
+    } catch (err) {
+      console.error('Failed to update pricing:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -115,9 +169,9 @@ export default function ClientDetail() {
     );
   }
 
-  // Compute stats from actual orders
+  // Compute stats
   const totalOrders = orders.length;
-  const totalSpent = orders.reduce((sum, o) => sum + (o.total_price || 0), 0);
+  const totalSpent = orders.reduce((sum: number, o: any) => sum + (o.total_price || 0), 0);
   const avgOrderPrice = getAverageOrderPrice(totalSpent, totalOrders);
   const customerSince = formatCustomerSince(client.since);
   const totalSpentFormatted = formatStatsAmount(totalSpent);
@@ -129,10 +183,10 @@ export default function ClientDetail() {
     { label: 'Total Amount Spent', value: totalSpentFormatted },
   ];
 
-  const pastOrders = orders.map(order => {
+  const pastOrders = orders.map((order: any) => {
     const productName = order.upload?.file_name || `Order #${order.id}`;
     return {
-      id: `#${order.id}`,        // short display ID
+      id: `#${order.id}`,
       fullId: order.id.toString(),
       product: productName,
       status: order.status,
@@ -168,6 +222,72 @@ export default function ClientDetail() {
           ))}
         </div>
       </section>
+
+      {/* Custom Pricing Table */}
+      {pricing && (
+        <section className="box" style={{ marginTop: 14 }}>
+          <div className="table-head" style={{ marginBottom: 14 }}>
+            <h3>Custom Pricing</h3>
+            <p style={{ fontSize: 13, color: 'var(--muted)' }}>
+              Edit prices per unit for this client. Changes are saved immediately.
+            </p>
+          </div>
+          <table className="orders-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th style={{ textAlign: 'right' }}>Price (EGP)</th>
+                <th style={{ textAlign: 'center' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {PRICING_LABELS.map(({ key, label }) => {
+                const currentValue = pricing[key] ?? 0;
+                const isEditing = editingField === key;
+                return (
+                  <tr key={key}>
+                    <td style={{ fontWeight: 500 }}>{label}</td>
+                    {isEditing ? (
+                      <td style={{ textAlign: 'right' }}>
+                        <input
+                          className="input"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={editValue}
+                          onChange={e => setEditValue(e.target.value)}
+                          style={{ width: 100, textAlign: 'right', padding: '4px 8px' }}
+                        />
+                      </td>
+                    ) : (
+                      <td style={{ textAlign: 'right', fontWeight: 600 }}>
+                        {Number(currentValue).toFixed(2)}
+                      </td>
+                    )}
+                    <td style={{ textAlign: 'center' }}>
+                      {isEditing ? (
+                        <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+                          <button
+                            className="btn primary"
+                            style={{ padding: '4px 12px', fontSize: 12 }}
+                            disabled={saving}
+                            onClick={() => saveEdit(key)}
+                          >
+                            {saving ? '...' : 'Save'}
+                          </button>
+                          <button className="btn" style={{ padding: '4px 12px', fontSize: 12 }} onClick={cancelEdit}>Cancel</button>
+                        </div>
+                      ) : (
+                        <button className="btn" style={{ padding: '4px 12px', fontSize: 12 }} onClick={() => startEdit(key, currentValue)}>Edit</button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </section>
+      )}
 
       {/* Documents */}
       <section className="box" style={{ marginTop: 14 }}>

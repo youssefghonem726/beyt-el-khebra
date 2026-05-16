@@ -30,6 +30,8 @@ INSTALLED_APPS = [
     "dashboard",
     "invoices",
     "notifications",
+    "batches",
+    "deliveries",
 ]
 
 MIDDLEWARE = [

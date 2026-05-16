@@ -12,6 +12,9 @@ urlpatterns = [
     path("api/dashboard/", include("dashboard.urls")),
     path("api/invoices/", include("invoices.urls")),
     path("api/notifications/", include("notifications.urls")),
+    path("api/batches/", include("batches.urls")),
+    path("api/deliveries/", include("deliveries.urls")),
+    path("api/pricing/", include("pricing.urls")),
 ]
 
 if settings.DEBUG:
