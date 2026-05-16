@@ -88,6 +88,7 @@ export interface CreateOrderPayload {
   status?: OrderStatus
   quantity: number
   total_price: number
+  customer_id?: number
 }
 
 export interface UpdateOrderPayload {

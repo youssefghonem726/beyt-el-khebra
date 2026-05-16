@@ -3,6 +3,8 @@ import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import { useNavigation } from '../../context/NavigationContext';
 import { PdfPreviewPanel } from '../../components/PdfPreviewPanel';
+import { createOrder } from '../../lib/api/ordersQuotesService';
+import { createUpload, getUploads } from '../../lib/api/documentsProductionService';
 
 type OrderType = 'package' | 'single' | null;
 type ItemType = 'book' | 'booklet' | 'card' | 'sticker' | 'poster';
@@ -319,12 +321,7 @@ function ItemEditor({
   );
 }
 
-interface Props {
-  /** Client ID (e.g., "CL-001") – defaults to CL-001 */
-  clientId?: string;
-}
-
-export default function PlaceNewOrder({ clientId = 'CL-001' }: Props) {
+export default function PlaceNewOrder() {
   const { navigateTopLevel } = useNavigation();
 
   const [orderType, setOrderType]     = useState<OrderType>(null);
@@ -333,6 +330,8 @@ export default function PlaceNewOrder({ clientId = 'CL-001' }: Props) {
   const [singleData, setSingleData]   = useState<Record<string, any>>({});
   const [submitted, setSubmitted]     = useState(false);
   const [notes, setNotes]             = useState('');
+  const [submitting, setSubmitting]   = useState(false);
+  const [error, setError]             = useState<string | null>(null);
 
   // Document library
   const [docs, setDocs]               = useState<ClientDocument[]>([]);
@@ -344,17 +343,26 @@ export default function PlaceNewOrder({ clientId = 'CL-001' }: Props) {
   const [localCoverFile, setLocalCoverFile] = useState<File | null>(null);
   const [localCoverUrl, setLocalCoverUrl] = useState<string | null>(null);
 
-  // Fetch documents and filter by client
+  // Fetch the client's uploaded files to show in the document library
   useEffect(() => {
-    fetch('/data/json/documents.json')
-      .then(r => r.json())
-      .then((allDocs: ClientDocument[]) => {
-        // Only show documents belonging to this client
-        const clientDocs = allDocs.filter(doc => doc.ownerType === 'client' && doc.ownerId === clientId);
-        setDocs(clientDocs);
+    getUploads()
+      .then(res => {
+        const mapped: ClientDocument[] = res.data.data.map(u => ({
+          id: String(u.id),
+          name: u.url.split('/').pop() ?? 'File',
+          fileName: u.url.split('/').pop() ?? 'File',
+          type: (u.url.split('.').pop() ?? 'PDF').toUpperCase(),
+          sizeKB: 0,
+          uploadedDate: '',
+          reorderCount: 0,
+          ownerType: 'client' as const,
+          ownerId: String(u.uploaded_by),
+          url: u.url,
+        }));
+        setDocs(mapped);
       })
       .catch(() => {});
-  }, [clientId]);
+  }, []);
 
   // Cleanup object URLs
   useEffect(() => {
@@ -437,6 +445,12 @@ export default function PlaceNewOrder({ clientId = 'CL-001' }: Props) {
   return (
     <AppShell role="client" activePage="place-new-order">
       <Topbar title="Place New Order" />
+
+      {error && (
+        <div className="box" style={{ background: '#fff0f0', color: '#c0392b', marginBottom: 12 }}>
+          {error}
+        </div>
+      )}
 
       {/* ── Order type choice ── */}
       {!orderType && (
@@ -585,10 +599,22 @@ export default function PlaceNewOrder({ clientId = 'CL-001' }: Props) {
               </div>
               <button
                 className="btn primary block"
-                disabled={items.length === 0}
-                onClick={() => setSubmitted(true)}
+                disabled={items.length === 0 || submitting}
+                onClick={async () => {
+                  setSubmitting(true);
+                  setError(null);
+                  try {
+                    const totalQty = items.reduce((sum, i) => sum + (Number(i.data.qty) || 1), 0);
+                    await createOrder({ status: 'UNPRICED_PENDING', quantity: totalQty || 1, total_price: 0 });
+                    setSubmitted(true);
+                  } catch {
+                    setError('Failed to submit order. Please try again.');
+                  } finally {
+                    setSubmitting(false);
+                  }
+                }}
               >
-                Submit Package
+                {submitting ? 'Submitting…' : 'Submit Package'}
               </button>
             </aside>
           </section>
@@ -822,10 +848,28 @@ export default function PlaceNewOrder({ clientId = 'CL-001' }: Props) {
               </div>
               <button
                 className="btn primary block"
-                disabled={!singleType}
-                onClick={() => setSubmitted(true)}
+                disabled={!singleType || submitting}
+                onClick={async () => {
+                  setSubmitting(true);
+                  setError(null);
+                  try {
+                    if (singleData.pdf instanceof File) {
+                      await createUpload({ file: singleData.pdf, file_type: 'content' });
+                    }
+                    if (singleData.cover instanceof File) {
+                      await createUpload({ file: singleData.cover, file_type: 'cover' });
+                    }
+                    const qty = Number(singleData.qty) || 1;
+                    await createOrder({ status: 'UNPRICED_PENDING', quantity: qty, total_price: 0 });
+                    setSubmitted(true);
+                  } catch {
+                    setError('Failed to submit order. Please try again.');
+                  } finally {
+                    setSubmitting(false);
+                  }
+                }}
               >
-                Submit Order
+                {submitting ? 'Submitting…' : 'Submit Order'}
               </button>
             </aside>
           </section>

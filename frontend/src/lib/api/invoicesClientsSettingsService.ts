@@ -93,16 +93,51 @@ export const getRevenue = (): Promise<AxiosResponse<ApiSuccess<Invoice[]>>> =>
   api.get('/api/accounting/revenue/')
 
 // ─── Clients ─────────────────────────────────────────────────────────────────
-// @pending — not yet implemented in Django
+// GET /api/users/clients/ — returns users with role=client (owner/staff only)
+// POST /api/users/clients/ — creates a new client profile
 
-export const getClients = (
+export const getClients = async (
   params: GetClientsParams = {}
 ): Promise<AxiosResponse<ApiSuccess<PaginatedResponse<Client>>>> => {
-  const { page = 1, pageSize = 20, q } = params
-  const query: Record<string, unknown> = { page, pageSize }
+  const { q } = params
+  const query: Record<string, unknown> = {}
   if (q) query.q = q
-  return api.get('/api/clients/', { params: query })
+
+  const response = await api.get<ApiSuccess<UserProfile[]>>('/api/users/clients/', { params: query })
+  const users = response.data.data
+
+  const clients: Client[] = users.map((u) => ({
+    id: String(u.id),
+    name: [u.first_name, u.last_name].filter(Boolean).join(' ') || u.email,
+    email: u.email,
+    phone: u.phone ?? '',
+    address: '',
+    taxId: '',
+    since: null,
+    stats: { totalOrders: 0, totalSpent: 0 },
+  }))
+
+  return {
+    ...response,
+    data: {
+      ...response.data,
+      data: {
+        results: clients,
+        count: clients.length,
+        next: null,
+        previous: null,
+      },
+    },
+  }
 }
+
+export const createClientUser = (data: {
+  first_name: string
+  last_name: string
+  email: string
+  phone?: string
+}): Promise<AxiosResponse<ApiSuccess<UserProfile>>> =>
+  api.post('/api/users/clients/', data)
 
 export const getClientById = (
   clientId: string
