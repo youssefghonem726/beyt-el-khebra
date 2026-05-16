@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     "invoices",
     "notifications",
     "batches",
+    "deliveries",
 ]
 
 MIDDLEWARE = [
