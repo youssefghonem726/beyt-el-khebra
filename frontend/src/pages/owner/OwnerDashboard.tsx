@@ -4,8 +4,8 @@ import Topbar from '../../components/Topbar';
 import StatCard from '../../components/StatCard';
 import StatusBadge from '../../components/StatusBadge';
 import { BatchLookupPanel, AccountingPanel, SettingsPanel, ProductionPanel, CompletedJobsPanel, ManagerOrdersPanel } from './OwnerPanels';
-// Import the new API functions
-import { getDashboardStats, getBatches } from '../../lib/api';
+// Direct import from real service – bypasses VITE_USE_MOCK
+import { getDashboardStats } from '../../lib/api/dashboardService';
 
 interface Stat {
   label: string;
@@ -31,59 +31,128 @@ export default function OwnerDashboard() {
   const [floatingView, setFloatingView] = useState<FloatingView | null>(null);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch dashboard statistics from the API
-        const statsRes = await getDashboardStats();
-        const dashboardStats = statsRes.data.data; // DashboardStats type
+  const fetchData = async () => {
+    try {
+      const statsRes = await getDashboardStats();
+      const dashboardStats = statsRes.data.data; // now DashboardApiResponse
+      console.log('Dashboard stats response:', dashboardStats);
 
-        // Format revenue for display
-        const revenueFormatted = dashboardStats.totalRevenue >= 1000
-          ? `EGP ${(dashboardStats.totalRevenue / 1000).toFixed(0)}K`
-          : `EGP ${dashboardStats.totalRevenue.toFixed(0)}`;
+      // --- Map to stat cards ---
+      const unpricedOrders = dashboardStats.orders?.unpriced_orders ?? 0;
+      const activeJobs = dashboardStats.production?.total_items ?? 0;        // items in production
+      const totalRevenue = dashboardStats.payments?.total_paid_amount ?? 0;
+      const accountingItems = dashboardStats.payments?.unpaid_orders ?? 0;   // needs follow-up
 
-        setStats([
-          { label: 'Unpriced Orders', value: dashboardStats.unpricedOrders, sub: 'Need manager pricing' },
-          { label: 'Active Jobs', value: dashboardStats.activeJobs, sub: 'Production in progress' },
-          { label: 'Revenue Snapshot', value: revenueFormatted, sub: 'Total paid invoices' },
-          { label: 'Accounting Items', value: dashboardStats.accountingItems, sub: 'Need finance follow-up' }
-        ]);
+      const revenueFormatted = totalRevenue >= 1000
+        ? `EGP ${(totalRevenue / 1000).toFixed(0)}K`
+        : `EGP ${totalRevenue.toFixed(0)}`;
 
-        // Optionally fetch active batches if you need additional data (not strictly needed for quick lists)
-        // We'll use dashboard stats directly
-        setQuickLists([
-          {
-            list: 'Pending Orders',
-            count: dashboardStats.pendingOrders,
-            status: 'awaiting_work',
-            action: 'Review and price urgent batches',
-            page: 'owner-manager-orders'
-          },
-          {
-            list: 'Working Orders',
-            count: dashboardStats.activeJobs,
-            status: 'in_production',
-            action: 'Track production progress',
-            page: 'owner-production'
-          },
-          {
-            list: 'Completed Orders',
-            count: dashboardStats.completedOrders,
-            status: 'ready_for_archive',
-            action: 'Validate completion and billing',
-            page: 'owner-completed-jobs'
-          }
-        ]);
-      } catch (err) {
-        console.error('Failed to load dashboard data:', err);
-        setError('Could not load dashboard data. Please try again later.');
-      } finally {
-        setLoading(false);
-      }
-    };
+      setStats([
+        { label: 'Unpriced Orders', value: unpricedOrders, sub: 'Need manager pricing' },
+        { label: 'Active Jobs', value: activeJobs, sub: 'Production in progress' },
+        { label: 'Revenue Snapshot', value: revenueFormatted, sub: 'Total paid invoices' },
+        { label: 'Accounting Items', value: accountingItems, sub: 'Need finance follow-up' },
+      ]);
 
-    fetchData();
-  }, []);
+      // --- Map to quick lists ---
+      const pendingOrders = dashboardStats.orders?.unpriced_orders ?? 0;
+      const workingOrders = dashboardStats.production?.total_items ?? 0;
+      const completedOrders = dashboardStats.orders?.completed_orders ?? 0;
+
+      setQuickLists([
+        {
+          list: 'Pending Orders',
+          count: pendingOrders,
+          status: 'awaiting_work',
+          action: 'Review and price urgent batches',
+          page: 'owner-manager-orders',
+        },
+        {
+          list: 'Working Orders',
+          count: workingOrders,
+          status: 'in_production',
+          action: 'Track production progress',
+          page: 'owner-production',
+        },
+        {
+          list: 'Completed Orders',
+          count: completedOrders,
+          status: 'ready_for_archive',
+          action: 'Validate completion and billing',
+          page: 'owner-completed-jobs',
+        },
+      ]);
+    } catch (err) {
+      console.error('Failed to load dashboard data:', err);
+      setError('Could not load dashboard data. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchData();
+}, []);useEffect(() => {
+  const fetchData = async () => {
+    try {
+      const statsRes = await getDashboardStats();
+      const dashboardStats = statsRes.data.data; // now DashboardApiResponse
+      console.log('Dashboard stats response:', dashboardStats);
+
+      // --- Map to stat cards ---
+      const unpricedOrders = dashboardStats.orders?.unpriced_orders ?? 0;
+      const activeJobs = dashboardStats.production?.total_items ?? 0;        // items in production
+      const totalRevenue = dashboardStats.payments?.total_paid_amount ?? 0;
+      const accountingItems = dashboardStats.payments?.unpaid_orders ?? 0;   // needs follow-up
+
+      const revenueFormatted = totalRevenue >= 1000
+        ? `EGP ${(totalRevenue / 1000).toFixed(0)}K`
+        : `EGP ${totalRevenue.toFixed(0)}`;
+
+      setStats([
+        { label: 'Unpriced Orders', value: unpricedOrders, sub: 'Need manager pricing' },
+        { label: 'Active Jobs', value: activeJobs, sub: 'Production in progress' },
+        { label: 'Revenue Snapshot', value: revenueFormatted, sub: 'Total paid invoices' },
+        { label: 'Accounting Items', value: accountingItems, sub: 'Need finance follow-up' },
+      ]);
+
+      // --- Map to quick lists ---
+      const pendingOrders = dashboardStats.orders?.unpriced_orders ?? 0;
+      const workingOrders = dashboardStats.production?.total_items ?? 0;
+      const completedOrders = dashboardStats.orders?.completed_orders ?? 0;
+
+      setQuickLists([
+        {
+          list: 'Pending Orders',
+          count: pendingOrders,
+          status: 'awaiting_work',
+          action: 'Review and price urgent batches',
+          page: 'owner-manager-orders',
+        },
+        {
+          list: 'Working Orders',
+          count: workingOrders,
+          status: 'in_production',
+          action: 'Track production progress',
+          page: 'owner-production',
+        },
+        {
+          list: 'Completed Orders',
+          count: completedOrders,
+          status: 'ready_for_archive',
+          action: 'Validate completion and billing',
+          page: 'owner-completed-jobs',
+        },
+      ]);
+    } catch (err) {
+      console.error('Failed to load dashboard data:', err);
+      setError('Could not load dashboard data. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchData();
+}, []);
 
   const handleQuickListOpen = (page: string) => {
     if (page === 'owner-manager-orders') { setFloatingView('manager-orders'); return; }
