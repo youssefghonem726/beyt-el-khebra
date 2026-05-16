@@ -13,7 +13,6 @@ export interface ApiError {
 export type ApiResponse<T> = ApiSuccess<T> | ApiError
 
 // ─── Pagination ───────────────────────────────────────────────────────────────
-// DRF default pagination shape (add if/when backend paginates)
 
 export interface PaginatedResponse<T> {
   results: T[]
@@ -23,7 +22,6 @@ export interface PaginatedResponse<T> {
 }
 
 // ─── Auth / Users ─────────────────────────────────────────────────────────────
-// Shape from GET /api/users/me/  → data field
 
 export type UserRole = 'client' | 'manager' | 'owner' | 'production'
 
@@ -52,7 +50,6 @@ export interface SignupProfileData {
 }
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
-// GET /api/dashboard/stats/ — not yet implemented, shape is speculative
 
 export interface DashboardStats {
   totalOrders: number
@@ -65,7 +62,6 @@ export interface DashboardStats {
 }
 
 // ─── Orders ───────────────────────────────────────────────────────────────────
-// Shape from POST /api/orders/ → data field
 
 export type OrderStatus =
   | 'UNPRICED_PENDING'
@@ -79,9 +75,9 @@ export interface Order {
   id: number
   status: OrderStatus
   quantity: number
-  total_price: string          // backend returns as decimal string e.g. "150.00"
-  customer: number             // user id
-  approved_by: number | null   // user id or null
+  total_price: string
+  customer: number
+  approved_by: number | null
 }
 
 export interface CreateOrderPayload {
@@ -102,7 +98,6 @@ export interface GetOrdersParams {
   q?: string
 }
 
-// Order history — endpoint not yet implemented, shape is speculative
 export interface OrderStatusHistory {
   id: number
   orderId: number
@@ -113,7 +108,6 @@ export interface OrderStatusHistory {
 }
 
 // ─── Uploads ──────────────────────────────────────────────────────────────────
-// Shape from POST /api/uploads/ → data field
 
 export type UploadFileType =
   | 'cover'
@@ -123,53 +117,48 @@ export type UploadFileType =
 
 export interface Upload {
   id: number
-  url: string                  // e.g. "/media/uploads/example.pdf"
+  url: string
   file_type: UploadFileType
-  uploaded_by: number          // user id
+  uploaded_by: number
 }
 
-// POST /api/uploads/ uses multipart/form-data — NOT JSON
-// Use FormData in the service, not a plain object
 export interface CreateUploadPayload {
   file: File
   file_type: UploadFileType
 }
 
 // ─── Quotes ───────────────────────────────────────────────────────────────────
-// Not yet confirmed in backend contract — shape is speculative
-// Update when Django quotes endpoints are implemented
 
 export type QuoteStatus =
-  | 'Awaiting Confirmation'
-  | 'Approved'
-  | 'Changes Requested'
-  | 'Rejected'
+  | 'pending'
+  | 'approved'
+  | 'rejected'
+  | 'converted'
 
 export interface QuoteItem {
   id?: number
-  description: string
-  qty: number
-  unitPrice: number
-  subtotal?: number
+  item_type: string
+  quantity: number
+  estimated_unit_price: number
+  estimated_total_price: number
+  notes?: string
 }
 
 export interface Quote {
   id: number
-  orderId: number
-  clientId: number
-  status: QuoteStatus
-  vatRate: number
-  validUntil?: string
-  invoiceId?: number
+  order_id: number
+  status: string
+  total_estimated_price: number
+  notes?: string
   items: QuoteItem[]
-  notes: string
 }
 
 export interface SubmitQuotePayload {
-  vatRate?: number
-  items: Omit<QuoteItem, 'id' | 'subtotal'>[]
+  order_id: number
+  status?: string
+  total_estimated_price?: number
   notes?: string
-  validUntil?: string
+  items: Omit<QuoteItem, 'id'>[]
 }
 
 export interface QuoteChangeRequest {
@@ -182,7 +171,6 @@ export interface ApproveQuoteResponse {
 }
 
 // ─── Batches ──────────────────────────────────────────────────────────────────
-// Not yet confirmed — shape is speculative
 
 export type BatchStatus =
   | 'in_progress'
@@ -232,7 +220,6 @@ export interface UpdateBatchAssignmentsPayload {
 }
 
 // ─── Deliveries ───────────────────────────────────────────────────────────────
-// Not yet confirmed — shape is speculative
 
 export type DeliveryStatus =
   | 'scheduled'
@@ -266,7 +253,6 @@ export interface CancelDeliveryPayload {
 }
 
 // ─── Invoices ─────────────────────────────────────────────────────────────────
-// Not yet confirmed — shape is speculative
 
 export type InvoiceStatus = 'paid' | 'pending' | 'unpaid' | 'overdue'
 
@@ -296,7 +282,6 @@ export interface PayInvoicePayload {
 }
 
 // ─── Accounting ───────────────────────────────────────────────────────────────
-// Not yet confirmed — shape is speculative
 
 export interface AccountingOverview {
   totalRevenue: number
@@ -312,7 +297,6 @@ export interface ClientSummaryItem {
 }
 
 // ─── Clients ──────────────────────────────────────────────────────────────────
-// Not yet confirmed — shape is speculative
 
 export interface ClientStats {
   totalOrders: number
@@ -337,7 +321,6 @@ export interface GetClientsParams {
 }
 
 // ─── Notifications ────────────────────────────────────────────────────────────
-// Not yet confirmed — shape is speculative
 
 export interface NotificationAction {
   label: string
@@ -359,7 +342,6 @@ export interface UpdateNotificationPayload {
 }
 
 // ─── Support ──────────────────────────────────────────────────────────────────
-// Not yet confirmed — shape is speculative
 
 export type TicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed'
 
@@ -386,7 +368,6 @@ export interface CreateTicketPayload {
 }
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
-// Not yet confirmed — shape is speculative
 
 export interface PricingRule {
   id: string

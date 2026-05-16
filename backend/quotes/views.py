@@ -1,9 +1,9 @@
-
 from rest_framework.decorators import api_view
 from rest_framework import status
 
 from core.responses import success_response, error_response
 from users.models import User
+from orders.models import Order
 from quotes.models import Quote
 from quotes.serializers import QuoteSerializer, QuoteCreateSerializer
 
@@ -64,6 +64,10 @@ def quotes_list_create(request):
 
         if serializer.is_valid():
             quote = serializer.save()
+
+            # update order status so it leaves the unpriced queue
+            Order.objects.filter(id=quote.order_id).update(status="PRICED_PENDING_CONFIRMATION")
+
             response_serializer = QuoteSerializer(quote)
 
             return success_response(
