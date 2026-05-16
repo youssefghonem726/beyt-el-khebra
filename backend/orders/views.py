@@ -57,7 +57,12 @@ def orders_list_create(request):
 
     if request.method == "POST":
         data = request.data.copy()
-        data["customer"] = user.id
+
+        # Owners can place orders on behalf of a client by passing customer_id
+        if user.role in ('owner', 'staff') and 'customer_id' in data:
+            data["customer"] = data.pop("customer_id")
+        else:
+            data["customer"] = user.id
 
         serializer = OrderSerializer(data=data)
 

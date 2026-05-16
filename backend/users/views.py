@@ -1,3 +1,4 @@
+import uuid
 from rest_framework.decorators import api_view
 from rest_framework import status
 
@@ -6,12 +7,11 @@ from users.models import User
 from users.serializers import UserSerializer
 
 
-@api_view(["GET"])
-def get_current_user(request):
+def get_authenticated_user(request):
     user_data = getattr(request, "user_data", None)
 
     if not user_data:
-        return error_response(
+        return None, error_response(
             message="Authentication required",
             errors={"detail": "Missing or invalid Supabase token"},
             status_code=status.HTTP_401_UNAUTHORIZED
@@ -20,7 +20,7 @@ def get_current_user(request):
     supabase_uid = user_data.get("supabase_uid") or user_data.get("sub")
 
     if not supabase_uid:
-        return error_response(
+        return None, error_response(
             message="Invalid token",
             errors={"detail": "Supabase user id not found in token"},
             status_code=status.HTTP_401_UNAUTHORIZED
@@ -29,11 +29,21 @@ def get_current_user(request):
     try:
         user = User.objects.get(supabase_uid=supabase_uid)
     except User.DoesNotExist:
-        return error_response(
+        return None, error_response(
             message="User not found",
             errors={"detail": "No local user found for this Supabase account"},
             status_code=status.HTTP_404_NOT_FOUND
         )
+
+    return user, None
+
+
+@api_view(["GET"])
+def get_current_user(request):
+    user, auth_error = get_authenticated_user(request)
+
+    if auth_error:
+        return auth_error
 
     serializer = UserSerializer(user)
 
@@ -42,3 +52,56 @@ def get_current_user(request):
         data=serializer.data,
         status_code=status.HTTP_200_OK
     )
+
+
+@api_view(["GET", "POST"])
+def clients_list_create(request):
+    requesting_user, auth_error = get_authenticated_user(request)
+
+    if auth_error:
+        return auth_error
+
+    if requesting_user.role not in ('owner', 'staff'):
+        return error_response(
+            message="Forbidden",
+            errors={"detail": "Only owners and staff can manage clients"},
+            status_code=status.HTTP_403_FORBIDDEN
+        )
+
+    if request.method == "GET":
+        clients = User.objects.filter(role='client', is_active=True).order_by('first_name', 'last_name')
+        serializer = UserSerializer(clients, many=True)
+
+        return success_response(
+            message="Clients fetched successfully",
+            data=serializer.data,
+            status_code=status.HTTP_200_OK
+        )
+
+    if request.method == "POST":
+        data = {
+            'supabase_uid': f"pending-{uuid.uuid4()}",
+            'first_name': request.data.get('first_name', ''),
+            'last_name': request.data.get('last_name', ''),
+            'email': request.data.get('email', ''),
+            'phone': request.data.get('phone') or None,
+            'role': 'client',
+            'is_active': True,
+        }
+
+        serializer = UserSerializer(data=data)
+
+        if serializer.is_valid():
+            serializer.save()
+
+            return success_response(
+                message="Client created successfully",
+                data=serializer.data,
+                status_code=status.HTTP_201_CREATED
+            )
+
+        return error_response(
+            message="Validation error",
+            errors=serializer.errors,
+            status_code=status.HTTP_400_BAD_REQUEST
+        )

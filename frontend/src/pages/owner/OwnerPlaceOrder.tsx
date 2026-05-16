@@ -2,7 +2,10 @@ import { useState, useEffect, useCallback } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 // ─── API imports ──────────────────────────────────────────────────────────
-import { getClients, getDocuments } from '../../lib/api';
+import { getClients, createClientUser } from '../../lib/api/invoicesClientsSettingsService';
+import { createOrder } from '../../lib/api/ordersQuotesService';
+import { createUpload } from '../../lib/api/documentsProductionService';
+import { getDocuments } from '../../lib/api';
 
 // ── Types (unchanged) ────────────────────────────────────────────────────
 type ItemType = 'book' | 'booklet' | 'card' | 'sticker' | 'poster';
@@ -74,6 +77,10 @@ export default function OwnerPlaceOrder() {
   const [newClientEmail, setNewClientEmail]       = useState('');
   const [newClientPhone, setNewClientPhone]       = useState('');
 
+  const [submitting, setSubmitting]                   = useState(false);
+  const [creatingClient, setCreatingClient]           = useState(false);
+  const [error, setError]                             = useState<string | null>(null);
+
   const [localPreviewFile, setLocalPreviewFile]       = useState<File | null>(null);
   const [localPreviewUrl, setLocalPreviewUrl]         = useState<string | null>(null);
   const [localCoverPreviewFile, setLocalCoverPreviewFile] = useState<File | null>(null);
@@ -120,6 +127,7 @@ export default function OwnerPlaceOrder() {
         setClients(res.data.data.results);
       } catch (err) {
         console.error('Failed to load clients:', err);
+        setError('Failed to load clients. Is the backend running?');
       }
     })();
   }, []);
@@ -197,62 +205,100 @@ export default function OwnerPlaceOrder() {
     }
   };
 
-  const createNewClient = () => {
+  const createNewClient = async () => {
     if (!newClientName.trim()) return;
-    const newId = `CL-${crypto.randomUUID().slice(0, 6)}`;
-    const newClient: Client = {
-      id: newId,
-      name: newClientName,
-      email: newClientEmail || '',
-      phone: newClientPhone || '',
-      address: '',
-      taxId: '',
-      since: null,
-      stats: { totalOrders: 0, totalSpent: 0 },
-    };
-    console.log('[MOCK] Creating new client:', newClient);
-    setClients(prev => [...prev, newClient]);
-    setSelectedClientId(newId);
-    resetOrder();
-    setShowNewClientForm(false);
-    setNewClientName('');
-    setNewClientEmail('');
-    setNewClientPhone('');
+
+    const parts = newClientName.trim().split(' ');
+    const first_name = parts[0];
+    const last_name = parts.slice(1).join(' ');
+
+    setCreatingClient(true);
+    setError(null);
+    try {
+      const res = await createClientUser({
+        first_name,
+        last_name: last_name || '',
+        email: newClientEmail,
+        phone: newClientPhone || undefined,
+      });
+      const u = res.data.data;
+      const newClient: Client = {
+        id: String(u.id),
+        name: `${u.first_name} ${u.last_name}`.trim(),
+        email: u.email,
+        phone: u.phone ?? '',
+        address: '',
+        taxId: '',
+        since: null,
+        stats: { totalOrders: 0, totalSpent: 0 },
+      };
+      setClients(prev => [...prev, newClient]);
+      setSelectedClientId(newClient.id);
+      resetOrder();
+      setShowNewClientForm(false);
+      setNewClientName('');
+      setNewClientEmail('');
+      setNewClientPhone('');
+    } catch (err) {
+      console.error('Failed to create client:', err);
+      setError('Failed to create client. Please try again.');
+    } finally {
+      setCreatingClient(false);
+    }
   };
 
   // ── Order submission handlers ───────────────────────────────────────────
-  const handlePackageSubmit = async (pkgItems: PackageItem[], doc: ClientDocument | null, clientName: string) => {
-    const orderData = {
-      type: 'package',
-      client: clientName,
-      clientId: selectedClientId,
-      items: pkgItems,
-      attachedDocumentId: doc?.id ?? null,
-      notes,
-    };
-    console.log('[MOCK] Submitting package order:', orderData);
-    setSubmitted(true);
+  const handlePackageSubmit = async (pkgItems: PackageItem[], _doc: ClientDocument | null, _clientName: string) => {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const totalQty = pkgItems.reduce((sum, item) => sum + (Number(item.data.qty) || 1), 0);
+      await createOrder({
+        status: 'UNPRICED_PENDING',
+        quantity: totalQty || 1,
+        total_price: 0,
+        customer_id: Number(selectedClientId),
+      });
+      setSubmitted(true);
+    } catch (err) {
+      console.error('Failed to create order:', err);
+      setError('Failed to place order. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleSingleSubmit = async (
-    itemType: string,
+    _itemType: string,
     data: Record<string, any>,
-    doc: ClientDocument | null,
+    _doc: ClientDocument | null,
     previewFile: File | null,
-    clientName: string
+    _clientName: string
   ) => {
-    const orderData = {
-      type: 'single',
-      client: clientName,
-      clientId: selectedClientId,
-      itemType,
-      specs: data,
-      attachedDocumentId: doc?.id ?? null,
-      previewFile: previewFile ? { name: previewFile.name, size: previewFile.size } : null,
-      notes,
-    };
-    console.log('[MOCK] Submitting single order:', orderData);
-    setSubmitted(true);
+    setSubmitting(true);
+    setError(null);
+    try {
+      if (previewFile) {
+        await createUpload({ file: previewFile, file_type: 'content' });
+      }
+      if (data.cover instanceof File) {
+        await createUpload({ file: data.cover, file_type: 'cover' });
+      }
+
+      const qty = Number(data.qty) || 1;
+      await createOrder({
+        status: 'UNPRICED_PENDING',
+        quantity: qty,
+        total_price: 0,
+        customer_id: Number(selectedClientId),
+      });
+      setSubmitted(true);
+    } catch (err) {
+      console.error('Failed to create order:', err);
+      setError('Failed to place order. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // ── Submission success view ─────────────────────────────────────────────
@@ -282,6 +328,12 @@ export default function OwnerPlaceOrder() {
   return (
     <AppShell role="owner" activePage="owner-place-order">
       <Topbar title="Place Order" />
+
+      {error && (
+        <div className="box" style={{ background: '#fff0f0', color: '#c0392b', marginBottom: 12 }}>
+          {error}
+        </div>
+      )}
 
       {/* Client selector (unchanged) */}
       <section className="box mb-5">
@@ -327,7 +379,9 @@ export default function OwnerPlaceOrder() {
                 </div>
               </div>
               <div style={{ marginTop: 10, display: 'flex', gap: 10 }}>
-                <button className="btn primary" onClick={createNewClient}>Create & Select</button>
+                <button className="btn primary" onClick={createNewClient} disabled={creatingClient}>
+                  {creatingClient ? 'Creating…' : 'Create & Select'}
+                </button>
                 <button className="btn" onClick={() => { setShowNewClientForm(false); setNewClientName(''); }}>Cancel</button>
               </div>
             </div>
@@ -432,7 +486,7 @@ export default function OwnerPlaceOrder() {
                 selectedClient={selectedClient.name}
                 items={items}
                 selectedDoc={selectedDoc}
-                onSubmit={() => handlePackageSubmit(items, selectedDoc, selectedClient.name)}
+                onSubmit={() => { if (!submitting) handlePackageSubmit(items, selectedDoc, selectedClient.name); }}
               />
             </aside>
           </section>
@@ -579,7 +633,7 @@ export default function OwnerPlaceOrder() {
                 singleData={singleData}
                 selectedDoc={selectedDoc}
                 localPreviewFile={localPreviewFile}
-                onSubmit={() => handleSingleSubmit(singleType, singleData, selectedDoc, localPreviewFile, selectedClient.name)}
+                onSubmit={() => { if (!submitting) handleSingleSubmit(singleType, singleData, selectedDoc, localPreviewFile, selectedClient.name); }}
               />
               {(selectedDoc || localPreviewFile) && (
                 <PdfPreviewPanel

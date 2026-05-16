@@ -1,7 +1,3 @@
-// src/lib/api/mock/orders.mock.ts
-// Mock for ordersQuotesService — reads from /public/data/json/
-// Wraps responses in { success, message, data } to match the real API envelope.
-
 import type { AxiosResponse } from 'axios'
 import type {
   ApiSuccess,

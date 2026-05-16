@@ -2,21 +2,9 @@ import { useState, useEffect } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import { useNavigation } from '../../context/NavigationContext';
-import { getClients } from '../../lib/api';
-
-interface Client {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  address: string;
-  taxId: string;
-  since: string | null;
-  stats: {
-    totalOrders: number;
-    totalSpent: number;
-  };
-}
+// Direct import – bypasses VITE_USE_MOCK
+import { getClients } from '../../lib/api/invoicesClientsSettingsService';
+import type { Client } from '../../lib/api/invoicesClientsSettingsService'; // optional if you want typed
 
 export default function ClientManagement() {
   const { navigateTopLevel } = useNavigation();
@@ -26,12 +14,12 @@ export default function ClientManagement() {
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState<string | null>(null);
 
-  // Fetch clients via API
   useEffect(() => {
     const fetchClients = async () => {
       try {
         const res = await getClients();
-        setClients(res.data.data.results);
+        setClients(res.data.data.results);   // results is Client[]
+        console.log('ClientManagement - clients:', res.data.data.results);
       } catch (err) {
         console.error(err);
         setError('Could not load client data.');
@@ -69,7 +57,6 @@ export default function ClientManagement() {
     <AppShell role="owner" activePage="client-management">
       <Topbar title="Client Management" />
 
-      {/* Clients grid */}
       <section className="box">
         <div className="table-head">
           <h3>All Clients</h3>
@@ -97,6 +84,7 @@ export default function ClientManagement() {
             )}
           </div>
         </div>
+
         <div className="client-grid">
           {filtered.map(c => (
             <a
@@ -111,6 +99,7 @@ export default function ClientManagement() {
               <h3>{c.name}</h3>
               <p>{c.email}</p>
               <p>{c.phone}</p>
+              {c.since && <p>Client since {new Date(c.since).toLocaleDateString()}</p>}
               <p><strong>Click to open full profile</strong></p>
             </a>
           ))}

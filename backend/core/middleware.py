@@ -30,6 +30,7 @@ class SupabaseJWTMiddleware:
                 signing_key.key,
                 algorithms=["ES256"],
                 audience="authenticated",
+                leeway=60
             )
 
             supabase_uid = payload.get("sub")
