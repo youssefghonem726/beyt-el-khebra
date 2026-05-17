@@ -3,15 +3,9 @@ import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatCard from '../../components/StatCard';
 import StatusBadge from '../../components/StatusBadge';
-import {
-  BatchLookupPanel,
-  AccountingPanel,
-  SettingsPanel,
-  ProductionPanel,
-  CompletedJobsPanel,
-  ManagerOrdersPanel,
-} from './OwnerPanels';
-import { getDashboardStats } from '../../lib/api';
+import { BatchLookupPanel, AccountingPanel, SettingsPanel, ProductionPanel, CompletedJobsPanel, ManagerOrdersPanel } from './OwnerPanels';
+// Import the new API functions
+import { getDashboardStats, getBatches } from '../../lib/api';
 
 interface Stat {
   label: string;
@@ -50,77 +44,46 @@ export default function OwnerDashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        setLoading(true);
-        setError(null);
-
+        // Fetch dashboard statistics from the API
         const statsRes = await getDashboardStats();
-        const data = statsRes.data.data as any;
+        const dashboardStats = statsRes.data.data; // DashboardStats type
 
-        const orders = data?.orders || {};
-        const payments = data?.payments || {};
-        const production = data?.production || {};
-
-        const unpricedOrders = toNumber(orders.unpriced_orders);
-        const inProgressOrders = toNumber(orders.in_progress_orders);
-        const confirmedOrders = toNumber(orders.confirmed_orders);
-        const completedOrders = toNumber(orders.completed_orders);
-
-        const totalPaidAmount = toNumber(payments.total_paid_amount);
-        const unpaidOrders = toNumber(payments.unpaid_orders);
-        const partialPaidOrders = toNumber(payments.partial_paid_orders);
-
-        const totalItems = toNumber(production.total_items);
-
-        const revenueFormatted =
-          totalPaidAmount >= 1000
-            ? `EGP ${(totalPaidAmount / 1000).toFixed(0)}K`
-            : `EGP ${totalPaidAmount.toFixed(0)}`;
+        // Format revenue for display
+        const revenueFormatted = dashboardStats.totalRevenue >= 1000
+          ? `EGP ${(dashboardStats.totalRevenue / 1000).toFixed(0)}K`
+          : `EGP ${dashboardStats.totalRevenue.toFixed(0)}`;
 
         setStats([
-          {
-            label: 'Unpriced Orders',
-            value: unpricedOrders,
-            sub: 'Need manager pricing',
-          },
-          {
-            label: 'Active Jobs',
-            value: inProgressOrders,
-            sub: 'Production in progress',
-          },
-          {
-            label: 'Revenue Snapshot',
-            value: revenueFormatted,
-            sub: 'Total paid invoices',
-          },
-          {
-            label: 'Accounting Items',
-            value: unpaidOrders + partialPaidOrders,
-            sub: 'Need finance follow-up',
-          },
+          { label: 'Unpriced Orders', value: dashboardStats.unpricedOrders, sub: 'Need manager pricing' },
+          { label: 'Active Jobs', value: dashboardStats.activeJobs, sub: 'Production in progress' },
+          { label: 'Revenue Snapshot', value: revenueFormatted, sub: 'Total paid invoices' },
+          { label: 'Accounting Items', value: dashboardStats.accountingItems, sub: 'Need finance follow-up' }
         ]);
 
+        // Optionally fetch active batches if you need additional data (not strictly needed for quick lists)
+        // We'll use dashboard stats directly
         setQuickLists([
           {
             list: 'Pending Orders',
-            count: unpricedOrders + confirmedOrders,
+            count: dashboardStats.pendingOrders,
             status: 'awaiting_work',
-            action: 'Review and price urgent orders',
-            page: 'owner-manager-orders',
+            action: 'Review and price urgent batches',
+            page: 'owner-manager-orders'
           },
           {
             list: 'Working Orders',
-            count: inProgressOrders || totalItems,
+            count: dashboardStats.activeJobs,
             status: 'in_production',
             action: 'Track production progress',
-            page: 'owner-production',
+            page: 'owner-production'
           },
           {
             list: 'Completed Orders',
-            count: completedOrders,
+            count: dashboardStats.completedOrders,
             status: 'ready_for_archive',
             action: 'Validate completion and billing',
-            page: 'owner-completed-jobs',
-          },
+            page: 'owner-completed-jobs'
+          }
         ]);
       } catch (err) {
         console.error('Failed to load dashboard data:', err);
@@ -130,8 +93,8 @@ export default function OwnerDashboard() {
       }
     };
 
-    fetchData();
-  }, []);
+  fetchData();
+}, []);
 
   const handleQuickListOpen = (page: string) => {
     if (page === 'owner-manager-orders') {

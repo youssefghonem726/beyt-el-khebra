@@ -91,9 +91,6 @@ function ProtectedRoute({
 }) {
   const { user, loading } = useAuth();
 
-  // DEV ONLY — bypass auth check
-  if (import.meta.env.DEV) return <Outlet />;
-
   if (loading) return <div>Loading...</div>;
   if (!user) return <Navigate to={redirectTo} replace />;
 
@@ -110,8 +107,7 @@ function ProtectedRoute({
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
+    <BrowserRouter>
        <NavigationProvider>
         <Routes>
           {/* PUBLIC */}
@@ -169,7 +165,6 @@ export default function App() {
           <Route path="*" element={<div>404 Not Found</div>} />
         </Routes>
        </NavigationProvider>
-      </BrowserRouter>
-    </AuthProvider>
+    </BrowserRouter>
   );
 }

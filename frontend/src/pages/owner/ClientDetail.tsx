@@ -4,49 +4,14 @@ import AppShell from '../../components/AppShell';
 import StatusBadge from '../../components/StatusBadge';
 import { useNavigation } from '../../context/NavigationContext';
 import DocumentSection from '../../components/DocumentSection';
-// ─── Replace manual fetch with API services ─────────────────────────────────
-import { getClients, getOrders, getSettings } from '../../lib/api';
+// Direct service imports
+import { getOrders } from '../../lib/api/ordersQuotesService';
+import { getClients } from '../../lib/api/invoicesClientsSettingsService';
+import { getPricingByUser, updatePricing } from '../../lib/api/pricingService';
+import type { Client } from '../../lib/api/invoicesClientsSettingsService';
+import type { PricingRow } from '../../lib/api/pricingService';
 
-// ─── Local types (unchanged, must match the JSON/mock data) ─────────────────
-interface Client {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  address: string;
-  taxId: string;
-  since: string | null;
-  stats: {
-    totalOrders: number;
-    totalSpent: number;
-  };
-}
-
-interface Order {
-  id: string;
-  clientId: string;
-  product: string;
-  status: string;
-  orderDate: string;
-  deliveryDate: string | null;
-  total: number | null;
-  paid: number | null;
-  paymentMethod: string | null;
-  invoiceId: string | null;
-  specs: Record<string, any>;
-}
-
-interface PricingRow {
-  id: string;
-  product: string;
-  size: string;
-  paper: string;
-  pricePerUnit: number;
-  minQty: number;
-  active: boolean;
-}
-
-// ─── Helpers (unchanged) ─────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────
 function formatDate(isoDate: string | null): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
@@ -57,11 +22,6 @@ function formatDate(isoDate: string | null): string {
 function formatAmount(amount: number | null): string {
   if (amount === null) return '—';
   return `EGP ${amount.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-function getShortOrderId(fullId: string): string {
-  const match = fullId.match(/ORD-(\d+)-/);
-  return match ? `#${match[1]}` : fullId;
 }
 
 function formatCustomerSince(since: string | null): string {
@@ -85,50 +45,72 @@ function formatStatsAmount(amount: number): string {
   return `EGP ${amount.toLocaleString('en-EG', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
-function fmt(n: number) {
-  return n.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
+// ─── Pricing display helper ───────────────────────────────────────────────
+const PRICING_LABELS: { key: keyof PricingRow; label: string }[] = [
+  { key: 'Front', label: 'Front' },
+  { key: 'Front_and_back', label: 'Front & Back' },
+  { key: 'Digital_Cover_300g', label: 'Digital Cover 300g' },
+  { key: 'Digital_Cover_200g', label: 'Digital Cover 200g' },
+  { key: 'Offset_Cover_200g', label: 'Offset Cover 200g' },
+  { key: 'Offset_Cover_300g', label: 'Offset Cover 300g' },
+  { key: 'Coil_size_10', label: 'Coil Size 10' },
+  { key: 'Coil_size_12', label: 'Coil Size 12' },
+  { key: 'Coil_size_14', label: 'Coil Size 14' },
+  { key: 'Coil_size_16', label: 'Coil Size 16' },
+  { key: 'Coil_size_18', label: 'Coil Size 18' },
+  { key: 'Coil_size_20', label: 'Coil Size 20' },
+  { key: 'Coil_size_22', label: 'Coil Size 22' },
+  { key: 'Coil_size_25', label: 'Coil Size 25' },
+  { key: 'Coil_size_28', label: 'Coil Size 28' },
+  { key: 'Coil_size_30', label: 'Coil Size 30' },
+  { key: 'Coil_size_32', label: 'Coil Size 32' },
+  { key: 'Coil_size_35', label: 'Coil Size 35' },
+];
 
 export default function ClientDetail() {
-  const { id: clientId = 'CL-001' } = useParams<{ id: string }>();
+  const { id: clientId = '0' } = useParams<{ id: string }>();
   const { navigateTopLevel } = useNavigation();
 
   const [client, setClient] = useState<Client | null>(null);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [pricing, setPricing] = useState<PricingRow[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [pricing, setPricing] = useState<PricingRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [editId, setEditId] = useState<string | null>(null);
-  const [editPrice, setEditPrice] = useState('');
-  const [editMinQty, setEditMinQty] = useState('');
-  const [toast, setToast] = useState<string | null>(null);
+  // Inline editing state for pricing
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch data through the API layer (mock or real based on VITE_USE_MOCK)
-        const [clientsRes, ordersRes, settingsRes] = await Promise.all([
+        const numericClientId = Number(clientId);
+
+        const [clientsRes, ordersRes, pricingRes] = await Promise.all([
           getClients(),
           getOrders(),
-          getSettings(),
+          getPricingByUser(numericClientId).catch(() => null), // 404 returns null
         ]);
 
-        // Unwrap the data
-        const clients: Client[] = clientsRes.data.data.results; // paginated
-        const allOrders: Order[] = ordersRes.data.data;
-        const basePricing: PricingRow[] = settingsRes.data.data.pricing;
+        const clients: Client[] = clientsRes.data.data.results;
+        const allOrders = ordersRes.data.data;
 
-        const foundClient = clients.find(c => c.id === clientId);
+        const foundClient = clients.find(c => Number(c.id) === numericClientId);
         if (!foundClient) {
           setError(`Client with ID "${clientId}" not found.`);
           return;
         }
 
-        const clientOrders = allOrders.filter(o => o.clientId === clientId);
+        const clientOrders = allOrders.filter((o: any) => o.customer === numericClientId);
+
         setClient(foundClient);
         setOrders(clientOrders);
-        setPricing(basePricing);
+
+        // Pricing might be null if not set
+        if (pricingRes && pricingRes.data?.data) {
+          setPricing(pricingRes.data.data);
+        }
       } catch (err) {
         console.error('Failed to load data:', err);
         setError('Could not load client data. Please try again later.');
@@ -140,33 +122,35 @@ export default function ClientDetail() {
     fetchData();
   }, [clientId]);
 
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 2500);
-    return () => clearTimeout(t);
-  }, [toast]);
-
-  // Pricing edit handlers (unchanged)
-  const startEdit = (row: PricingRow) => {
-    setEditId(row.id);
-    setEditPrice(String(row.pricePerUnit));
-    setEditMinQty(String(row.minQty));
+  // Inline edit handlers
+  const startEdit = (field: string, currentValue: number | null) => {
+    setEditingField(field);
+    setEditValue(currentValue !== null && currentValue !== undefined ? String(currentValue) : '');
   };
 
-  const saveEdit = (rowId: string) => {
-    const price = parseFloat(editPrice);
-    const qty = parseInt(editMinQty, 10);
-    if (isNaN(price) || price <= 0 || isNaN(qty) || qty <= 0) return;
-    setPricing(ps => ps.map(p => p.id === rowId ? { ...p, pricePerUnit: price, minQty: qty } : p));
-    setEditId(null);
-    setToast('Price updated (local only).');
+  const cancelEdit = () => {
+    setEditingField(null);
+    setEditValue('');
   };
 
-  const toggleActive = (rowId: string) => {
-    setPricing(ps => ps.map(p => p.id === rowId ? { ...p, active: !p.active } : p));
+  const saveEdit = async (field: string) => {
+    if (!pricing) return;
+    const value = parseFloat(editValue);
+    if (isNaN(value) || value < 0) return;
+
+    setSaving(true);
+    try {
+      const updated = { ...pricing, [field]: value };
+      const res = await updatePricing(pricing.id, { [field]: value });
+      setPricing(res.data.data);
+      setEditingField(null);
+    } catch (err) {
+      console.error('Failed to update pricing:', err);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  // Loading / error states
   if (loading) {
     return (
       <AppShell role="owner" activePage="client-management">
@@ -187,7 +171,7 @@ export default function ClientDetail() {
 
   // Compute stats
   const totalOrders = orders.length;
-  const totalSpent = orders.reduce((sum, o) => sum + (o.total || 0), 0);
+  const totalSpent = orders.reduce((sum: number, o: any) => sum + (o.total_price || 0), 0);
   const avgOrderPrice = getAverageOrderPrice(totalSpent, totalOrders);
   const customerSince = formatCustomerSince(client.since);
   const totalSpentFormatted = formatStatsAmount(totalSpent);
@@ -199,14 +183,17 @@ export default function ClientDetail() {
     { label: 'Total Amount Spent', value: totalSpentFormatted },
   ];
 
-  const pastOrders = orders.map(order => ({
-  id: getShortOrderId(order.id),   // displayed in the table
-  fullId: order.id,                // unique key for React
-  product: order.product,
-  status: order.status,
-  date: formatDate(order.orderDate),
-  total: formatAmount(order.total),
-  }));
+  const pastOrders = orders.map((order: any) => {
+    const productName = order.upload?.file_name || `Order #${order.id}`;
+    return {
+      id: `#${order.id}`,
+      fullId: order.id.toString(),
+      product: productName,
+      status: order.status,
+      date: formatDate(order.created_at || null),
+      total: formatAmount(order.total_price ?? null),
+    };
+  });
 
   return (
     <AppShell role="owner" activePage="client-management">
@@ -221,7 +208,7 @@ export default function ClientDetail() {
       <section className="box">
         <div className="form-grid-2">
           <p><strong>Name:</strong> {client.name}</p>
-          <p><strong>Phone Number:</strong> {client.phone}</p>
+          <p><strong>Phone Number:</strong> {client.phone || '—'}</p>
           <p><strong>Address:</strong> {client.address || '—'}</p>
           <p><strong>Email:</strong> {client.email}</p>
         </div>
@@ -235,6 +222,72 @@ export default function ClientDetail() {
           ))}
         </div>
       </section>
+
+      {/* Custom Pricing Table */}
+      {pricing && (
+        <section className="box" style={{ marginTop: 14 }}>
+          <div className="table-head" style={{ marginBottom: 14 }}>
+            <h3>Custom Pricing</h3>
+            <p style={{ fontSize: 13, color: 'var(--muted)' }}>
+              Edit prices per unit for this client. Changes are saved immediately.
+            </p>
+          </div>
+          <table className="orders-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th style={{ textAlign: 'right' }}>Price (EGP)</th>
+                <th style={{ textAlign: 'center' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {PRICING_LABELS.map(({ key, label }) => {
+                const currentValue = pricing[key] ?? 0;
+                const isEditing = editingField === key;
+                return (
+                  <tr key={key}>
+                    <td style={{ fontWeight: 500 }}>{label}</td>
+                    {isEditing ? (
+                      <td style={{ textAlign: 'right' }}>
+                        <input
+                          className="input"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={editValue}
+                          onChange={e => setEditValue(e.target.value)}
+                          style={{ width: 100, textAlign: 'right', padding: '4px 8px' }}
+                        />
+                      </td>
+                    ) : (
+                      <td style={{ textAlign: 'right', fontWeight: 600 }}>
+                        {Number(currentValue).toFixed(2)}
+                      </td>
+                    )}
+                    <td style={{ textAlign: 'center' }}>
+                      {isEditing ? (
+                        <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+                          <button
+                            className="btn primary"
+                            style={{ padding: '4px 12px', fontSize: 12 }}
+                            disabled={saving}
+                            onClick={() => saveEdit(key)}
+                          >
+                            {saving ? '...' : 'Save'}
+                          </button>
+                          <button className="btn" style={{ padding: '4px 12px', fontSize: 12 }} onClick={cancelEdit}>Cancel</button>
+                        </div>
+                      ) : (
+                        <button className="btn" style={{ padding: '4px 12px', fontSize: 12 }} onClick={() => startEdit(key, currentValue)}>Edit</button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </section>
+      )}
 
       {/* Documents */}
       <section className="box" style={{ marginTop: 14 }}>
@@ -277,78 +330,6 @@ export default function ClientDetail() {
           </tbody>
         </table>
       </section>
-
-       {/* Client Pricing */}
-      <section className="box" style={{ marginTop: 14 }}>
-        <div className="table-head" style={{ marginBottom: 14 }}>
-          <h3>Client Pricing</h3>
-          <p style={{ fontSize: 13, color: 'var(--muted)' }}>
-            Standard pricing table. Edits are local only.
-          </p>
-        </div>
-        <table className="orders-table">
-          <thead>
-            <tr>
-              <th>Product</th>
-              <th>Size</th>
-              <th>Paper / Material</th>
-              <th style={{ textAlign: 'right' }}>Price / Unit (EGP)</th>
-              <th style={{ textAlign: 'center' }}>Min Qty</th>
-              <th style={{ textAlign: 'center' }}>Status</th>
-              <th style={{ textAlign: 'center' }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pricing.map(row => (
-              <tr key={row.id} style={{ opacity: row.active ? 1 : 0.5 }}>
-                <td style={{ fontWeight: 500 }}>{row.product}</td>
-                <td>{row.size}</td>
-                <td>{row.paper}</td>
-                {editId === row.id ? (
-                  <>
-                    <td style={{ textAlign: 'right' }}>
-                      <input className="input" type="number" min="0.01" step="0.01" value={editPrice} onChange={e => setEditPrice(e.target.value)} style={{ width: 90, textAlign: 'right', padding: '4px 8px' }} />
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      <input className="input" type="number" min="1" value={editMinQty} onChange={e => setEditMinQty(e.target.value)} style={{ width: 70, textAlign: 'center', padding: '4px 8px' }} />
-                    </td>
-                  </>
-                ) : (
-                  <>
-                    <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(row.pricePerUnit)}</td>
-                    <td style={{ textAlign: 'center' }}>{row.minQty}</td>
-                  </>
-                )}
-                <td style={{ textAlign: 'center' }}>
-                  <span className={`status ${row.active ? 'done' : 'canceled'}`} style={{ cursor: 'pointer' }} onClick={() => toggleActive(row.id)} title="Click to toggle">
-                    {row.active ? 'Active' : 'Inactive'}
-                  </span>
-                </td>
-                <td style={{ textAlign: 'center' }}>
-                  {editId === row.id ? (
-                    <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
-                      <button className="btn primary" style={{ padding: '4px 12px', fontSize: 12 }} onClick={() => saveEdit(row.id)}>Save</button>
-                      <button className="btn" style={{ padding: '4px 12px', fontSize: 12 }} onClick={() => setEditId(null)}>Cancel</button>
-                    </div>
-                  ) : (
-                    <button className="btn" style={{ padding: '4px 12px', fontSize: 12 }} onClick={() => startEdit(row)}>Edit</button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
-
-      {toast && (
-        <div style={{
-          position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
-          background: '#2f3640', color: '#fff', padding: '10px 20px', borderRadius: 8,
-          fontSize: 13, zIndex: 1000, boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-        }}>
-          {toast}
-        </div>
-      )}
     </AppShell>
   );
 }

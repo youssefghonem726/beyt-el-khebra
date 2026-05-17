@@ -2,14 +2,9 @@ import { useState, useEffect } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import { useNavigation } from '../../context/NavigationContext';
-// ─── Replace manual fetch with API service ────────────────────────────────
-import { getNotifications } from '../../lib/api';
-
-interface Notification {
-  id: number;
-  title: string;
-  body: string;
-}
+// Direct import – bypasses VITE_USE_MOCK
+import { getNotifications } from '../../lib/api/notificationsService';
+import type { Notification } from '../../lib/api/notificationsService';
 
 export default function OwnerNotifications() {
   const { navigateTopLevel } = useNavigation();
@@ -21,11 +16,15 @@ export default function OwnerNotifications() {
     const fetchData = async () => {
       try {
         const res = await getNotifications();
-        // Data is inside res.data.data
         setNotifications(res.data.data);
-      } catch (err) {
-        console.error('Failed to load notifications:', err);
-        setError('Could not load notifications. Please try again later.');
+      } catch (err: any) {
+        // 404 → endpoint not yet built → show empty list, not an error
+        if (err?.response?.status === 404) {
+          setNotifications([]);
+        } else {
+          console.error('Failed to load notifications:', err);
+          setError('Could not load notifications. Please try again later.');
+        }
       } finally {
         setLoading(false);
       }
@@ -61,7 +60,14 @@ export default function OwnerNotifications() {
       <Topbar title="Notifications" />
       <section className="stack">
         {notifications.length === 0 ? (
-          <div className="box" style={{ textAlign: 'center', color: 'var(--muted)', padding: 48 }}>
+          <div
+            className="box"
+            style={{
+              textAlign: 'center',
+              color: 'var(--muted)',
+              padding: 48,
+            }}
+          >
             No notifications.
           </div>
         ) : (

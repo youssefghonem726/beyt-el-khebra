@@ -7,34 +7,43 @@ import SearchFilter from '../../components/SearchFilter';
 import ClientSummary from '../../components/ClientSummary';
 import { downloadText } from '../../utils/download';
 import { useNavigation } from '../../context/NavigationContext';
-// ─── Replace manual fetch with API services ─────────────────────────────────
-import { getInvoices, getClients } from '../../lib/api';
-import type { Invoice as ApiInvoice, Client as ApiClient } from '../../lib/api';
+// Direct service imports – bypasses VITE_USE_MOCK
+import { getInvoices } from '../../lib/api/invoicesService';
+import { getClients } from '../../lib/api/invoicesClientsSettingsService';
 
-// ─── Local types (unchanged) ─────────────────────────────────────────────────
-interface Client {
-  id: string;
-  name: string;
+// ─── Types ─────────────────────────────────────────────────────────────────
+interface BackendInvoice {
+  id: number;
+  created_at: string;
+  order_id: number | null;
+  client_id: number | null;
+  due_date: string;        // time string
+  paid_date: string | null;
+  total_amount: number | null;
+  status: string | null;   // e.g. 'paid','unpaid','pending','overdue'
+  Notes: string | null;
 }
 
 interface DisplayInvoice {
-  id: string;
-  order: string;
+  id: string;            // invoice id as string
+  order: string;         // e.g. "#1021"
   client: string;
   total: string;
   status: string;
 }
 
-// ─── Helpers (unchanged) ─────────────────────────────────────────────────────
-function formatAmount(amount: number): string {
+// ─── Helpers ────────────────────────────────────────────────────────────────
+function formatAmount(amount: number | null): string {
+  if (amount === null || amount === undefined) return '—';
   return `EGP ${amount.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function getShortOrderId(fullId: string): string {
-  const match = fullId.match(/ORD-(\d+)-/);
-  return match ? `#${match[1]}` : fullId;
+function getShortOrderId(orderId: number | null): string {
+  if (orderId == null) return '—';
+  return `#${orderId}`;
 }
 
+// ─── Component ──────────────────────────────────────────────────────────────
 export default function Accounting() {
   const { navigateTopLevel } = useNavigation();
   const [invoices, setInvoices] = useState<DisplayInvoice[]>([]);
@@ -46,38 +55,42 @@ export default function Accounting() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Use the API calls – they return AxiosResponse<ApiSuccess<T>>
         const [invRes, clientRes] = await Promise.all([
           getInvoices(),
           getClients(),
         ]);
 
-        const rawInvoices: ApiInvoice[] = invRes.data.data;
-        const apiClients: ApiClient[] = clientRes.data.data.results;
-        
-        // Build a client name map (we only need id → name)
-        const clientMap: Record<string, string> = {};
-        apiClients.forEach(c => {
-          clientMap[c.id] = c.name;
-        });
+        const rawInvoices: BackendInvoice[] = invRes.data.data;
+        const clients = clientRes.data.data.results;   // array of UserProfile (id, first_name, last_name, email)
 
-        // Map to DisplayInvoice list
-        const displayList: DisplayInvoice[] = rawInvoices.map(inv => ({
-          id: inv.id,
-          order: getShortOrderId(inv.orderId),
-          client: clientMap[inv.clientId] || 'Unknown Client',
-          total: formatAmount(inv.amount),
-          status: inv.status,
+        console.log('Accounting - raw invoices:', rawInvoices);
+        console.log('Accounting - clients:', clients);
+
+        // Build client name map (combine first + last name, fallback to email)
+        const clientMap = new Map(
+          clients.map((c: any) => [
+            c.id,
+            [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email,
+          ])
+        );
+
+        // Map invoices to display
+        const displayList: DisplayInvoice[] = rawInvoices.map((inv) => ({
+          id: String(inv.id),
+          order: getShortOrderId(inv.order_id),
+          client: clientMap.get(inv.client_id) || 'Unknown',
+          total: formatAmount(inv.total_amount),
+          status: inv.status || '—',
         }));
 
-        // Compute financial stats from raw invoices
+        // Compute financial stats
         const totalPaid = rawInvoices
           .filter(inv => inv.status === 'paid')
-          .reduce((sum, inv) => sum + inv.amount, 0);
+          .reduce((sum, inv) => sum + (inv.total_amount ?? 0), 0);
 
         const pendingUnpaid = rawInvoices
           .filter(inv => inv.status !== 'paid')
-          .reduce((sum, inv) => sum + inv.amount, 0);
+          .reduce((sum, inv) => sum + (inv.total_amount ?? 0), 0);
 
         const paidCount = rawInvoices.filter(inv => inv.status === 'paid').length;
         const unpaidCount = rawInvoices.filter(inv => inv.status !== 'paid').length;
@@ -88,15 +101,14 @@ export default function Accounting() {
           return `EGP ${num.toFixed(0)}`;
         };
 
-        const computedStats = [
+        setStats([
           { label: 'Revenue Snapshot', value: formatLarge(totalPaid), sub: 'Total paid invoices' },
           { label: 'Pending Collection', value: formatLarge(pendingUnpaid), sub: 'Awaiting payment' },
           { label: 'Paid Invoices', value: paidCount, sub: 'Paid to date' },
           { label: 'Unpaid Invoices', value: unpaidCount, sub: 'Follow-up required' },
-        ];
+        ]);
 
         setInvoices(displayList);
-        setStats(computedStats);
         setFilteredInvoices(displayList);
       } catch (err) {
         console.error('Failed to load accounting data:', err);
@@ -128,7 +140,7 @@ export default function Accounting() {
     setFilteredInvoices(result);
   };
 
-  // ─── Loading / Error / Normal render (identical structure) ─────────────────
+  // ─── Render ──────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <AppShell role="owner" activePage="accounting">
@@ -151,10 +163,10 @@ export default function Accounting() {
       <AppShell role="owner" activePage="accounting">
         <Topbar title="Accounting Page" />
         <section className="grid-4">
-          <StatCard label="Revenue Snapshot" value="EGP 84K" sub="Total paid invoices" />
-          <StatCard label="Pending Collection" value="EGP 22K" sub="Awaiting payment" />
-          <StatCard label="Paid Invoices" value={61} sub="Paid to date" />
-          <StatCard label="Unpaid Invoices" value={9} sub="Follow-up required" />
+          <StatCard label="Revenue Snapshot" value="—" sub="Total paid invoices" />
+          <StatCard label="Pending Collection" value="—" sub="Awaiting payment" />
+          <StatCard label="Paid Invoices" value="—" sub="Paid to date" />
+          <StatCard label="Unpaid Invoices" value="—" sub="Follow-up required" />
         </section>
         <section className="table-wrap">
           <div className="error-state">{error}</div>

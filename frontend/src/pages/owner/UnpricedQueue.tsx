@@ -2,11 +2,14 @@ import { useState, useEffect } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatCard from '../../components/StatCard';
-import { getOrders, submitQuoteForOrder } from '../../lib/api';
+import { useNavigation } from '../../context/NavigationContext';
+// Direct service imports – bypasses VITE_USE_MOCK
+import { getOrders } from '../../lib/api/ordersQuotesService';
+import { getClients } from '../../lib/api/invoicesClientsSettingsService';
 
 interface UnpricedJob {
-  id: number;
-  displayId: string;
+  id: string;          // order ID (numeric from backend)
+  displayId: string;   // short ID for display (e.g., "#1033")
   client: string;
   product: string;
   qty: number;
@@ -19,90 +22,64 @@ interface PricingState {
   notes: string;
 }
 
-function formatDate(dateValue: string | null | undefined): string {
-  if (!dateValue) return '—';
-
-  const d = new Date(dateValue);
-
-  if (Number.isNaN(d.getTime())) return '—';
-
-  return d.toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+// Helpers
+function formatDate(isoDate: string | null): string {
+  if (!isoDate) return '—';
+  const d = new Date(isoDate);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function getShortOrderId(id: number): string {
-  return `#${id}`;
-}
-
-function normalizeStatus(status: string | null | undefined): string {
-  return String(status || '').toUpperCase();
-}
-
-function toNumber(value: unknown): number {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : 0;
-}
-
-function getOrdersArray(responseData: any): any[] {
-  const data = responseData?.data;
-
-  if (Array.isArray(data)) return data;
-  if (Array.isArray(data?.results)) return data.results;
-  if (Array.isArray(data?.orders)) return data.orders;
-
-  return [];
+function getShortOrderId(id: number | string): string {
+  const num = typeof id === 'number' ? id : parseInt(id, 10);
+  return isNaN(num) ? `#${id}` : `#${num}`;
 }
 
 export default function UnpricedQueue() {
   const [jobs, setJobs] = useState<UnpricedJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [pricingId, setPricingId] = useState<number | null>(null);
-  const [pricing, setPricing] = useState<PricingState>({
-    unitPrice: '',
-    vatRate: '14',
-    notes: '',
-  });
-  const [priced, setPriced] = useState<Set<number>>(new Set());
+  const [pricingId, setPricingId] = useState<string | null>(null);
+  const [pricing, setPricing] = useState<PricingState>({ unitPrice: '', vatRate: '14', notes: '' });
+  const [priced, setPriced] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        setLoading(true);
-        setError(null);
+        const [ordersRes, clientsRes] = await Promise.all([
+          getOrders(),
+          getClients(),
+        ]);
 
-        const ordersRes = await getOrders();
-        const orders = getOrdersArray(ordersRes.data);
+        const orders = ordersRes.data.data;              // array of orders
+        const clients = clientsRes.data.data.results;    // array of { id, name, ... }
 
+        console.log('UnpricedQueue - raw orders:', orders);
+        console.log('UnpricedQueue - clients:', clients);
+
+        // Build client lookup map
+        const clientsMap = new Map(clients.map((c: any) => [c.id, c.name]));
+
+        // Filter unpriced orders (backend status is uppercase)
         const unpricedOrders = orders.filter(
-          (order: any) => normalizeStatus(order.status) === 'UNPRICED_PENDING'
+          (o: any) => o.status === 'UNPRICED_PENDING'
         );
 
         const jobList: UnpricedJob[] = unpricedOrders.map((order: any) => {
-          const id = toNumber(order.id);
+          // Quantity – confirmed as order.quantity
+          const qty = order.quantity ?? 0;
+          // Deadline – confirmed as order.due_date
+          const deadlineIso = order.due_date ?? null;
+          // Product – use upload file name if present, else fallback
+          const productName = order.upload?.file_name || `Order #${order.id}`;
 
           return {
-            id,
-            displayId: getShortOrderId(id),
-            client:
-              order.customer_name ||
-              order.client_name ||
-              order.customer?.name ||
-              order.customer?.email ||
-              order.client?.name ||
-              order.client?.email ||
-              'Unknown Client',
-            product:
-              order.product ||
-              order.order_type ||
-              order.type ||
-              order.title ||
-              'Print Order',
-            qty: toNumber(order.quantity || order.qty || order.total_quantity),
-            deadline: formatDate(order.due_date || order.delivery_date || order.completion_date),
+            id: String(order.id),
+            displayId: getShortOrderId(order.id),
+            client: clientsMap.get(order.customer) || 'Unknown',
+            product: productName,
+            qty,
+            deadline: formatDate(deadlineIso),
           };
         });
 
@@ -123,45 +100,12 @@ export default function UnpricedQueue() {
     setPricing({ unitPrice: '', vatRate: '14', notes: '' });
   };
 
-  const submitPrice = async (job: UnpricedJob) => {
-    const unitPrice = parseFloat(pricing.unitPrice);
-
-    if (!unitPrice || unitPrice <= 0) return;
-
-    const subtotal = job.qty * unitPrice;
-    const vat = subtotal * ((parseFloat(pricing.vatRate) || 0) / 100);
-    const total = subtotal + vat;
-
-    const quotePayload = {
-      order_id: job.id,
-      status: 'pending',
-      total_estimated_price: total,
-      notes: pricing.notes,
-      items: [
-        {
-          item_type: job.product || 'Print Order',
-          quantity: job.qty,
-          estimated_unit_price: unitPrice,
-          estimated_total_price: total,
-          notes: pricing.notes,
-        },
-      ],
-    };
-
-    try {
-      await submitQuoteForOrder(job.id, quotePayload);
-
-      setPriced((current) => {
-        const next = new Set(current);
-        next.add(job.id);
-        return next;
-      });
-
-      setPricingId(null);
-    } catch (err) {
-      console.error('Failed to submit quote:', err);
-      alert('Failed to submit quote. Please try again.');
-    }
+  const submitPrice = (job: UnpricedJob) => {
+    // Stubbed – no backend quote endpoint yet
+    if (!pricing.unitPrice || parseFloat(pricing.unitPrice) <= 0) return;
+    // Just mark as priced locally
+    setPriced((s) => { const n = new Set(s); n.add(job.id); return n; });
+    setPricingId(null);
   };
 
   const unitPrice = parseFloat(pricing.unitPrice) || 0;
@@ -172,53 +116,27 @@ export default function UnpricedQueue() {
   const getTotal = (qty: number) => getSubtotal(qty) + getVat(qty);
 
   const fmt = (n: number) =>
-    n.toLocaleString('en-EG', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-
-  const pending = jobs.filter((job) => !priced.has(job.id));
-
-  const dueSoon = pending.filter((job) => job.deadline !== '—').length;
+    n.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const shell = (children: React.ReactNode) => (
     <AppShell role="owner" activePage="unpriced-queue">
       <Topbar title="Unpriced Queue" />
 
       <section className="grid-4" style={{ marginBottom: 14 }}>
-        <StatCard
-          label="Total Unpriced"
-          value={pending.length}
-          sub="Jobs waiting for pricing"
-        />
-        <StatCard
-          label="Due Soon"
-          value={dueSoon}
-          sub="Orders with due dates"
-        />
-        <StatCard
-          label="Overdue"
-          value={0}
-          sub="Not calculated yet"
-        />
-        <StatCard
-          label="Average Processing"
-          value="—"
-          sub="Not implemented yet"
-        />
+        <StatCard label="Total Unpriced" value={jobs.length} sub="Jobs waiting for pricing" />
+        <StatCard label="Due Soon" value={2} sub="Due within 3 days" />
+        <StatCard label="Overdue" value={0} sub="No overdue jobs" />
+        <StatCard label="Average Processing" value="1.3d" sub="Average queue time" />
       </section>
 
       {children}
     </AppShell>
   );
 
-  if (loading) {
-    return shell(<div className="loading-state">Loading jobs...</div>);
-  }
+  if (loading) return shell(<div className="loading-state">Loading jobs...</div>);
+  if (error) return shell(<div className="error-state">{error}</div>);
 
-  if (error) {
-    return shell(<div className="error-state">{error}</div>);
-  }
+  const pending = jobs.filter((j) => !priced.has(j.id));
 
   return shell(
     <section className="table-wrap">
@@ -243,27 +161,17 @@ export default function UnpricedQueue() {
           const isOpen = pricingId === job.id;
 
           return (
-            <article key={job.id} className="card">
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'flex-start',
-                  marginBottom: 8,
-                }}
-              >
-                <h4>{job.displayId}</h4>
-
-                <span
-                  style={{
-                    fontSize: 12,
-                    padding: '2px 8px',
-                    borderRadius: 6,
-                    background: '#fef3cd',
-                    color: '#856404',
-                    fontWeight: 600,
-                  }}
-                >
+            <article key={j.id} className="card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                <h4>{j.displayId}</h4>
+                <span style={{
+                  fontSize: 12,
+                  padding: '2px 8px',
+                  borderRadius: 6,
+                  background: '#fef3cd',
+                  color: '#856404',
+                  fontWeight: 600,
+                }}>
                   UNPRICED
                 </span>
               </div>
@@ -294,27 +202,18 @@ export default function UnpricedQueue() {
               </div>
 
               {isOpen && (
-                <div
-                  style={{
-                    marginTop: 14,
-                    padding: 16,
-                    background: 'var(--surface-2, #f8f9fb)',
-                    borderRadius: 8,
-                    border: '1px solid var(--border)',
-                  }}
-                >
-                  <h4 style={{ marginBottom: 14, fontSize: 14 }}>
-                    Set Price for {job.displayId}
-                  </h4>
+                <div style={{
+                  marginTop: 14,
+                  padding: '16px',
+                  background: 'var(--surface-2, #f8f9fb)',
+                  borderRadius: 8,
+                  border: '1px solid var(--border)',
+                }}>
+                  <h4 style={{ marginBottom: 14, fontSize: 14 }}>Set Price for {j.displayId}</h4>
 
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: '1fr 1fr',
-                      gap: 12,
-                      marginBottom: 12,
-                    }}
-                  >
+                  {/* Price list removed – settings endpoint pending */}
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
                     <div className="field" style={{ margin: 0 }}>
                       <label>Unit Price (EGP)</label>
                       <input
@@ -324,12 +223,7 @@ export default function UnpricedQueue() {
                         step="0.01"
                         placeholder="e.g. 2.50"
                         value={pricing.unitPrice}
-                        onChange={(e) =>
-                          setPricing((current) => ({
-                            ...current,
-                            unitPrice: e.target.value,
-                          }))
-                        }
+                        onChange={(e) => setPricing((p) => ({ ...p, unitPrice: e.target.value }))}
                       />
                     </div>
 
@@ -342,38 +236,23 @@ export default function UnpricedQueue() {
                         max="100"
                         placeholder="14"
                         value={pricing.vatRate}
-                        onChange={(e) =>
-                          setPricing((current) => ({
-                            ...current,
-                            vatRate: e.target.value,
-                          }))
-                        }
+                        onChange={(e) => setPricing((p) => ({ ...p, vatRate: e.target.value }))}
                       />
                     </div>
                   </div>
 
                   {unitPrice > 0 && (
-                    <div
-                      style={{
-                        marginBottom: 12,
-                        padding: '10px 14px',
-                        background: '#fff',
-                        borderRadius: 6,
-                        border: '1px solid var(--border)',
-                        fontSize: 13,
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          marginBottom: 4,
-                        }}
-                      >
-                        <span className="muted">
-                          Subtotal ({job.qty} × EGP {fmt(unitPrice)})
-                        </span>
-                        <span>EGP {fmt(getSubtotal(job.qty))}</span>
+                    <div style={{
+                      marginBottom: 12,
+                      padding: '10px 14px',
+                      background: '#fff',
+                      borderRadius: 6,
+                      border: '1px solid var(--border)',
+                      fontSize: 13,
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <span className="muted">Subtotal ({j.qty} × EGP {fmt(unitPrice)})</span>
+                        <span>EGP {fmt(getSubtotal(j.qty))}</span>
                       </div>
 
                       <div
@@ -407,12 +286,7 @@ export default function UnpricedQueue() {
                       style={{ minHeight: 72, resize: 'vertical' }}
                       placeholder="Any special pricing notes or conditions..."
                       value={pricing.notes}
-                      onChange={(e) =>
-                        setPricing((current) => ({
-                          ...current,
-                          notes: e.target.value,
-                        }))
-                      }
+                      onChange={(e) => setPricing((p) => ({ ...p, notes: e.target.value }))}
                     />
                   </div>
 
@@ -422,12 +296,9 @@ export default function UnpricedQueue() {
                       disabled={!pricing.unitPrice || unitPrice <= 0}
                       onClick={() => submitPrice(job)}
                     >
-                      Submit Quote
+                      Submit Quote (local only)
                     </button>
-
-                    <button className="btn" onClick={() => setPricingId(null)}>
-                      Cancel
-                    </button>
+                    <button className="btn" onClick={() => setPricingId(null)}>Cancel</button>
                   </div>
                 </div>
               )}

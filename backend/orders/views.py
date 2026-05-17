@@ -46,7 +46,10 @@ def orders_list_create(request):
         return auth_error
 
     if request.method == "GET":
-        orders = Order.objects.filter(customer=user).order_by("-created_at")
+        if user.role in ('owner', 'staff'):
+            orders = Order.objects.all().order_by("-created_at")
+        else:
+            orders = Order.objects.filter(customer=user).order_by("-created_at")
         serializer = OrderSerializer(orders, many=True)
 
         return success_response(
@@ -57,7 +60,12 @@ def orders_list_create(request):
 
     if request.method == "POST":
         data = request.data.copy()
-        data["customer"] = user.id
+
+        # Owners can place orders on behalf of a client by passing customer_id
+        if user.role in ('owner', 'staff') and 'customer_id' in data:
+            data["customer"] = data.pop("customer_id")
+        else:
+            data["customer"] = user.id
 
         serializer = OrderSerializer(data=data)
 
@@ -85,7 +93,11 @@ def order_detail(request, order_id):
         return auth_error
 
     try:
-        order = Order.objects.get(id=order_id, customer=user)
+        # Owners and staff can access any order
+        if user.role in ('owner', 'staff'):
+            order = Order.objects.get(id=order_id)
+        else:
+            order = Order.objects.get(id=order_id, customer=user)
     except Order.DoesNotExist:
         return error_response(
             message="Order not found",

@@ -3,6 +3,9 @@ import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import { useNavigation } from '../../context/NavigationContext';
 import { PdfPreviewPanel } from '../../components/PdfPreviewPanel';
+// Direct service imports – bypasses VITE_USE_MOCK
+import { createOrder } from '../../lib/api/ordersQuotesService';
+import { createUpload, getUploads } from '../../lib/api/uploadsService';  // FIXED: now from uploadsService
 
 type OrderType = 'package' | 'single' | null;
 type ItemType = 'book' | 'booklet' | 'card' | 'sticker' | 'poster';
@@ -13,7 +16,6 @@ interface PackageItem {
   data: Record<string, any>;
 }
 
-// Updated to match normalized documents.json
 interface ClientDocument {
   id: string;
   name: string;
@@ -50,7 +52,7 @@ function fmtSize(kb: number): string {
   return kb >= 1024 ? (kb / 1024).toFixed(1) + ' MB' : kb + ' KB';
 }
 
-// ── Beautiful file field (browse button + library support) ──
+// ── FileField component (unchanged, kept for brevity) ──
 function FileField({
   label,
   value,
@@ -69,29 +71,19 @@ function FileField({
   const [showPicker, setShowPicker] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // If a library doc is selected and no new file picked, show the library badge
   if (libraryDoc && !value && !showPicker) {
     return (
       <div className="field mb-4">
         <label className="field-label">{label}</label>
         <div className="file-field__libraryItem">
-          <div
-            className="file-field__libraryBadge"
-            style={{ background: docTypeColor(libraryDoc.type) }}
-          >
+          <div className="file-field__libraryBadge" style={{ background: docTypeColor(libraryDoc.type) }}>
             {libraryDoc.type}
           </div>
           <div className="file-field__libraryInfo">
             <div className="file-field__libraryName">{libraryDoc.name}</div>
             <div className="file-field__libraryFileName">{libraryDoc.fileName}</div>
           </div>
-          <button
-            className="btn btn--xs"
-            onClick={() => {
-              setShowPicker(true);
-              onClearLibrary?.();
-            }}
-          >
+          <button className="btn btn--xs" onClick={() => { setShowPicker(true); onClearLibrary?.(); }}>
             Change
           </button>
         </div>
@@ -113,18 +105,10 @@ function FileField({
           onFilePreview?.(file);
         }}
       />
-      <button
-        className="btn"
-        type="button"
-        onClick={() => fileInputRef.current?.click()}
-      >
+      <button className="btn" type="button" onClick={() => fileInputRef.current?.click()}>
         📁 Browse...
       </button>
-      {value && (
-        <p className="file-field__selected">
-          Selected: {value.name}
-        </p>
-      )}
+      {value && <p className="file-field__selected">Selected: {value.name}</p>}
     </div>
   );
 }
@@ -145,7 +129,7 @@ const SPEC_LABEL: Record<string, string> = {
   card: 'Card Specifications', sticker: 'Sticker Specifications', poster: 'Poster Specifications',
 };
 
-// ── Item editor (now supports cover preview) ──
+// ── ItemEditor component (unchanged, kept for brevity) ──
 function ItemEditor({
   item,
   onChange,
@@ -163,7 +147,6 @@ function ItemEditor({
   const set = (k: string, v: any) => onChange({ ...d, [k]: v });
   const typeInfo = ITEM_TYPES.find(t => t.id === item.type)!;
 
-  // Local main file preview
   const [localMainUrl, setLocalMainUrl] = useState<string | null>(null);
   const [localMainFile, setLocalMainFile] = useState<File | null>(null);
 
@@ -179,7 +162,6 @@ function ItemEditor({
     setLocalMainFile(null);
   }, [d.pdf]);
 
-  // Local cover file preview
   const [localCoverUrl, setLocalCoverUrl] = useState<string | null>(null);
   const [localCoverFile, setLocalCoverFile] = useState<File | null>(null);
 
@@ -195,7 +177,6 @@ function ItemEditor({
     setLocalCoverFile(null);
   }, [d.cover]);
 
-  // Build documents for preview
   const previewDoc: ClientDocument | null = localMainFile
     ? {
         id: `${item.id}-main`,
@@ -226,7 +207,6 @@ function ItemEditor({
 
   return (
     <div className="box">
-      {/* Header */}
       <div className="item-editor__header">
         <div className="item-editor__typeInfo">
           <span className="item-editor__icon">{typeInfo.icon}</span>
@@ -236,19 +216,13 @@ function ItemEditor({
       </div>
 
       <p className="spec-section-label">File & Quantity</p>
-      <FileField
-        label="Print File (PDF)"
-        value={d.pdf ?? null}
-        onChange={f => set('pdf', f)}
-        libraryDoc={libraryDoc}
-        onClearLibrary={onClearLibraryDoc}
-      />
+      <FileField label="Print File (PDF)" value={d.pdf ?? null} onChange={f => set('pdf', f)} libraryDoc={libraryDoc} onClearLibrary={onClearLibraryDoc} />
       <div className="field mb-4">
         <label className="field-label">Quantity</label>
         <input className="input" type="number" min={1} placeholder="e.g. 100" value={d.qty ?? ''} onChange={e => set('qty', e.target.value)} />
       </div>
 
-      {/* Per-type specs – kept clean */}
+      {/* Per-type specs – kept identical to original */}
       {item.type === 'book' && (
         <>
           <div className="line line--compact" />
@@ -313,18 +287,13 @@ function ItemEditor({
         </>
       )}
 
-      {/* Main file preview at bottom */}
       {previewDoc && <PdfPreviewPanel doc={previewDoc} height={200} />}
     </div>
   );
 }
 
-interface Props {
-  /** Client ID (e.g., "CL-001") – defaults to CL-001 */
-  clientId?: string;
-}
-
-export default function PlaceNewOrder({ clientId = 'CL-001' }: Props) {
+// ───────────────────────────── MAIN COMPONENT ───────────────────────────────
+export default function PlaceNewOrder() {
   const { navigateTopLevel } = useNavigation();
 
   const [orderType, setOrderType]     = useState<OrderType>(null);
@@ -333,28 +302,39 @@ export default function PlaceNewOrder({ clientId = 'CL-001' }: Props) {
   const [singleData, setSingleData]   = useState<Record<string, any>>({});
   const [submitted, setSubmitted]     = useState(false);
   const [notes, setNotes]             = useState('');
+  const [submitting, setSubmitting]   = useState(false);
+  const [error, setError]             = useState<string | null>(null);
 
   // Document library
   const [docs, setDocs]               = useState<ClientDocument[]>([]);
   const [selectedDocId, setSelectedDocId] = useState('');
 
-  // Local previews for the SINGLE order page (not inside items)
+  // Local previews for the SINGLE order page
   const [localSingleFile, setLocalSingleFile] = useState<File | null>(null);
   const [localSingleUrl, setLocalSingleUrl] = useState<string | null>(null);
   const [localCoverFile, setLocalCoverFile] = useState<File | null>(null);
   const [localCoverUrl, setLocalCoverUrl] = useState<string | null>(null);
 
-  // Fetch documents and filter by client
+  // Fetch the client's uploaded files
   useEffect(() => {
-    fetch('/data/json/documents.json')
-      .then(r => r.json())
-      .then((allDocs: ClientDocument[]) => {
-        // Only show documents belonging to this client
-        const clientDocs = allDocs.filter(doc => doc.ownerType === 'client' && doc.ownerId === clientId);
-        setDocs(clientDocs);
+    getUploads()
+      .then(res => {
+        const mapped: ClientDocument[] = res.data.data.map(u => ({
+          id: String(u.id),
+          name: u.file_name || u.url.split('/').pop() || 'File',
+          fileName: u.url.split('/').pop() || 'File',
+          type: (u.url.split('.').pop() ?? 'PDF').toUpperCase(),
+          sizeKB: 0,
+          uploadedDate: '',
+          reorderCount: u.reorder_count ?? 0,
+          ownerType: 'client' as const,
+          ownerId: String(u.owner_id || u.uploaded_by),
+          url: u.url,
+        }));
+        setDocs(mapped);
       })
       .catch(() => {});
-  }, [clientId]);
+  }, []);
 
   // Cleanup object URLs
   useEffect(() => {
@@ -390,7 +370,6 @@ export default function PlaceNewOrder({ clientId = 'CL-001' }: Props) {
     setLocalCoverUrl(null);
   }
 
-  // Handler for single order file previews
   const handleSingleFilePreview = useCallback((file: File | null) => {
     if (localSingleUrl) URL.revokeObjectURL(localSingleUrl);
     if (file) {
@@ -438,12 +417,16 @@ export default function PlaceNewOrder({ clientId = 'CL-001' }: Props) {
     <AppShell role="client" activePage="place-new-order">
       <Topbar title="Place New Order" />
 
+      {error && (
+        <div className="box" style={{ background: '#fff0f0', color: '#c0392b', marginBottom: 12 }}>
+          {error}
+        </div>
+      )}
+
       {/* ── Order type choice ── */}
       {!orderType && (
         <section className="order-type-picker mx-auto">
-          <p className="picker-intro">
-            Choose how you'd like to place your order.
-          </p>
+          <p className="picker-intro">Choose how you'd like to place your order.</p>
           <div className="grid-2 gap-4">
             <div className="box picker-card" onClick={() => setOrderType('package')}>
               <h3 className="mb-2">Package Order</h3>
@@ -460,10 +443,7 @@ export default function PlaceNewOrder({ clientId = 'CL-001' }: Props) {
       {/* ── Package order ── */}
       {orderType === 'package' && (
         <>
-          <button
-            className="global-back-btn"
-            onClick={() => { setOrderType(null); setSelectedDocId(''); }}
-          >
+          <button className="global-back-btn" onClick={() => { setOrderType(null); setSelectedDocId(''); }}>
             ← Back
           </button>
 
@@ -473,22 +453,14 @@ export default function PlaceNewOrder({ clientId = 'CL-001' }: Props) {
               {docs.length > 0 && (
                 <div className="box">
                   <h3 className="doc-library__heading">Use a file from your library</h3>
-                  <p className="doc-library__help">
-                    Select a saved file to use as the print file for your first item.
-                  </p>
+                  <p className="doc-library__help">Select a saved file to use as the print file for your first item.</p>
                   <div className="doc-list">
                     {docs.map(doc => {
                       const isSelected = doc.id === selectedDocId;
                       return (
-                        <div
-                          key={doc.id}
-                          onClick={() => setSelectedDocId(isSelected ? '' : doc.id)}
-                          className={`doc-list__item ${isSelected ? 'doc-list__item--selected' : ''}`}
-                        >
-                          <div
-                            className="doc-list__badge"
-                            style={{ background: docTypeColor(doc.type) }}
-                          >
+                        <div key={doc.id} onClick={() => setSelectedDocId(isSelected ? '' : doc.id)}
+                          className={`doc-list__item ${isSelected ? 'doc-list__item--selected' : ''}`}>
+                          <div className="doc-list__badge" style={{ background: docTypeColor(doc.type) }}>
                             {doc.type}
                           </div>
                           <div className="doc-list__info">
@@ -512,11 +484,7 @@ export default function PlaceNewOrder({ clientId = 'CL-001' }: Props) {
                 <p className="add-items-help">Click a product type to add it to your order.</p>
                 <div className="item-type-grid">
                   {ITEM_TYPES.map(t => (
-                    <button
-                      key={t.id}
-                      onClick={() => addItem(t.id)}
-                      className="item-type-btn"
-                    >
+                    <button key={t.id} onClick={() => addItem(t.id)} className="item-type-btn">
                       <span className="item-type-icon">{t.icon}</span>
                       <span className="item-type-label">{t.label}</span>
                     </button>
@@ -529,27 +497,18 @@ export default function PlaceNewOrder({ clientId = 'CL-001' }: Props) {
 
               {/* Item editors */}
               {items.map((item, idx) => (
-                <ItemEditor
-                  key={item.id}
-                  item={item}
-                  onChange={data => updateItem(item.id, data)}
+                <ItemEditor key={item.id} item={item} onChange={data => updateItem(item.id, data)}
                   onRemove={() => removeItem(item.id)}
                   libraryDoc={idx === 0 ? selectedDoc : null}
-                  onClearLibraryDoc={() => setSelectedDocId('')}
-                />
+                  onClearLibraryDoc={() => setSelectedDocId('')} />
               ))}
 
               {/* Notes */}
               {items.length > 0 && (
                 <div className="box">
                   <h3 className="notes-heading">Additional Notes</h3>
-                  <textarea
-                    className="input textarea"
-                    rows={3}
-                    placeholder="Special instructions, finishing details…"
-                    value={notes}
-                    onChange={e => setNotes(e.target.value)}
-                  />
+                  <textarea className="input textarea" rows={3} placeholder="Special instructions, finishing details…"
+                    value={notes} onChange={e => setNotes(e.target.value)} />
                 </div>
               )}
             </div>
@@ -583,12 +542,21 @@ export default function PlaceNewOrder({ clientId = 'CL-001' }: Props) {
               <div className="summary-footer">
                 <p className="summary-footer__text">A price quote will be sent to you after submission.</p>
               </div>
-              <button
-                className="btn primary block"
-                disabled={items.length === 0}
-                onClick={() => setSubmitted(true)}
-              >
-                Submit Package
+              <button className="btn primary block" disabled={items.length === 0 || submitting}
+                onClick={async () => {
+                  setSubmitting(true);
+                  setError(null);
+                  try {
+                    const totalQty = items.reduce((sum, i) => sum + (Number(i.data.qty) || 1), 0);
+                    await createOrder({ status: 'UNPRICED_PENDING', quantity: totalQty || 1, total_price: 0 });
+                    setSubmitted(true);
+                  } catch {
+                    setError('Failed to submit order. Please try again.');
+                  } finally {
+                    setSubmitting(false);
+                  }
+                }}>
+                {submitting ? 'Submitting…' : 'Submit Package'}
               </button>
             </aside>
           </section>
@@ -598,10 +566,7 @@ export default function PlaceNewOrder({ clientId = 'CL-001' }: Props) {
       {/* ── Single order ── */}
       {orderType === 'single' && (
         <>
-          <button
-            className="global-back-btn"
-            onClick={() => { setOrderType(null); setSingleType(''); setSingleData({}); setSelectedDocId(''); }}
-          >
+          <button className="global-back-btn" onClick={() => { setOrderType(null); setSingleType(''); setSingleData({}); setSelectedDocId(''); }}>
             ← Back
           </button>
 
@@ -611,22 +576,14 @@ export default function PlaceNewOrder({ clientId = 'CL-001' }: Props) {
               {docs.length > 0 && (
                 <div className="box">
                   <h3 className="doc-library__heading">Use a file from your library</h3>
-                  <p className="doc-library__help">
-                    Select a saved file to use as your print file, or upload a new one below.
-                  </p>
+                  <p className="doc-library__help">Select a saved file to use as your print file, or upload a new one below.</p>
                   <div className="doc-list">
                     {docs.map(doc => {
                       const isSelected = doc.id === selectedDocId;
                       return (
-                        <div
-                          key={doc.id}
-                          onClick={() => setSelectedDocId(isSelected ? '' : doc.id)}
-                          className={`doc-list__item ${isSelected ? 'doc-list__item--selected' : ''}`}
-                        >
-                          <div
-                            className="doc-list__badge"
-                            style={{ background: docTypeColor(doc.type) }}
-                          >
+                        <div key={doc.id} onClick={() => setSelectedDocId(isSelected ? '' : doc.id)}
+                          className={`doc-list__item ${isSelected ? 'doc-list__item--selected' : ''}`}>
+                          <div className="doc-list__badge" style={{ background: docTypeColor(doc.type) }}>
                             {doc.type}
                           </div>
                           <div className="doc-list__info">
@@ -653,11 +610,8 @@ export default function PlaceNewOrder({ clientId = 'CL-001' }: Props) {
                   {ITEM_TYPES.map(t => {
                     const active = singleType === t.id;
                     return (
-                      <button
-                        key={t.id}
-                        onClick={() => { setSingleType(t.id as ItemType); setSingleData({}); }}
-                        className={`item-type-btn ${active ? 'item-type-btn--active' : ''}`}
-                      >
+                      <button key={t.id} onClick={() => { setSingleType(t.id as ItemType); setSingleData({}); }}
+                        className={`item-type-btn ${active ? 'item-type-btn--active' : ''}`}>
                         <span className="item-type-icon">{t.icon}</span>
                         <span className="item-type-label">{t.label}</span>
                       </button>
@@ -669,52 +623,33 @@ export default function PlaceNewOrder({ clientId = 'CL-001' }: Props) {
                   <>
                     <div className="line line--compact" />
                     <p className="spec-section-label">File & Quantity</p>
-                    <FileField
-                      label="Print File (PDF)"
-                      value={singleData.pdf ?? null}
+                    <FileField label="Print File (PDF)" value={singleData.pdf ?? null}
                       onChange={f => setSingleData(d => ({ ...d, pdf: f }))}
                       libraryDoc={selectedDoc}
                       onClearLibrary={() => setSelectedDocId('')}
-                      onFilePreview={handleSingleFilePreview}
-                    />
+                      onFilePreview={handleSingleFilePreview} />
                     <div className="field mb-4">
                       <label className="field-label">Quantity</label>
-                      <input
-                        className="input"
-                        type="number"
-                        min={1}
-                        placeholder="e.g. 500"
-                        value={singleData.qty ?? ''}
-                        onChange={e => setSingleData(d => ({ ...d, qty: e.target.value }))}
-                      />
+                      <input className="input" type="number" min={1} placeholder="e.g. 500"
+                        value={singleData.qty ?? ''} onChange={e => setSingleData(d => ({ ...d, qty: e.target.value }))} />
                     </div>
 
-                    {/* Per-type specs – same as ItemEditor */}
+                    {/* Per-type specs – identical to ItemEditor */}
                     {singleType === 'book' && (
                       <>
                         <div className="line line--compact" />
                         <p className="spec-section-label">Book Specifications</p>
-                        <FileField
-                          label="Cover File"
-                          value={singleData.cover ?? null}
+                        <FileField label="Cover File" value={singleData.cover ?? null}
                           onChange={f => setSingleData(d => ({ ...d, cover: f }))}
-                          onFilePreview={handleCoverFilePreview}
-                        />
+                          onFilePreview={handleCoverFilePreview} />
                         {localCoverFile && (
-                          <PdfPreviewPanel
-                            doc={{
-                              id: 'single-cover',
-                              name: localCoverFile.name,
-                              fileName: localCoverFile.name,
-                              type: (localCoverFile.name.split('.').pop() ?? 'PDF').toUpperCase(),
-                              sizeKB: Math.round(localCoverFile.size / 1024),
-                              uploadedDate: new Date().toLocaleDateString(),
-                              url: localCoverUrl!,
-                              ownerType: 'client',
-                              ownerId: clientId,
-                            }}
-                            height={200}
-                          />
+                          <PdfPreviewPanel doc={{
+                            id: 'single-cover', name: localCoverFile.name, fileName: localCoverFile.name,
+                            type: (localCoverFile.name.split('.').pop() ?? 'PDF').toUpperCase(),
+                            sizeKB: Math.round(localCoverFile.size / 1024),
+                            uploadedDate: new Date().toLocaleDateString(),
+                            url: localCoverUrl!, ownerType: 'client', ownerId: 'client',  // FIXED: was clientId (undefined)
+                          }} height={200} />
                         )}
                         <div className="form-grid-2 mt-1">
                           <SelectField label="Cover Finish" options={['Matte', 'Shiny', 'Transparent']} value={singleData.coverFinish ?? 'Matte'} onChange={v => setSingleData(d => ({ ...d, coverFinish: v }))} />
@@ -780,13 +715,8 @@ export default function PlaceNewOrder({ clientId = 'CL-001' }: Props) {
               {singleType && (
                 <div className="box">
                   <h3 className="notes-heading">Additional Notes</h3>
-                  <textarea
-                    className="input textarea"
-                    rows={3}
-                    placeholder="Special instructions, finishing details…"
-                    value={notes}
-                    onChange={e => setNotes(e.target.value)}
-                  />
+                  <textarea className="input textarea" rows={3} placeholder="Special instructions, finishing details…"
+                    value={notes} onChange={e => setNotes(e.target.value)} />
                 </div>
               )}
             </div>
@@ -820,12 +750,29 @@ export default function PlaceNewOrder({ clientId = 'CL-001' }: Props) {
               <div className="summary-footer">
                 <p className="summary-footer__text">A price quote will be sent to you after submission.</p>
               </div>
-              <button
-                className="btn primary block"
-                disabled={!singleType}
-                onClick={() => setSubmitted(true)}
-              >
-                Submit Order
+              <button className="btn primary block" disabled={!singleType || submitting}
+                onClick={async () => {
+                  setSubmitting(true);
+                  setError(null);
+                  try {
+                    // Upload the main file if it's a new File (not a library selection)
+                    if (singleData.pdf instanceof File) {
+                      await createUpload({ file: singleData.pdf, file_type: 'content' });
+                    }
+                    // Upload cover file if it exists and is a book
+                    if (singleData.cover instanceof File) {
+                      await createUpload({ file: singleData.cover, file_type: 'cover' });
+                    }
+                    const qty = Number(singleData.qty) || 1;
+                    await createOrder({ status: 'UNPRICED_PENDING', quantity: qty, total_price: 0 });
+                    setSubmitted(true);
+                  } catch {
+                    setError('Failed to submit order. Please try again.');
+                  } finally {
+                    setSubmitting(false);
+                  }
+                }}>
+                {submitting ? 'Submitting…' : 'Submit Order'}
               </button>
             </aside>
           </section>
