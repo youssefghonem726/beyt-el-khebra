@@ -3,52 +3,27 @@ import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import { useNavigation } from '../../context/NavigationContext';
 import { useParams } from 'react-router-dom';
-
-interface Order {
-  id: string;
-  clientId: string;
-  product: string;
-  status: string;
-  orderDate: string;
-  deliveryDate: string | null;
-  total: number | null;
-  paid: number | null;
-  paymentMethod: string | null;
-  invoiceId: string | null;
-  specs: Record<string, any>;
-}
-
-interface Batch {
-  id: string;
-  orderId: string;
-  clientId: string;
-  product: string;
-  qty: number;
-  progress: number;
-  priority: string;
-  assignedTo: string | null;
-  deadline: string | null;
-  status: string;
-  notes: string;
-}
-
-interface Client {
-  id: string;
-  name: string;
-}
+// Direct service imports – bypasses VITE_USE_MOCK
+import { getOrderById, updateOrder } from '../../lib/api/ordersQuotesService';
+import { getBatches, updateBatch } from '../../lib/api/batchesService';
+import { getClients } from '../../lib/api/invoicesClientsSettingsService';
 
 export default function EditOrder() {
   const { id: orderId } = useParams<{ id: string }>();
   const { goBack } = useNavigation();
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [batchId, setBatchId] = useState<number | null>(null);
   const [form, setForm] = useState({
     client: '',
-    batch: '',
     status: '',
     product: '',
     qty: '',
-    deadline: ''
+    deadline: '',
+    priority: '',
+    assignedTo: '',
+    notes: '',
   });
 
   useEffect(() => {
@@ -58,54 +33,95 @@ export default function EditOrder() {
       return;
     }
 
-    Promise.all([
-      fetch('/data/json/orders.json').then(res => res.json()),
-      fetch('/data/json/batches.json').then(res => res.json()),
-      fetch('/data/json/clients.json').then(res => res.json())
-    ])
-      .then(([ordersData, batchesData, clientsData]) => {
-        const orders: Order[] = ordersData;
-        const batches: Batch[] = batchesData;
-        const clients: Client[] = clientsData;
-
-        const order = orders.find(o => o.id === orderId);
-        if (!order) {
-          setError(`Order ${orderId} not found.`);
+    const fetchData = async () => {
+      try {
+        const numericId = parseInt(orderId, 10);
+        if (isNaN(numericId)) {
+          setError(`Invalid order ID: ${orderId}`);
           setLoading(false);
           return;
         }
 
-        const batch = batches.find(b => b.orderId === order.id);
-        const client = clients.find(c => c.id === order.clientId);
+        const [orderRes, batchesRes, clientsRes] = await Promise.all([
+          getOrderById(numericId),
+          getBatches(),
+          getClients(),
+        ]);
 
-        // Format deadline for date input (YYYY-MM-DD)
+        const order = orderRes.data.data;
+        const batches = batchesRes.data.data || [];
+        const clients = clientsRes.data.data.results;
+
+        // Find matching batch
+        const batch = batches.find((b: any) => b.orderId === order.id || b.order_id === order.id);
+        if (batch) setBatchId(batch.id);
+
+        // Find client name
+        const client = clients.find((c: any) => c.id === order.customer);
+        const clientName = client?.name || 'Unknown';
+
+        // Format deadline for date input
         let deadlineFormatted = '';
         if (batch?.deadline) {
           const d = new Date(batch.deadline);
-          if (!isNaN(d.getTime())) {
-            deadlineFormatted = d.toISOString().slice(0, 10);
-          }
+          if (!isNaN(d.getTime())) deadlineFormatted = d.toISOString().slice(0, 10);
         }
 
         setForm({
-          client: client ? client.name : 'Unknown Client',
-          batch: batch ? batch.id : '—',
+          client: clientName,
           status: order.status,
-          product: order.product,
-          qty: batch ? batch.qty.toString() : (order.specs?.qty?.toString() || ''),
-          deadline: deadlineFormatted
+          product: batch?.product || order.upload?.file_name || `Order #${order.id}`,
+          qty: batch?.qty ? String(batch.qty) : (order.quantity ? String(order.quantity) : ''),
+          deadline: deadlineFormatted,
+          priority: batch?.priority || 'Normal',
+          assignedTo: batch?.assignedTo || '',
+          notes: batch?.notes || '',
         });
+      } catch (err: any) {
+        console.error('Failed to load order:', err);
+        setError('Could not load order details.');
+      } finally {
         setLoading(false);
-      })
-      .catch((err) => {
-        console.error('Failed to load order details:', err);
-        setError('Could not load order details. Please try again later.');
-        setLoading(false);
-      });
+      }
+    };
+
+    fetchData();
   }, [orderId]);
 
-  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-    setForm((f) => ({ ...f, [k]: e.target.value }));
+  const set = (k: keyof typeof form) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
+      setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  const handleSave = async () => {
+    if (!orderId) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const numericId = parseInt(orderId, 10);
+
+      // Update order status
+      await updateOrder(numericId, { status: form.status });
+
+      // Update batch if one exists
+      if (batchId) {
+        await updateBatch(batchId, {
+          product: form.product,
+          qty: form.qty ? parseInt(form.qty) : undefined,
+          deadline: form.deadline || undefined,
+          priority: form.priority,
+          assignedTo: form.assignedTo || undefined,
+          notes: form.notes,
+        });
+      }
+
+      goBack();
+    } catch (err) {
+      console.error('Save failed:', err);
+      setError('Failed to save changes. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -136,20 +152,16 @@ export default function EditOrder() {
         <div className="form-grid">
           <div className="field">
             <label>Client Name</label>
-            <input className="input" type="text" value={form.client} onChange={set('client')} />
-          </div>
-          <div className="field">
-            <label>Batch Code</label>
-            <input className="input" type="text" value={form.batch} onChange={set('batch')} />
+            <input className="input" type="text" value={form.client} disabled />
           </div>
           <div className="field">
             <label>Status</label>
             <select className="select" value={form.status} onChange={set('status')}>
-              <option value="unpriced_pending">Unpriced Pending</option>
-              <option value="priced_pending_confirmation">Priced Pending Confirmation</option>
-              <option value="in_progress">In Progress</option>
-              <option value="completed">Completed</option>
-              <option value="canceled">Canceled</option>
+              <option value="UNPRICED_PENDING">Unpriced Pending</option>
+              <option value="PRICED_PENDING_CONFIRMATION">Priced Pending Confirmation</option>
+              <option value="IN_PROGRESS">In Progress</option>
+              <option value="COMPLETED">Completed</option>
+              <option value="CANCELED">Canceled</option>
             </select>
           </div>
           <div className="field">
@@ -164,11 +176,28 @@ export default function EditOrder() {
             <label>Deadline</label>
             <input className="input" type="date" value={form.deadline} onChange={set('deadline')} />
           </div>
+          <div className="field">
+            <label>Priority</label>
+            <select className="select" value={form.priority} onChange={set('priority')}>
+              <option value="Normal">Normal</option>
+              <option value="High">High</option>
+              <option value="Urgent">Urgent</option>
+            </select>
+          </div>
+          <div className="field">
+            <label>Assigned To</label>
+            <input className="input" type="text" value={form.assignedTo} onChange={set('assignedTo')} />
+          </div>
+          <div className="field" style={{ gridColumn: '1 / -1' }}>
+            <label>Notes</label>
+            <textarea className="textarea" value={form.notes} onChange={set('notes')} rows={3} />
+          </div>
         </div>
         <div className="line" />
         <div className="actions-inline">
-          {/* In a real app, you would send the updated data to the server here */}
-          <button className="btn primary" onClick={() => goBack()}>Save Changes</button>
+          <button className="btn primary" onClick={handleSave} disabled={submitting}>
+            {submitting ? 'Saving…' : 'Save Changes'}
+          </button>
           <button className="btn" onClick={() => goBack()}>Cancel</button>
         </div>
       </section>

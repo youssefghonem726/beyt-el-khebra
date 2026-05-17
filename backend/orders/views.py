@@ -93,7 +93,11 @@ def order_detail(request, order_id):
         return auth_error
 
     try:
-        order = Order.objects.get(id=order_id, customer=user)
+        # Owners and staff can access any order
+        if user.role in ('owner', 'staff'):
+            order = Order.objects.get(id=order_id)
+        else:
+            order = Order.objects.get(id=order_id, customer=user)
     except Order.DoesNotExist:
         return error_response(
             message="Order not found",

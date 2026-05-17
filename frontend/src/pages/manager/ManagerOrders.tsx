@@ -1,27 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import { useNavigation } from '../../context/NavigationContext';
+// Direct service imports – bypasses VITE_USE_MOCK
+import { getOrders } from '../../lib/api/ordersQuotesService';
+import { getClients } from '../../lib/api/invoicesClientsSettingsService';
 
 interface Props { role?: 'manager' | 'owner'; }
 
-interface Order {
-  id: string;
-  clientId: string;
-  status: string;
-  orderDate: string;
-  deliveryDate: string | null;
-}
-
-interface Client {
-  id: string;
-  name: string;
-}
-
 interface DisplayOrder {
-  id: string;      // full ID (e.g., ORD-1033-2026)
-  displayId: string; // short display (#1033)
+  id: string;          // full numeric ID as string
+  displayId: string;   // "#123"
   status: string;
   client: string;
   completedAt?: string;
@@ -31,12 +21,17 @@ function formatDate(isoDate: string | null): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
-function getShortId(fullId: string): string {
-  const match = fullId.match(/ORD-(\d+)-/);
-  return match ? `#${match[1]}` : fullId;
+function getShortId(id: number): string {
+  return `#${id}`;
 }
 
 export default function ManagerOrders({ role = 'manager' }: Props) {
@@ -48,40 +43,53 @@ export default function ManagerOrders({ role = 'manager' }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([
-      fetch('/data/json/orders.json').then(res => res.json()),
-      fetch('/data/json/clients.json').then(res => res.json())
-    ])
-      .then(([ordersData, clientsData]) => {
-        const orders: Order[] = ordersData;
-        const clients: Client[] = clientsData;
-        const clientsMap: Record<string, string> = {};
-        clients.forEach(c => { clientsMap[c.id] = c.name; });
+    const fetchData = async () => {
+      try {
+        // Fetch orders and clients in parallel
+        const [ordersRes, clientsRes] = await Promise.all([
+          getOrders(),
+          getClients(),
+        ]);
 
-        const displayOrders: DisplayOrder[] = orders.map(order => ({
-          id: order.id,
+        const orders: any[] = ordersRes.data.data;
+        const clients = clientsRes.data.data.results;
+
+        console.log('ManagerOrders - orders:', orders);
+        console.log('ManagerOrders - clients:', clients);
+
+        // Build client name map (user ID → name)
+        const clientMap = new Map(clients.map((c: any) => [c.id, c.name]));
+
+        const displayOrders: DisplayOrder[] = orders.map((order: any) => ({
+          id: String(order.id),
           displayId: getShortId(order.id),
           status: order.status,
-          client: clientsMap[order.clientId] || 'Unknown Client',
-          completedAt: order.status === 'completed' || order.status === 'canceled' 
-            ? (order.deliveryDate ? formatDate(order.deliveryDate) : formatDate(order.orderDate))
-            : undefined,
+          client: clientMap.get(order.customer) || 'Unknown',
+          completedAt:
+            order.status === 'COMPLETED' || order.status === 'CANCELED'
+              ? formatDate(order.updated_at)
+              : undefined,
         }));
 
-        setPending(displayOrders.filter(o => 
-          o.status === 'unpriced_pending' || o.status === 'priced_pending_confirmation'
-        ));
-        setWorking(displayOrders.filter(o => o.status === 'in_progress'));
-        setCompleted(displayOrders.filter(o => 
-          o.status === 'completed' || o.status === 'canceled'
-        ));
-        setLoading(false);
-      })
-      .catch((err) => {
+        // Split into groups based on real statuses (all uppercase)
+        setPending(
+          displayOrders.filter(o =>
+            o.status === 'UNPRICED_PENDING' || o.status === 'PRICED_PENDING_CONFIRMATION'
+          )
+        );
+        setWorking(displayOrders.filter(o => o.status === 'IN_PROGRESS'));
+        setCompleted(
+          displayOrders.filter(o => o.status === 'COMPLETED' || o.status === 'CANCELED')
+        );
+      } catch (err: any) {
         console.error('Failed to load orders:', err);
         setError('Could not load orders. Please try again later.');
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+
+    fetchData();
   }, []);
 
   if (loading) {
@@ -116,7 +124,10 @@ export default function ManagerOrders({ role = 'manager' }: Props) {
             <tbody>
               {pending.map((o) => (
                 <tr key={o.id}>
-                  <td>{o.displayId} <span style={{ fontSize: 11, color: 'var(--muted)' }}>({o.id})</span></td>
+                  <td>
+                    {o.displayId}{' '}
+                    <span style={{ fontSize: 11, color: 'var(--muted)' }}>({o.id})</span>
+                  </td>
                   <td><StatusBadge status={o.status} /></td>
                   <td>{o.client}</td>
                   <td>
@@ -145,7 +156,10 @@ export default function ManagerOrders({ role = 'manager' }: Props) {
             <tbody>
               {working.map((o) => (
                 <tr key={o.id}>
-                  <td>{o.displayId} <span style={{ fontSize: 11, color: 'var(--muted)' }}>({o.id})</span></td>
+                  <td>
+                    {o.displayId}{' '}
+                    <span style={{ fontSize: 11, color: 'var(--muted)' }}>({o.id})</span>
+                  </td>
                   <td><StatusBadge status={o.status} /></td>
                   <td>{o.client}</td>
                   <td>
@@ -170,12 +184,21 @@ export default function ManagerOrders({ role = 'manager' }: Props) {
         <div className="table-head"><h3>Completed Orders</h3></div>
         <table className="orders-table">
           <thead>
-            <tr><th>Order</th><th>Status</th><th>Client</th><th>Completed At</th><th>Action</th></tr>
+            <tr>
+              <th>Order</th>
+              <th>Status</th>
+              <th>Client</th>
+              <th>Completed At</th>
+              <th>Action</th>
+            </tr>
           </thead>
           <tbody>
             {completed.map((o) => (
               <tr key={o.id}>
-                <td>{o.displayId} <span style={{ fontSize: 11, color: 'var(--muted)' }}>({o.id})</span></td>
+                <td>
+                  {o.displayId}{' '}
+                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>({o.id})</span>
+                </td>
                 <td><StatusBadge status={o.status} /></td>
                 <td>{o.client}</td>
                 <td>{o.completedAt || '—'}</td>

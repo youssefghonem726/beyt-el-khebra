@@ -4,54 +4,18 @@ import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
 import { useNavigation } from '../../context/NavigationContext';
+// Direct service imports – bypasses VITE_USE_MOCK
+import { getBatches } from '../../lib/api/batchesService';
+import { getOrders } from '../../lib/api/ordersQuotesService';
+import { getClients } from '../../lib/api/invoicesClientsSettingsService';
+import { getUploads } from '../../lib/api/uploadsService';
+import type { UploadFile } from '../../lib/api/uploadsService';
 
-// ── Types from normalized JSON ──────────────────────────────────────────
-
-interface Batch {
-  id: string;
-  orderId: string;
-  clientId?: string;
-  product: string;
-  qty: number;
-  progress: number;
-  priority: string;
-  assignedTo: string | null;
-  deadline: string | null;
-  status: string;
-  stages: Array<{ stage: string; status: string; updatedAt: string | null }>;
-  notes: string;
-}
-
-interface Order {
-  id: string;
-  clientId: string;
-  product: string;
-  status: string;
-}
-
-interface Client {
-  id: string;
-  name: string;
-}
-
-interface Document {
-  id: string;
-  name: string;
-  fileName: string;
-  type: string;
-  sizeKB: number;
-  uploadedDate: string;
-  reorderCount: number;
-  ownerType: 'client' | 'template' | 'order';
-  ownerId: string;
-  url?: string;
-}
-
-
+// ─── Types ────────────────────────────────────────────────────────────
 interface StageDisplay {
   stage: string;
   status: string;
-  updated: string;   
+  updated: string;
 }
 
 interface JobInfo {
@@ -88,11 +52,11 @@ interface Job {
 }
 
 interface Props {
-  jobId?: string;      
+  jobId?: string;
   role?: 'manager' | 'owner';
 }
 
-
+// ─── Helpers ─────────────────────────────────────────────────────────
 function formatDateTime(isoDate: string | null): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
@@ -115,13 +79,8 @@ function formatSize(kb: number): string {
 }
 
 const TYPE_COLORS: Record<string, string> = {
-  PDF: '#e53e3e',
-  AI: '#f97316',
-  PSD: '#2563eb',
-  PNG: '#059669',
-  JPG: '#059669',
-  SVG: '#aa3bff',
-  Other: '#6b7280',
+  PDF: '#e53e3e', AI: '#f97316', PSD: '#2563eb',
+  PNG: '#059669', JPG: '#059669', SVG: '#aa3bff', Other: '#6b7280',
 };
 
 function downloadDoc(doc: JobDocument) {
@@ -134,81 +93,43 @@ function downloadDoc(doc: JobDocument) {
     a.click();
     return;
   }
-  // Fallback: generate a metadata text blob
   const text = [
-    `Name:           ${doc.name}`,
-    `File:           ${doc.fileName}`,
-    `Type:           ${doc.type}`,
-    `Size:           ${formatSize(doc.sizeKB)}`,
-    `Uploaded:       ${doc.uploadedDate}`,
-    `Reorder Count:  ${doc.reorderCount}`,
+    `Name: ${doc.name}`, `File: ${doc.fileName}`, `Type: ${doc.type}`,
+    `Size: ${formatSize(doc.sizeKB)}`, `Uploaded: ${doc.uploadedDate}`,
+    `Reorder Count: ${doc.reorderCount}`,
   ].join('\n');
   const blob = new Blob([text], { type: 'text/plain' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url;
-  a.download = doc.fileName;
-  a.click();
+  a.href = url; a.download = doc.fileName; a.click();
   URL.revokeObjectURL(url);
 }
 
-// ── Document list component (unchanged) ────────────────────────────────
-
+// ── Document list component ─────────────────────────────────────────
 function JobDocuments({ docs }: { docs: JobDocument[] }) {
   if (docs.length === 0) {
     return (
-      <p style={{ fontSize: 12, color: 'var(--muted, #999)', fontStyle: 'italic' }}>
+      <p style={{ fontSize: 12, color: 'var(--muted)', fontStyle: 'italic' }}>
         No documents attached.
       </p>
     );
   }
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       {docs.map(doc => {
         const chipColor = TYPE_COLORS[doc.type] ?? TYPE_COLORS.Other;
         return (
-          <div
-            key={doc.id}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '7px 10px',
-              border: '1px solid var(--border)',
-              borderRadius: 8,
-              background: 'transparent',
-            }}
-          >
+          <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 8 }}>
             <svg width="16" height="16" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0, opacity: 0.5 }}>
               <path d="M5 2h7l4 4v12a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="currentColor" strokeWidth="1.4" fill="none"/>
               <path d="M12 2v4h4" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
             </svg>
-
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-h)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {doc.name}
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--muted, #999)' }}>
-                {doc.fileName} · {formatSize(doc.sizeKB)}
-              </div>
+              <div style={{ fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{doc.name}</div>
+              <div style={{ fontSize: 11, color: 'var(--muted)' }}>{doc.fileName} · {formatSize(doc.sizeKB)}</div>
             </div>
-
-            <span style={{
-              fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 99,
-              background: chipColor + '18', color: chipColor, flexShrink: 0,
-            }}>
-              {doc.type}
-            </span>
-
-            <button
-              className="btn"
-              style={{ padding: '3px 10px', fontSize: 11, flexShrink: 0 }}
-              onClick={() => downloadDoc(doc)}
-              title={`Download ${doc.fileName}`}
-            >
-              ↓ Download
-            </button>
+            <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 99, background: chipColor + '18', color: chipColor }}>{doc.type}</span>
+            <button className="btn" style={{ padding: '3px 10px', fontSize: 11 }} onClick={() => downloadDoc(doc)}>↓ Download</button>
           </div>
         );
       })}
@@ -216,8 +137,7 @@ function JobDocuments({ docs }: { docs: JobDocument[] }) {
   );
 }
 
-// ── Main component ─────────────────────────────────────────────────────
-
+// ── Main component ──────────────────────────────────────────────────
 export default function OrderWorkView({ jobId, role = 'manager' }: Props) {
   const { navigateTopLevel } = useNavigation();
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -225,59 +145,72 @@ export default function OrderWorkView({ jobId, role = 'manager' }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([
-      fetch('/data/json/batches.json').then(res => res.json()),
-      fetch('/data/json/orders.json').then(res => res.json()),
-      fetch('/data/json/clients.json').then(res => res.json()),
-      fetch('/data/json/documents.json').then(res => res.json())
-    ])
-      .then(([batchesData, ordersData, clientsData, docsData]) => {
-        const batches: Batch[] = batchesData;
-        const orders: Order[] = ordersData;
-        const clients: Client[] = clientsData;
-        const documents: Document[] = docsData;
+    const fetchData = async () => {
+      try {
+        const [batchesRes, ordersRes, clientsRes, uploadsRes] = await Promise.all([
+          getBatches(),
+          getOrders(),
+          getClients(),
+          getUploads(),  // we'll use all uploads; later you can filter by order
+        ]);
 
-        const ordersMap: Record<string, Order> = {};
-        orders.forEach(o => { ordersMap[o.id] = o; });
-        const clientsMap: Record<string, string> = {};
-        clients.forEach(c => { clientsMap[c.id] = c.name; });
+        const batches: any[] = batchesRes.data.data;
+        const orders: any[] = ordersRes.data.data;
+        const clients = clientsRes.data.data.results;
+        const uploads: UploadFile[] = uploadsRes.data.data || [];
 
-        // Build job list from batches (all batches, not only in_progress)
-        const jobList: Job[] = batches.map(batch => {
-          const order = ordersMap[batch.orderId];
-          const clientName = order ? clientsMap[order.clientId] : 'Unknown';
+        console.log('OrderWorkView - batches:', batches);
+        console.log('OrderWorkView - orders:', orders);
+        console.log('OrderWorkView - clients:', clients);
+        console.log('OrderWorkView - uploads:', uploads);
+
+        // Build lookup maps
+        const orderMap = new Map(orders.map(o => [o.id, o]));
+        const clientMap = new Map(clients.map((c: any) => [c.id, c.name]));
+
+        // Build uploads map by owner_id (since we don't have order_id on files yet, we'll use owner_id to guess)
+        const uploadsByOwner = new Map<number, UploadFile[]>();
+        uploads.forEach(u => {
+          if (!uploadsByOwner.has(u.uploaded_by)) uploadsByOwner.set(u.uploaded_by, []);
+          uploadsByOwner.get(u.uploaded_by)!.push(u);
+        });
+
+        const jobList: Job[] = batches.map((batch: any) => {
+          const order = orderMap.get(batch.orderId);
+          const clientId = order?.customer;
+          const clientName = clientId ? clientMap.get(clientId) || 'Unknown' : 'Unknown';
           const percent = batch.qty > 0 ? Math.round((batch.progress / batch.qty) * 100) : 0;
 
           // Format stages
-          const stagesDisplay: StageDisplay[] = batch.stages.map(s => ({
+          const stagesDisplay: StageDisplay[] = (batch.stages || []).map((s: any) => ({
             stage: s.stage,
             status: s.status,
-            updated: formatDateTime(s.updatedAt),
+            updated: formatDateTime(s.updatedAt || s.updated_at),
           }));
 
-          // Find documents belonging to this order
-          const orderDocs = documents.filter(doc => doc.ownerType === 'order' && doc.ownerId === batch.orderId);
-          const jobDocs: JobDocument[] = orderDocs.map(doc => ({
-            id: doc.id,
-            name: doc.name,
-            fileName: doc.fileName,
-            type: doc.type,
-            sizeKB: doc.sizeKB,
-            uploadedDate: doc.uploadedDate,
-            reorderCount: doc.reorderCount,
-            downloadUrl: doc.url,
+          // Fetch documents for this order – for now use client's uploads
+          const clientUploads = clientId ? uploadsByOwner.get(clientId) || [] : [];
+          const jobDocs: JobDocument[] = clientUploads.map(u => ({
+            id: String(u.id),
+            name: u.file_name || u.url.split('/').pop() || 'File',
+            fileName: u.url.split('/').pop() || u.file_name || 'file',
+            type: (u.url.split('.').pop()?.toUpperCase() || 'Other'),
+            sizeKB: 0, // not provided by backend
+            uploadedDate: new Date(u.created_at).toISOString().slice(0, 10),
+            reorderCount: u.reorder_count ?? 0,
+            downloadUrl: u.url,
           }));
 
           return {
-            id: batch.id,   // keep batch id as primary identifier
+            id: String(batch.id),
             done: batch.progress,
             total: batch.qty,
             percent,
             stages: stagesDisplay,
             info: {
               client: clientName,
-              batch: batch.id,
-              product: batch.product,
+              batch: String(batch.id),
+              product: batch.product || order?.upload?.file_name || `Order #${batch.orderId}`,
               qty: batch.qty,
               status: batch.status,
               priority: batch.priority,
@@ -292,33 +225,24 @@ export default function OrderWorkView({ jobId, role = 'manager' }: Props) {
         // Filter if jobId provided
         let filteredJobs = jobList;
         if (jobId) {
-          // Try to match as batch ID directly, or as numeric part (e.g., "1022" vs "B-260425-M")
-          const matchAsBatchId = jobList.find(j => j.id === jobId);
-          if (matchAsBatchId) {
-            filteredJobs = [matchAsBatchId];
-          } else {
-            // Try numeric suffix: find any batch id containing "-{jobId}-"
-            const numericMatch = jobList.find(j => j.id.includes(`-${jobId}-`));
-            if (numericMatch) {
-              filteredJobs = [numericMatch];
-            } else {
-              filteredJobs = [];
-            }
-          }
+          const match = jobList.find(j => j.id === jobId || j.id.includes(`-${jobId}-`));
+          filteredJobs = match ? [match] : [];
         }
 
         setJobs(filteredJobs);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error('Failed to load work view data:', err);
+      } catch (err: any) {
+        console.error('Failed to load work view:', err);
         setError('Could not load work view. Please try again later.');
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+
+    fetchData();
   }, [jobId]);
 
   const title = jobs.length === 1
-    ? `Work View — ${jobs[0].id} (Order #${jobs[0].info.batch})`
+    ? `Work View — ${jobs[0].id}`
     : 'Order Work View';
 
   if (loading) {
@@ -330,20 +254,11 @@ export default function OrderWorkView({ jobId, role = 'manager' }: Props) {
     );
   }
 
-  if (error) {
+  if (error || (jobId && jobs.length === 0)) {
     return (
       <AppShell role={role} activePage={role === 'owner' ? 'owner-production' : 'order-work-view'}>
         <Topbar title="Work View" />
-        <div className="error-state">{error}</div>
-      </AppShell>
-    );
-  }
-
-  if (jobId && jobs.length === 0) {
-    return (
-      <AppShell role={role} activePage={role === 'owner' ? 'owner-production' : 'order-work-view'}>
-        <Topbar title="Work View" />
-        <div className="error-state">Job not found.</div>
+        <div className="error-state">{error || 'Job not found.'}</div>
       </AppShell>
     );
   }
@@ -353,16 +268,12 @@ export default function OrderWorkView({ jobId, role = 'manager' }: Props) {
       <Topbar title={title} />
       {jobs.map((j) => (
         <section key={j.id} className="split" style={{ marginBottom: 14 }}>
-
-          {/* Work Progress */}
           <article className="box">
             <h3>Work Progress — {j.id}</h3>
             <p><strong>{j.done} / {j.total}</strong> completed ({j.percent}%)</p>
             <ProgressBar percent={j.percent} style={{ margin: '8px 0 14px' }} />
             <table className="orders-table" style={{ width: '100%' }}>
-              <thead>
-                <tr><th>Stage</th><th>Status</th><th>Updated At</th></tr>
-              </thead>
+              <thead><tr><th>Stage</th><th>Status</th><th>Updated At</th></tr></thead>
               <tbody>
                 {j.stages.map((s) => (
                   <tr key={s.stage}>
@@ -375,7 +286,6 @@ export default function OrderWorkView({ jobId, role = 'manager' }: Props) {
             </table>
           </article>
 
-          {/* Job Info + Documents */}
           <aside className="box">
             <h3>Job Info</h3>
             <ul style={{ listStyle: 'none', display: 'grid', gap: 6, fontSize: 13, margin: '0 0 16px' }}>
@@ -395,7 +305,6 @@ export default function OrderWorkView({ jobId, role = 'manager' }: Props) {
               <JobDocuments docs={j.documents} />
             </div>
           </aside>
-
         </section>
       ))}
     </AppShell>

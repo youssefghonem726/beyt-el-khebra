@@ -9,3 +9,9 @@ import type { ApiSuccess } from './types';
  */
 export const getBatches = (): Promise<AxiosResponse<ApiSuccess<any[]>>> =>
   api.get('/api/batches/');
+
+export const getBatchById = (batchId: number): Promise<AxiosResponse<ApiSuccess<any>>> =>
+  api.get(`/api/batches/${batchId}/`);
+
+export const updateBatch = (batchId: number, data: any): Promise<AxiosResponse<ApiSuccess<any>>> =>
+  api.patch(`/api/batches/${batchId}/`, data);
