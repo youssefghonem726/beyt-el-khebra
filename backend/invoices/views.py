@@ -20,3 +20,33 @@ def invoice_list(request):
 
     serializer = InvoiceSerializer(invoices, many=True)
     return success_response("Invoices fetched", data=serializer.data)
+
+@api_view(['GET'])
+def invoice_detail(request, invoice_id):
+    user, auth_error = get_authenticated_user(request)
+    if auth_error:
+        return auth_error
+
+    try:
+        invoice = Invoice.objects.get(id=invoice_id)
+    except Invoice.DoesNotExist:
+        return error_response(
+            message="Invoice not found",
+            errors={"detail": "No invoice found with this id"},
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+
+    # Clients can only view their own invoices
+    if user.role not in ('owner', 'staff') and invoice.client_id != user.id:
+        return error_response(
+            message="Forbidden",
+            errors={"detail": "You do not have permission to view this invoice"},
+            status_code=status.HTTP_403_FORBIDDEN
+        )
+
+    serializer = InvoiceSerializer(invoice)
+    return success_response(
+        message="Invoice fetched successfully",
+        data=serializer.data,
+        status_code=status.HTTP_200_OK
+    )

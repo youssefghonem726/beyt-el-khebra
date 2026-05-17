@@ -46,7 +46,10 @@ def orders_list_create(request):
         return auth_error
 
     if request.method == "GET":
-        orders = Order.objects.filter(customer=user).order_by("-created_at")
+        if user.role in ('owner', 'staff'):
+            orders = Order.objects.all().order_by("-created_at")
+        else:
+            orders = Order.objects.filter(customer=user).order_by("-created_at")
         serializer = OrderSerializer(orders, many=True)
 
         return success_response(
