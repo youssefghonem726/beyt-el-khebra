@@ -105,3 +105,26 @@ def clients_list_create(request):
             errors=serializer.errors,
             status_code=status.HTTP_400_BAD_REQUEST
         )
+
+@api_view(["PATCH"])
+def update_current_user(request):
+    user, auth_error = get_authenticated_user(request)
+    if auth_error:
+        return auth_error
+
+    allowed_fields = {"first_name", "last_name", "email", "phone"}
+    update_data = {k: v for k, v in request.data.items() if k in allowed_fields}
+
+    if not update_data:
+        return error_response(
+            message="Validation error",
+            errors={"detail": "No valid fields provided."},
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+    serializer = UserSerializer(user, data=update_data, partial=True)
+    if serializer.is_valid():
+        serializer.save()
+        return success_response("Profile updated", data=serializer.data)
+
+    return error_response("Validation error", errors=serializer.errors, status_code=400)

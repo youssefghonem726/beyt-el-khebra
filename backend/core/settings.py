@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     "notifications",
     "batches",
     "deliveries",
+    "support",
 ]
 
 MIDDLEWARE = [

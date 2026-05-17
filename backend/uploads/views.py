@@ -87,17 +87,25 @@ def uploads_list_create(request):
                 status_code=status.HTTP_400_BAD_REQUEST
             )
 
+        # Save file to Django's default storage (Supabase storage bucket)
         file_path = default_storage.save(
             f"uploads/{uploaded_file.name}",
             ContentFile(uploaded_file.read())
         )
-
         file_url = default_storage.url(file_path)
+
+        # Additional optional fields from request
+        file_name = request.data.get("file_name", uploaded_file.name)
+        mime_type = uploaded_file.content_type or None
 
         file_record = File.objects.create(
             url=file_url,
             file_type=file_type,
-            uploaded_by=user
+            uploaded_by=user,
+            file_name=file_name,
+            mime_type=mime_type,
+            owner_id=user,           # Set owner to the uploading user
+            reorder_count=0,
         )
 
         serializer = FileSerializer(file_record)
@@ -109,7 +117,7 @@ def uploads_list_create(request):
         )
 
 
-@api_view(["GET", "DELETE"])
+@api_view(["GET", "DELETE", "PATCH"])
 def upload_detail(request, file_id):
     user, auth_error = get_authenticated_user(request)
 
@@ -127,7 +135,6 @@ def upload_detail(request, file_id):
 
     if request.method == "GET":
         serializer = FileSerializer(file_record)
-
         return success_response(
             message="File fetched successfully",
             data=serializer.data,
@@ -136,9 +143,31 @@ def upload_detail(request, file_id):
 
     if request.method == "DELETE":
         file_record.delete()
-
         return success_response(
             message="File deleted successfully",
             data={},
+            status_code=status.HTTP_200_OK
+        )
+
+    if request.method == "PATCH":
+        # Allow renaming and updating mime_type
+        new_name = request.data.get("file_name")
+        new_mime = request.data.get("mime_type")
+
+        updated_fields = []
+        if new_name is not None:
+            file_record.file_name = new_name
+            updated_fields.append("file_name")
+        if new_mime is not None:
+            file_record.mime_type = new_mime
+            updated_fields.append("mime_type")
+
+        if updated_fields:
+            file_record.save(update_fields=updated_fields)
+
+        serializer = FileSerializer(file_record)
+        return success_response(
+            message="File updated successfully",
+            data=serializer.data,
             status_code=status.HTTP_200_OK
         )

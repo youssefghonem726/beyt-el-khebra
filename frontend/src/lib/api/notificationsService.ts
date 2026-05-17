@@ -2,7 +2,6 @@ import api from './axiosInstance';
 import type { AxiosResponse } from 'axios';
 import type { ApiSuccess } from './types';
 
-// Matches your actual DB columns
 export interface Notification {
   id: number;
   user_id: number;
@@ -14,10 +13,6 @@ export interface Notification {
   created_at: string;
 }
 
-/**
- * Fetch notifications for the authenticated user.
- * GET /api/notifications/
- */
 export const getNotifications = (): Promise<
   AxiosResponse<ApiSuccess<Notification[]>>
 > => api.get('/api/notifications/');

@@ -1,227 +1,133 @@
 import { useState, useEffect } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
-import StatusBadge from '../../components/StatusBadge';
-import { downloadText } from '../../utils/download';
 import { useNavigation } from '../../context/NavigationContext';
+// Direct service import – bypasses VITE_USE_MOCK
+import { getNotifications } from '../../lib/api/notificationsService';
+import type { Notification as BackendNotification } from '../../lib/api/notificationsService';
 
-// Updated Invoice interface to match new invoices.json
-interface Invoice {
-  id: string;           // e.g. "INV-9021"
-  orderId: string;      // e.g. "ORD-1021-2025"
-  clientId: string;     // e.g. "CL-001"
-  issued: string;       // ISO date "2025-04-21"
-  due: string;          // ISO date "2025-04-28"
-  paidDate: string | null;
-  amount: number;       // numeric, not string
-  status: string;       // "paid", "pending", "overdue", "unpaid"
-  vatRate: number;
-  items: Array<any>;
-  notes: string;
+// ─── Local display shape (matches original UI) ────────────────────────
+interface DisplayNotification {
+  id: number;
+  title: string;
+  time: string;              // formatted from created_at
+  body: string;
+  unread: boolean;
+  action: {
+    label: string;
+    page: string;
+  };
 }
 
-// Helper to format ISO date to "DD MMM YYYY"
-function formatDate(isoDate: string): string {
-  if (!isoDate) return '—';
-  const date = new Date(isoDate);
-  if (isNaN(date.getTime())) return '—';
-  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+// ─── Helper ─────────────────────────────────────────────────────────
+function formatTime(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  // Example: "16 May 2026, 15:36"
+  return d.toLocaleString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
-// Helper to format amount as currency
-function formatAmount(amount: number): string {
-  return amount.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-interface Props {
-  /** The ID of the currently logged‑in client (e.g., "CL-001") */
-  clientId: string;
-}
-
-export default function ClientInvoices({ clientId = "CL-001" }: Props) {
+export default function ClientNotifications() {
   const { navigateTopLevel } = useNavigation();
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [notifications, setNotifications] = useState<DisplayNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [payingId, setPayingId] = useState<string | null>(null);
-  const [paidSet, setPaidSet] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    fetch('/data/json/invoices.json')
-      .then((response) => {
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        return response.json();
-      })
-      .then((data: Invoice[]) => {
-        const clientInvoices = data.filter(inv => inv.clientId === clientId);
-        setInvoices(clientInvoices);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error('Failed to load invoices:', err);
-        setError('Could not load your invoices. Please try again later.');
-        setLoading(false);
-      });
-  }, [clientId]);
+    const fetchNotifications = async () => {
+      try {
+        const res = await getNotifications();
+        const backendNotifs: BackendNotification[] = res.data.data;
+        console.log('ClientNotifications - raw:', backendNotifs);
 
-  const filtered = invoices.filter((inv) => {
-    const matchQ = !query || inv.id.toLowerCase().includes(query.toLowerCase());
-    const matchS = !filterStatus || inv.status.toLowerCase() === filterStatus.toLowerCase();
-    return matchQ && matchS;
-  });
+        const displayNotifs: DisplayNotification[] = backendNotifs.map((n) => ({
+          id: n.id,
+          title: n.title,
+          time: formatTime(n.created_at),
+          body: n.body,
+          unread: n.unread,
+          action: {
+            label: n.action_label || 'View',
+            page: n.action_page || '/',
+          },
+        }));
+
+        setNotifications(displayNotifs);
+      } catch (err: any) {
+        // If endpoint returns 404, show empty list (fallback)
+        if (err?.response?.status === 404) {
+          setNotifications([]);
+        } else {
+          console.error('Failed to load notifications:', err);
+          setError('Could not load your notifications. Please try again later.');
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchNotifications();
+  }, []);
+
+  const dismiss = (id: number) =>
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
 
   if (loading) {
     return (
-      <AppShell role="client" activePage="client-invoices">
-        <Topbar title="My Invoices" />
-        <section className="table-wrap">
-          <div className="loading-state">Loading your invoices...</div>
-        </section>
+      <AppShell role="client" activePage="client-notifications">
+        <Topbar title="Notifications" />
+        <div className="loading-state">Loading notifications...</div>
       </AppShell>
     );
   }
 
   if (error) {
     return (
-      <AppShell role="client" activePage="client-invoices">
-        <Topbar title="My Invoices" />
-        <section className="table-wrap">
-          <div className="error-state">{error}</div>
-        </section>
+      <AppShell role="client" activePage="client-notifications">
+        <Topbar title="Notifications" />
+        <div className="error-state">{error}</div>
       </AppShell>
     );
   }
 
   return (
-    <AppShell role="client" activePage="client-invoices">
-      <Topbar title="My Invoices" />
-      <section className="table-wrap">
-        <div className="table-head">
-          <h3>Invoice History</h3>
-          <div className="search-container">
-            <input 
-              className="input" 
-              type="search" 
-              placeholder="Search by invoice ID" 
-              value={query} 
-              onChange={(e) => setQuery(e.target.value)} 
-            />
-            <button className="filter-icon" type="button" onClick={() => setDropdownOpen((o) => !o)}>▼</button>
-            {dropdownOpen && (
-              <div className="filter-dropdown show">
-                <div className="field">
-                  <label>Status</label>
-                  <select className="select" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-                    <option value="">All Status</option>
-                    <option value="paid">Paid</option>
-                    <option value="pending">Pending</option>
-                    <option value="overdue">Overdue</option>
-                    <option value="unpaid">Unpaid</option>
-                  </select>
-                </div>
-                <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>Apply</button>
-              </div>
-            )}
+    <AppShell role="client" activePage="client-notifications">
+      <Topbar title="Notifications" />
+      <section className="stack notifications-stack">
+        {notifications.length === 0 && (
+          <div className="box" style={{ textAlign: 'center', color: 'var(--muted)', padding: 48 }}>
+            No notifications.
           </div>
-        </div>
-        <div className="table-responsive">
-          <table className="orders-table">
-            <thead>
-              <tr>
-                <th>Invoice ID</th>
-                <th>Order</th>
-                <th>Date Issued</th>
-                <th>Due Date</th>
-                <th>Amount (EGP)</th>
-                <th>Status</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0
-                ? <tr><td colSpan={7} className="no-results">No matching results</td></tr>
-                : filtered.map((inv) => (
-                  <tr key={inv.id}>
-                    <td><strong>{inv.id}</strong></td>
-                    <td>{inv.orderId}</td>
-                    <td>{formatDate(inv.issued)}</td>
-                    <td>{formatDate(inv.due)}</td>
-                    <td>{formatAmount(inv.amount)}</td>
-                    <td><StatusBadge status={inv.status} /></td>
-                    <td>
-                      <div className="action-buttons">
-                        {inv.status !== 'paid' && !paidSet.has(inv.id) && (
-                          <button className="btn btn-sm primary" onClick={() => setPayingId(inv.id)}>Pay Now</button>
-                        )}
-                        <button
-                          className="btn btn-sm"
-                          onClick={() => navigateTopLevel(`/client/invoices/${inv.id}`)}>View
-                        </button>
-                        {(inv.status === 'paid' || paidSet.has(inv.id)) && (
-                          <button className="btn btn-sm btn-outline" onClick={() => downloadText(`invoice-${inv.id}.txt`, [
-                            `INVOICE: ${inv.id}`,
-                            `Order:       ${inv.orderId}`,
-                            `Date Issued: ${formatDate(inv.issued)}`,
-                            `Due Date:    ${formatDate(inv.due)}`,
-                            `Amount:      ${formatAmount(inv.amount)} EGP`,
-                            `Status:      ${inv.status}`,
-                          ])}>Download</button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
+        )}
+        {notifications.map((n) => (
+          <article key={n.id} className={`box notification-card${n.unread ? ' unread' : ''}`}>
+            <div className="notification-header" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+              <h3>{n.title}</h3>
+              <span className="timestamp" style={{ color: 'var(--muted)', fontSize: 13 }}>
+                {n.time}
+              </span>
+            </div>
+            <p>{n.body}</p>
+            <div className="notification-actions" style={{ marginTop: 10, display: 'flex', gap: 8 }}>
+              <button
+                className={`btn btn-sm${n.unread ? ' primary' : ''}`}
+                onClick={() => navigateTopLevel(n.action.page)}
+              >
+                {n.action.label}
+              </button>
+              <button className="btn btn-sm btn-outline" onClick={() => dismiss(n.id)}>
+                Dismiss
+              </button>
+            </div>
+          </article>
+        ))}
       </section>
-      <section className="box" style={{ marginTop: 14 }}>
-        <div className="table-head">
-          <p><strong>Need help with an invoice?</strong> Our support team is here to help.</p>
-          <button className="btn primary" onClick={() => navigateTopLevel('support')}>Contact Support</button>
-        </div>
-      </section>
-
-      {payingId && (
-        <div className="modal active" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="box" style={{ width: '100%', maxWidth: 420, padding: 28 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-              <h3>Pay Invoice {payingId}</h3>
-              <button className="btn" onClick={() => setPayingId(null)}>✕</button>
-            </div>
-            <div className="field" style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Card Number</label>
-              <input className="input" placeholder="1234 5678 9012 3456" maxLength={19} />
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-              <div className="field">
-                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Expiry</label>
-                <input className="input" placeholder="MM / YY" maxLength={7} />
-              </div>
-              <div className="field">
-                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>CVV</label>
-                <input className="input" placeholder="•••" maxLength={4} type="password" />
-              </div>
-            </div>
-            <div className="field" style={{ marginBottom: 20 }}>
-              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Cardholder Name</label>
-              <input className="input" placeholder="Name on card" />
-            </div>
-            <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>
-              Amount: <strong>{formatAmount(invoices.find(i => i.id === payingId)?.amount || 0)} EGP</strong>
-            </p>
-            <button className="btn primary block" onClick={() => {
-              setPaidSet(s => { const n = new Set(s); n.add(payingId!); return n; });
-              setPayingId(null);
-            }}>
-              Confirm Payment
-            </button>
-          </div>
-        </div>
-      )}
     </AppShell>
   );
 }

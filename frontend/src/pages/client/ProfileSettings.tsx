@@ -2,95 +2,68 @@ import { useState, useEffect } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import { useNavigation } from '../../context/NavigationContext';
+// Direct service imports – bypasses VITE_USE_MOCK
+import { getMe, updateMe } from '../../lib/api/usersService';
 
-interface Client {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  address: string;
-  taxId: string;
-  since: string | null;
-  stats: {
-    totalOrders: number;
-    totalSpent: number;
-  };
-}
-
-interface Props {
-  /** Client ID (e.g., "CL-001") – defaults to CL-001 */
-  clientId?: string;
-}
-
-export default function ProfileSettings({ clientId = 'CL-001' }: Props) {
+export default function ProfileSettings() {
   const { navigateTopLevel } = useNavigation();
-  const [info, setInfo] = useState({ name: '', email: '', phone: '', address: '' });
-  const [security, setSecurity] = useState({ current: '', newPass: '' });
+  const [info, setInfo] = useState({ name: '', email: '', phone: '' });
   const [toast, setToast] = useState('');
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Fetch current user
   useEffect(() => {
-    fetch('/data/json/clients.json')
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-      })
-      .then((data: Client[]) => {
-        // Find the client by ID
-        let currentUser = data.find((c) => c.id === clientId);
-        // Fallback to first client if not found
-        if (!currentUser && data.length > 0) {
-          currentUser = data[0];
-        }
-        if (currentUser) {
-          setInfo({
-            name: currentUser.name,
-            email: currentUser.email,
-            phone: currentUser.phone,
-            address: currentUser.address,
-          });
-        } else {
-          setError('No client data available.');
-        }
-        setLoading(false);
-      })
-      .catch((err) => {
+    const fetchProfile = async () => {
+      try {
+        const res = await getMe();
+        const user = res.data.data;
+        setInfo({
+          name: [user.first_name, user.last_name].filter(Boolean).join(' ') || user.email,
+          email: user.email,
+          phone: user.phone || '',
+        });
+      } catch (err) {
         console.error('Failed to load profile:', err);
         setError('Could not load your profile. Please try again later.');
+      } finally {
         setLoading(false);
-      });
-  }, [clientId]);
+      }
+    };
+    fetchProfile();
+  }, []);
 
   const setField = (k: keyof typeof info) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setInfo((f) => ({ ...f, [k]: e.target.value }));
-  const setSec = (k: keyof typeof security) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setSecurity((f) => ({ ...f, [k]: e.target.value }));
 
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(''), 3000);
   };
 
-  const handleSave = () => showToast('Changes saved successfully.');
+  const handleSave = async () => {
+    setSubmitting(true);
+    setError(null);
+    try {
+      // Split name into first_name and last_name (last word is last name)
+      const parts = info.name.trim().split(/\s+/);
+      const firstName = parts[0] || '';
+      const lastName = parts.slice(1).join(' ') || '';
 
-  const handleUpdatePassword = () => {
-    if (!security.current) {
-      showToast('Please enter your current password.');
-      return;
+      await updateMe({
+        first_name: firstName,
+        last_name: lastName,
+        email: info.email,
+        phone: info.phone,
+      });
+      showToast('Changes saved successfully.');
+    } catch (err) {
+      console.error('Failed to update profile:', err);
+      setError('Could not save changes. Please try again.');
+    } finally {
+      setSubmitting(false);
     }
-    if (!security.newPass) {
-      showToast('Please enter a new password.');
-      return;
-    }
-    if (security.newPass.length < 6) {
-      showToast('New password must be at least 6 characters.');
-      return;
-    }
-    setSecurity({ current: '', newPass: '' });
-    showToast('Password updated successfully.');
   };
 
   if (loading) {
@@ -119,7 +92,7 @@ export default function ProfileSettings({ clientId = 'CL-001' }: Props) {
           <h3>Account Information</h3>
           <div className="form-grid-2">
             <div className="field">
-              <label>Store Name</label>
+              <label>Full Name</label>
               <input className="input" type="text" value={info.name} onChange={setField('name')} />
             </div>
             <div className="field">
@@ -130,39 +103,28 @@ export default function ProfileSettings({ clientId = 'CL-001' }: Props) {
               <label>Phone</label>
               <input className="input" type="text" value={info.phone} onChange={setField('phone')} />
             </div>
-            <div className="field">
-              <label>Address</label>
-              <input className="input" type="text" value={info.address} onChange={setField('address')} />
-            </div>
           </div>
-          <button className="btn primary" style={{ marginTop: 10 }} onClick={handleSave}>
-            Save Changes
+          <button
+            className="btn primary"
+            style={{ marginTop: 10 }}
+            onClick={handleSave}
+            disabled={submitting}
+          >
+            {submitting ? 'Saving…' : 'Save Changes'}
           </button>
         </article>
+
         <aside className="box">
           <h3>Security</h3>
-          <div className="field">
-            <label>Current Password</label>
-            <input
-              className="input"
-              type="password"
-              placeholder="Current password"
-              value={security.current}
-              onChange={setSec('current')}
-            />
-          </div>
-          <div className="field">
-            <label>New Password</label>
-            <input
-              className="input"
-              type="password"
-              placeholder="New password"
-              value={security.newPass}
-              onChange={setSec('newPass')}
-            />
-          </div>
-          <button className="btn block" style={{ marginTop: 10 }} onClick={handleUpdatePassword}>
-            Update Password
+          <p style={{ color: 'var(--muted)', fontSize: 13 }}>
+            Password changes are managed by Supabase. Use the “Forgot password” link on the login page or contact support.
+          </p>
+          <button
+            className="btn"
+            style={{ marginTop: 10 }}
+            onClick={() => window.open('https://your-supabase-project.supabase.co/auth/v1/recover', '_blank')}
+          >
+            Reset Password
           </button>
         </aside>
       </section>

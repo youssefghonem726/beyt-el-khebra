@@ -5,65 +5,29 @@ import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
 import { useNavigation } from '../../context/NavigationContext';
+// Direct service imports – bypasses VITE_USE_MOCK
+import { getOrderById, getOrders } from '../../lib/api/ordersQuotesService';
+import { getBatches } from '../../lib/api/batchesService';
+import { getDeliveries } from '../../lib/api/deliveriesService';
 
-interface TimelineItem {
-  label: string;
-  date: string | null;
-  done: boolean;
-}
-
-interface Order {
-  id: string;
-  clientId: string;
-  product: string;
-  status: string;
-  orderDate: string;
-  deliveryDate: string | null;
-  total: number | null;
-  paid: number | null;
-  paymentMethod: string | null;
-  invoiceId: string | null;
-  specs: Record<string, any>;
-  timeline: TimelineItem[];
-}
-
-interface Batch {
-  id: string;
-  orderId: string;
-  progress: number;
-  status: string;
-  deadline: string | null;
-  stages: any[];
-}
-
-interface Delivery {
-  id: string;
-  orderId: string;
-  status: string;
-  scheduledDate: string;
-}
-
-// Step display for tracking
+// ─── Display types ─────────────────────────────────────────────────
 interface TrackingStep {
   label: string;
   done: boolean;
   current: boolean;
 }
 
-// Update entry
 interface TrackingUpdate {
   time: string;
   message: string;
   type: 'done' | 'info' | 'warn';
 }
 
-// Detail row
 interface DetailRow {
   label: string;
   value: string;
 }
 
-// All data for tracking view
 interface TrackingData {
   id: string;
   product: string;
@@ -79,22 +43,23 @@ interface TrackingData {
   invoiceId?: string;
 }
 
+// ─── Helpers ───────────────────────────────────────────────────────
 function formatDate(isoDate: string | null): string {
   if (!isoDate) return '—';
-  const date = new Date(isoDate);
-  if (isNaN(date.getTime())) return '—';
-  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const d = new Date(isoDate);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 function formatDateTime(isoDate: string | null): string {
   if (!isoDate) return '—';
-  const date = new Date(isoDate);
-  if (isNaN(date.getTime())) return '—';
-  return date.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const d = new Date(isoDate);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 function formatAmount(amount: number | null): string {
-  if (amount === null) return '—';
+  if (amount === null || amount === undefined) return '—';
   return `EGP ${amount.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
@@ -104,188 +69,189 @@ function getProgressColor(progress: number): 'green' | 'orange' | undefined {
   return undefined;
 }
 
-// Map order status to user-friendly label
-function getCurrentStatusLabel(order: Order, progress: number): string {
-  if (order.status === 'canceled') return 'This order was canceled.';
-  if (order.status === 'completed') return 'Order completed and delivered.';
-  if (order.status === 'unpriced_pending') return 'Your order is being reviewed for pricing.';
-  if (order.status === 'priced_pending_confirmation') return 'Awaiting your confirmation to begin production.';
-  if (order.status === 'in_progress') {
+function getCurrentStatusLabel(status: string, progress: number): string {
+  if (status === 'CANCELED') return 'This order was canceled.';
+  if (status === 'COMPLETED') return 'Order completed and delivered.';
+  if (status === 'UNPRICED_PENDING') return 'Your order is being reviewed for pricing.';
+  if (status === 'PRICED_PENDING_CONFIRMATION') return 'Awaiting your confirmation to begin production.';
+  if (status === 'IN_PROGRESS') {
     if (progress >= 80) return 'Almost ready – final quality check.';
     return 'Your order is currently being produced.';
   }
   return 'Order status unknown.';
 }
 
-// Build steps from timeline
-function buildSteps(timeline: TimelineItem[], progress: number, status: string): TrackingStep[] {
-  if (!timeline.length) {
-    // Fallback steps if no timeline
-    return [
-      { label: 'Order Submitted', done: status !== 'unpriced_pending', current: false },
-      { label: 'Pricing', done: status !== 'unpriced_pending' && status !== 'priced_pending_confirmation', current: status === 'priced_pending_confirmation' },
-      { label: 'Production', done: status === 'in_progress' && progress > 0, current: status === 'in_progress' && progress <= 80 },
-      { label: 'Quality Check', done: status === 'completed', current: false },
-      { label: 'Delivered', done: status === 'completed', current: false },
-    ];
+function buildSteps(status: string, progress: number, stages?: any[]): TrackingStep[] {
+  // If batch has stages, use them
+  if (stages && stages.length > 0) {
+    let foundCurrent = false;
+    return stages.map((s: any) => {
+      const isDone = s.status === 'completed' || s.status === 'done';
+      if (!isDone && !foundCurrent) {
+        foundCurrent = true;
+        return { label: s.stage || s.label || 'Step', done: false, current: true };
+      }
+      return { label: s.stage || s.label || 'Step', done: isDone, current: false };
+    });
   }
 
-  // Use timeline items as steps, determine current based on first incomplete
-  let foundCurrent = false;
-  return timeline.map(item => {
-    if (!item.done && !foundCurrent) {
-      foundCurrent = true;
-      return { label: item.label, done: false, current: true };
-    }
-    return { label: item.label, done: item.done, current: false };
-  });
+  // Fallback steps based on status and progress
+  const steps: TrackingStep[] = [
+    { label: 'Order Placed', done: true, current: false },
+    { label: 'Pricing', done: status !== 'UNPRICED_PENDING' && status !== 'PRICED_PENDING_CONFIRMATION', current: status === 'PRICED_PENDING_CONFIRMATION' },
+    { label: 'Production', done: (status === 'IN_PROGRESS' && progress > 0) || status === 'COMPLETED', current: status === 'IN_PROGRESS' && progress < 80 },
+    { label: 'Quality Check', done: status === 'COMPLETED', current: status === 'IN_PROGRESS' && progress >= 80 },
+    { label: 'Delivered', done: status === 'COMPLETED', current: false },
+  ];
+  return steps;
 }
 
-// Build updates from timeline (use dates as "time")
-function buildUpdates(timeline: TimelineItem[], order: Order): TrackingUpdate[] {
+function buildUpdates(order: any, stages?: any[]): TrackingUpdate[] {
   const updates: TrackingUpdate[] = [];
-  
-  // Add timeline entries with dates
-  timeline.forEach(item => {
-    if (item.date) {
+
+  // Order created
+  if (order.created_at) {
+    updates.push({
+      time: formatDateTime(order.created_at),
+      message: 'Order submitted.',
+      type: 'done',
+    });
+  }
+
+  // Batch stages
+  if (stages) {
+    stages.forEach((s: any) => {
       updates.push({
-        time: formatDateTime(item.date),
-        message: `${item.label} ${item.done ? 'completed' : 'pending'}.`,
-        type: item.done ? 'done' : 'info',
+        time: formatDateTime(s.updated_at || s.updatedAt),
+        message: `${s.stage || s.label}: ${s.status}`,
+        type: s.status === 'completed' ? 'done' : 'info',
       });
-    }
-  });
-  
-  // Add special messages based on order status
-  if (order.status === 'priced_pending_confirmation') {
-    updates.unshift({
-      time: formatDateTime(order.orderDate),
-      message: `Quote sent – total ${formatAmount(order.total)}. Awaiting confirmation.`,
+    });
+  }
+
+  // Status-specific messages
+  if (order.status === 'PRICED_PENDING_CONFIRMATION') {
+    updates.push({
+      time: formatDateTime(order.updated_at),
+      message: `Quote sent – total ${formatAmount(order.total_price)}. Awaiting confirmation.`,
       type: 'info',
     });
   }
-  if (order.status === 'canceled') {
+  if (order.status === 'CANCELED') {
     updates.push({
-      time: formatDateTime(new Date().toISOString()),
-      message: 'Order canceled at client request.',
+      time: formatDateTime(order.updated_at),
+      message: 'Order canceled.',
       type: 'warn',
     });
   }
-  
-  // Sort by time (most recent first)
+
   return updates.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
 }
 
-// Build details from order specs
-function buildDetails(order: Order): DetailRow[] {
-  const details: DetailRow[] = [
-    { label: 'Product', value: order.product },
-    { label: 'Quantity', value: order.specs?.qty ? `${order.specs.qty} pcs` : '—' },
-    { label: 'Size', value: order.specs?.size || '—' },
-    { label: 'Paper / Material', value: order.specs?.paper || '—' },
-    { label: 'Color', value: order.specs?.color || '—' },
-    { label: 'Finish', value: order.specs?.finish || '—' },
-    { label: 'Files', value: order.specs?.description ? 'Files provided' : '—' },
+function buildDetails(order: any, batch?: any): DetailRow[] {
+  return [
+    { label: 'Product', value: order.upload?.file_name || `Order #${order.id}` },
+    { label: 'Quantity', value: order.quantity ? `${order.quantity} pcs` : (batch?.qty ? `${batch.qty} pcs` : '—') },
+    { label: 'Order Date', value: formatDate(order.created_at) },
+    { label: 'Due Date', value: formatDate(order.due_date) },
+    { label: 'Payment Method', value: order.payment_method || '—' },
+    { label: 'Notes', value: order.notes || '—' },
   ];
-  if (order.specs?.description) {
-    details.push({ label: 'Description', value: order.specs.description });
-  }
-  return details;
 }
 
-interface Props {
-  /** Client ID (e.g., "CL-001") – defaults to CL-001 */
-  clientId?: string;
-}
-
-export default function TrackOrder({ clientId = 'CL-001' }: Props) {
+export default function TrackOrder() {
   const { id: urlId } = useParams<{ id: string }>();
   const { navigateTopLevel } = useNavigation();
-  const [orderIdInput, setOrderIdInput] = useState(urlId ? urlId.replace('#', '') : '');
+  const [orderIdInput, setOrderIdInput] = useState(urlId || '');
   const [result, setResult] = useState<TrackingData | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const fetchAndTrack = async (id: string) => {
-    if (!id.trim()) return;
+    const numericId = parseInt(id.replace('#', '').trim(), 10);
+    if (isNaN(numericId)) {
+      setNotFound(true);
+      return;
+    }
+
     setLoading(true);
     setNotFound(false);
     setResult(null);
-    
+
     try {
-      const [ordersRes, batchesRes, deliveriesRes] = await Promise.all([
-        fetch('/data/json/orders.json'),
-        fetch('/data/json/batches.json'),
-        fetch('/data/json/deliveries.json'),
+      // Fetch the specific order, then batches and deliveries to find matches
+      const [orderRes, batchesRes, deliveriesRes] = await Promise.all([
+        getOrderById(numericId),
+        getBatches().catch(() => ({ data: { data: [] } })),
+        getDeliveries().catch(() => ({ data: { data: [] } })),
       ]);
-      
-      if (!ordersRes.ok) throw new Error('Failed to load orders');
-      const orders: Order[] = await ordersRes.json();
-      const batches: Batch[] = batchesRes.ok ? await batchesRes.json() : [];
-      const deliveries: Delivery[] = deliveriesRes.ok ? await deliveriesRes.json() : [];
-      
-      // Find order: by full ID or by extracting numeric part (e.g., "1021" from "ORD-1021-2025")
-      const searchId = id.trim();
-      let order = orders.find(o => o.id === searchId && o.clientId === clientId);
-      if (!order) {
-        // Try to match by numeric suffix (e.g., "1021" matches "ORD-1021-2025")
-        order = orders.find(o => o.clientId === clientId && o.id.includes(`-${searchId}-`));
-      }
-      
+
+      const order = orderRes.data.data;
       if (!order) {
         setNotFound(true);
         setLoading(false);
         return;
       }
-      
-      const batch = batches.find(b => b.orderId === order.id);
-      const delivery = deliveries.find(d => d.orderId === order.id);
-      
-      const progress = batch?.progress ?? (order.status === 'completed' ? 100 : order.status === 'canceled' ? 0 : 30);
-      const estimatedDelivery = delivery?.scheduledDate ?? order.deliveryDate;
-      
-      const steps = buildSteps(order.timeline || [], progress, order.status);
-      const updates = buildUpdates(order.timeline || [], order);
-      const details = buildDetails(order);
-      
+
+      const batches = batchesRes.data.data || [];
+      const deliveries = deliveriesRes.data.data || [];
+
+      // Find matching batch and delivery by order ID
+      const batch = batches.find((b: any) => b.orderId === order.id || b.order_id === order.id);
+      const delivery = deliveries.find((d: any) => d.orderId === order.id || d.order_id === order.id);
+
+      const progress = batch?.progress ?? (order.status === 'COMPLETED' ? 100 : order.status === 'CANCELED' ? 0 : 30);
+      const estimatedDelivery = delivery?.scheduledDate ?? order.due_date;
+      const stages = batch?.stages || [];
+
+      const steps = buildSteps(order.status, progress, stages);
+      const updates = buildUpdates(order, stages);
+      const details = buildDetails(order, batch);
+
       const trackingData: TrackingData = {
-        id: order.id,
-        product: order.product,
+        id: String(order.id),
+        product: order.upload?.file_name || `Order #${order.id}`,
         status: order.status,
-        currentStatusLabel: getCurrentStatusLabel(order, progress),
-        orderDate: formatDate(order.orderDate),
+        currentStatusLabel: getCurrentStatusLabel(order.status, progress),
+        orderDate: formatDate(order.created_at),
         estimatedDelivery: formatDate(estimatedDelivery),
-        total: formatAmount(order.total),
+        total: formatAmount(order.total_price),
         progress,
         steps,
         updates,
         details,
-        invoiceId: order.invoiceId || undefined,
+        invoiceId: order.invoice_id || undefined,
       };
-      
+
       setResult(trackingData);
-    } catch (err) {
-      console.error('Tracking error:', err);
-      setNotFound(true);
+    } catch (err: any) {
+      if (err?.response?.status === 404) {
+        setNotFound(true);
+      } else {
+        console.error('Tracking error:', err);
+        setNotFound(true);
+      }
     } finally {
       setLoading(false);
     }
   };
-  
+
   const handleTrack = (idOverride?: string) => {
     const id = (idOverride ?? orderIdInput).replace('#', '').trim();
     if (id) fetchAndTrack(id);
   };
-  
+
   useEffect(() => {
-    if (urlId) handleTrack(urlId);
-  }, [urlId, clientId]);
-  
+    if (urlId) {
+      setOrderIdInput(urlId);
+      handleTrack(urlId);
+    }
+  }, [urlId]);
+
   return (
     <AppShell role="client" activePage="my-orders">
       <Topbar title="Track Order" />
-      
-      {/* Search */}
+
       <section className="box center-card" style={{ marginBottom: 14 }}>
         <h2 style={{ marginBottom: 6 }}>Track Your Order</h2>
         <p className="muted" style={{ marginBottom: 14 }}>Enter your order ID to see live tracking updates.</p>
@@ -293,7 +259,7 @@ export default function TrackOrder({ clientId = 'CL-001' }: Props) {
           <input
             className="input"
             type="text"
-            placeholder="Enter Order ID (e.g. ORD-1021-2025 or #1021)"
+            placeholder="Enter Order ID (e.g. 1021)"
             value={orderIdInput}
             onChange={(e) => { setOrderIdInput(e.target.value); setResult(null); setNotFound(false); }}
             onKeyDown={(e) => e.key === 'Enter' && handleTrack()}
@@ -308,14 +274,13 @@ export default function TrackOrder({ clientId = 'CL-001' }: Props) {
           </p>
         )}
       </section>
-      
+
       {result && !loading && (
         <>
-          {/* Status banner */}
           <section className="box" style={{ marginBottom: 14 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
               <div>
-                <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Order {result.id} · {result.product}</p>
+                <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Order #{result.id} · {result.product}</p>
                 <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>{result.currentStatusLabel}</h2>
                 <p style={{ fontSize: 13, color: 'var(--muted)' }}>
                   Ordered: {result.orderDate} &nbsp;·&nbsp; Est. Delivery: {result.estimatedDelivery}
@@ -324,13 +289,12 @@ export default function TrackOrder({ clientId = 'CL-001' }: Props) {
               </div>
               <StatusBadge status={result.status} />
             </div>
-            
+
             <ProgressBar percent={result.progress} color={getProgressColor(result.progress)} />
             <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6, marginBottom: 20 }}>
               {result.progress}% complete
             </p>
-            
-            {/* Step tracker */}
+
             <div style={{ display: 'flex', gap: 0, position: 'relative' }}>
               {result.steps.map((step, i) => {
                 const isLast = i === result.steps.length - 1;
@@ -366,9 +330,8 @@ export default function TrackOrder({ clientId = 'CL-001' }: Props) {
               })}
             </div>
           </section>
-          
+
           <div className="grid-2" style={{ marginBottom: 14 }}>
-            {/* Tracking updates */}
             <section className="box">
               <h3 style={{ marginBottom: 14 }}>Tracking Updates</h3>
               {result.updates.length === 0 ? (
@@ -393,8 +356,7 @@ export default function TrackOrder({ clientId = 'CL-001' }: Props) {
                 </div>
               )}
             </section>
-            
-            {/* Order details */}
+
             <section className="box">
               <h3 style={{ marginBottom: 14 }}>Order Details</h3>
               <div style={{ display: 'grid', gap: 8 }}>
@@ -407,8 +369,7 @@ export default function TrackOrder({ clientId = 'CL-001' }: Props) {
               </div>
             </section>
           </div>
-          
-          {/* Actions */}
+
           <section className="box" style={{ marginBottom: 14 }}>
             <div className="table-head">
               <p><strong>Need help with this order?</strong></p>

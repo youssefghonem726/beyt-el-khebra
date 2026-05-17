@@ -2,11 +2,15 @@ import { useState, useEffect } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import { useNavigation } from '../../context/NavigationContext';
+// Direct service import – bypasses VITE_USE_MOCK
+import { getNotifications } from '../../lib/api/notificationsService';
+import type { Notification as BackendNotification } from '../../lib/api/notificationsService';
 
-interface Notification {
+// ─── Local display shape (matches original UI) ────────────────────────
+interface DisplayNotification {
   id: number;
   title: string;
-  time: string;
+  time: string;              // formatted from created_at
   body: string;
   unread: boolean;
   action: {
@@ -15,29 +19,62 @@ interface Notification {
   };
 }
 
+// ─── Helper ─────────────────────────────────────────────────────────
+function formatTime(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 export default function ClientNotifications() {
   const { navigateTopLevel } = useNavigation();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<DisplayNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch('/data/notifications-client.json')
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+    const fetchNotifications = async () => {
+      try {
+        const res = await getNotifications();
+        const backendNotifs: BackendNotification[] = res.data.data;
+        console.log('ClientNotifications - raw:', backendNotifs);
+
+        const displayNotifs: DisplayNotification[] = backendNotifs.map((n) => ({
+          id: n.id,
+          title: n.title,
+          time: formatTime(n.created_at),
+          body: n.body,
+          unread: n.unread,
+          action: {
+            label: n.action_label || 'View',
+            page: n.action_page || '/',
+          },
+        }));
+
+        setNotifications(displayNotifs);
+      } catch (err: any) {
+        // Gracefully handle 404 or non‑JSON responses (e.g., HTML from Django)
+        if (
+          err?.response?.status === 404 ||
+          (err?.response?.data && typeof err.response.data !== 'object')
+        ) {
+          setNotifications([]);
+        } else {
+          console.error('Failed to load notifications:', err);
+          setError('Could not load your notifications. Please try again later.');
         }
-        return response.json();
-      })
-      .then((data: Notification[]) => {
-        setNotifications(data);
+      } finally {
         setLoading(false);
-      })
-      .catch((err) => {
-        console.error('Failed to load notifications:', err);
-        setError('Could not load your notifications. Please try again later.');
-        setLoading(false);
-      });
+      }
+    };
+
+    fetchNotifications();
   }, []);
 
   const dismiss = (id: number) =>

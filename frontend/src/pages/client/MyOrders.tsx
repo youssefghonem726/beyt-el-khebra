@@ -4,87 +4,82 @@ import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
 import { useNavigation } from '../../context/NavigationContext';
+// Direct service imports – bypasses VITE_USE_MOCK
+import { getOrders } from '../../lib/api/ordersQuotesService';
+import { getBatches } from '../../lib/api/batchesService';
+import { getDeliveries } from '../../lib/api/deliveriesService';
 
-// Normalized types
-interface Order {
-  id: string;
-  clientId: string;
-  product: string;
+// ─── Backend shapes ─────────────────────────────────────────────────
+interface BackendOrder {
+  id: number;
   status: string;
-  orderDate: string;      // ISO date
-  deliveryDate: string | null;
-  total: number | null;
-  paid: number | null;
-  paymentMethod: string | null;
-  invoiceId: string | null;
+  total_price?: number | null;
+  paid_amount?: number | null;
+  payment_method?: string | null;
+  created_at?: string;
+  due_date?: string | null;
+  upload?: { file_name?: string };
 }
 
-interface Batch {
-  id: string;
-  orderId: string;
+interface BackendBatch {
+  id: number;
+  orderId: number;
   progress: number;
   status: string;
-  deadline: string | null;
+  deadline?: string | null;
+  // ... other fields not needed here
 }
 
-interface Delivery {
-  id: string;
-  orderId: string;
+interface BackendDelivery {
+  id: number;
+  orderId: number;
   status: string;
   progress: number;
   scheduledDate: string;
+  // ...
 }
 
-// Extended order for display
+// ─── Display shape ─────────────────────────────────────────────────
 interface DisplayOrder {
-  id: string;            // full ID e.g. "ORD-1021-2025"
-  shortId: string;       // "#1021" for legacy display
+  id: string;
+  shortId: string;
   batch: string;
   product: string;
   status: string;
   delivery: string;
   progress: number;
   color: 'green' | 'orange' | 'red';
-  date: string;          // formatted date
+  date: string;
   total: string;
   payment: string;
   paid: string;
 }
 
-// Helper: format ISO date to "DD MMM YYYY"
+// ─── Helpers ───────────────────────────────────────────────────────
 function formatDate(isoDate: string | null): string {
   if (!isoDate) return '—';
-  const date = new Date(isoDate);
-  if (isNaN(date.getTime())) return '—';
-  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const d = new Date(isoDate);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-// Helper: format amount as currency string
 function formatAmount(amount: number | null): string {
   if (amount === null || amount === undefined) return '—';
   return `EGP ${amount.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-// Map status to color for progress bar
 function getProgressColor(progress: number, orderStatus: string): 'green' | 'orange' | 'red' {
-  if (orderStatus === 'canceled') return 'red';
+  if (orderStatus === 'CANCELED') return 'red';
   if (progress >= 100) return 'green';
   if (progress > 0) return 'orange';
   return 'orange';
 }
 
-// Generate short ID (e.g., extract last 4 digits from ORD-1021-2025 -> "#1021")
-function getShortId(fullId: string): string {
-  const match = fullId.match(/ORD-(\d+)-/);
-  return match ? `#${match[1]}` : fullId;
+function getShortId(id: number): string {
+  return `#${id}`;
 }
 
-interface Props {
-  /** Client ID (e.g., "CL-001") – defaults to CL-001 */
-  clientId?: string;
-}
-
-export default function MyOrders({ clientId = 'CL-001' }: Props) {
+export default function MyOrders() {
   const { navigateTopLevel } = useNavigation();
   const [orders, setOrders] = useState<DisplayOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -94,67 +89,82 @@ export default function MyOrders({ clientId = 'CL-001' }: Props) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   useEffect(() => {
-    // Fetch all required data in parallel
-    Promise.all([
-      fetch('/data/json/orders.json').then(res => res.json()),
-      fetch('/data/json/batches.json').then(res => res.json()),
-      fetch('/data/json/deliveries.json').then(res => res.json())
-    ])
-      .then(([ordersData, batchesData, deliveriesData]) => {
-        const allOrders: Order[] = ordersData;
-        const batches: Batch[] = batchesData;
-        const deliveries: Delivery[] = deliveriesData;
+    const fetchData = async () => {
+      try {
+        // Fetch orders, batches, and deliveries in parallel
+        const [ordersRes, batchesRes, deliveriesRes] = await Promise.all([
+          getOrders(),
+          getBatches(),
+          getDeliveries(),
+        ]);
 
-        // Filter orders for this client
-        const clientOrders = allOrders.filter(order => order.clientId === clientId);
+        const backendOrders: BackendOrder[] = ordersRes.data.data;
+        const batches: BackendBatch[] = batchesRes.data.data;
+        const deliveries: BackendDelivery[] = deliveriesRes.data.data;
 
-        // Build display orders
-        const displayOrders: DisplayOrder[] = clientOrders.map(order => {
-          const batch = batches.find(b => b.orderId === order.id);
-          const delivery = deliveries.find(d => d.orderId === order.id);
+        console.log('MyOrders - orders:', backendOrders);
+        console.log('MyOrders - batches:', batches);
+        console.log('MyOrders - deliveries:', deliveries);
 
+        // Build maps for quick lookup
+        const batchMap = new Map(batches.map(b => [b.orderId, b]));
+        const deliveryMap = new Map(deliveries.map(d => [d.orderId, d]));
+
+        const displayOrders: DisplayOrder[] = backendOrders.map((o) => {
+          const batch = batchMap.get(o.id);
+          const delivery = deliveryMap.get(o.id);
+
+          // Progress: from batch if available, else derived from order status
           let progress = batch ? batch.progress : 0;
-          if (order.status === 'completed') progress = 100;
-          if (order.status === 'canceled') progress = 0;
+          if (o.status === 'COMPLETED') progress = 100;
+          if (o.status === 'CANCELED') progress = 0;
 
-          let deliveryStatus = order.deliveryDate ? 'scheduled' : '—';
-          if (delivery) {
-            deliveryStatus = delivery.status;
-          } else if (order.status === 'completed') {
-            deliveryStatus = 'delivered';
-          } else if (order.status === 'canceled') {
-            deliveryStatus = 'canceled';
+          // Delivery status
+          let deliveryStatus = delivery ? delivery.status : '—';
+          if (!delivery) {
+            if (o.status === 'COMPLETED') deliveryStatus = 'delivered';
+            else if (o.status === 'CANCELED') deliveryStatus = 'canceled';
           }
 
+          // Product name from upload file name, fallback to "Order #id"
+          const productName = o.upload?.file_name || `Order #${o.id}`;
+
           return {
-            id: order.id,
-            shortId: getShortId(order.id),
-            batch: batch ? batch.id : '—',
-            product: order.product,
-            status: order.status,
+            id: String(o.id),
+            shortId: getShortId(o.id),
+            batch: batch ? `BATCH-${batch.id}` : '—',   // or just batch.id
+            product: productName,
+            status: o.status,
             delivery: deliveryStatus,
             progress,
-            color: getProgressColor(progress, order.status),
-            date: formatDate(order.orderDate),
-            total: formatAmount(order.total),
-            payment: order.paymentMethod || '—',
-            paid: formatAmount(order.paid),
+            color: getProgressColor(progress, o.status),
+            date: formatDate(o.created_at || null),
+            total: formatAmount(o.total_price ?? null),
+            payment: o.payment_method || '—',
+            paid: formatAmount(o.paid_amount ?? null),
           };
         });
 
         setOrders(displayOrders);
-        setLoading(false);
-      })
-      .catch((err) => {
+      } catch (err) {
         console.error('Failed to load orders:', err);
         setError('Could not load your orders. Please try again later.');
+      } finally {
         setLoading(false);
-      });
-  }, [clientId]);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   const filtered = orders.filter((o) => {
     const q = query.toLowerCase();
-    const matchQ = !q || o.id.toLowerCase().includes(q) || o.shortId.toLowerCase().includes(q) || o.batch.toLowerCase().includes(q) || o.product.toLowerCase().includes(q);
+    const matchQ =
+      !q ||
+      o.id.toLowerCase().includes(q) ||
+      o.shortId.toLowerCase().includes(q) ||
+      o.batch.toLowerCase().includes(q) ||
+      o.product.toLowerCase().includes(q);
     const matchS = !filterStatus || o.status.toLowerCase().includes(filterStatus.toLowerCase());
     return matchQ && matchS;
   });
@@ -192,53 +202,84 @@ export default function MyOrders({ clientId = 'CL-001' }: Props) {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
-              <button className="filter-icon" type="button" onClick={() => setDropdownOpen((o) => !o)}>▼</button>
+              <button className="filter-icon" type="button" onClick={() => setDropdownOpen((o) => !o)}>
+                ▼
+              </button>
               {dropdownOpen && (
                 <div className="filter-dropdown show">
                   <div className="field">
                     <label>Status</label>
-                    <select className="select" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+                    <select
+                      className="select"
+                      value={filterStatus}
+                      onChange={(e) => setFilterStatus(e.target.value)}
+                    >
                       <option value="">All Status</option>
-                      <option value="unpriced_pending">Unpriced Pending</option>
-                      <option value="priced_pending_confirmation">Priced Pending Confirmation</option>
-                      <option value="in_progress">In Progress</option>
-                      <option value="completed">Completed</option>
-                      <option value="canceled">Canceled</option>
+                      <option value="UNPRICED_PENDING">Unpriced Pending</option>
+                      <option value="PRICED_PENDING_CONFIRMATION">Priced Pending Confirmation</option>
+                      <option value="IN_PROGRESS">In Progress</option>
+                      <option value="COMPLETED">Completed</option>
+                      <option value="CANCELED">Canceled</option>
                     </select>
                   </div>
-                  <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>Apply</button>
+                  <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>
+                    Apply
+                  </button>
                 </div>
               )}
             </div>
-            <button className="btn primary" onClick={() => navigateTopLevel('place-new-order')}>New Order</button>
+            <button className="btn primary" onClick={() => navigateTopLevel('place-new-order')}>
+              New Order
+            </button>
           </div>
         </div>
         <table className="orders-table">
           <thead>
             <tr>
-              <th>Order</th><th>Batch Code</th><th>Product</th><th>Status</th><th>Delivery Progress</th><th>Date</th><th>Total</th><th>Payment Method</th><th>Paid Amount</th><th>Action</th>
+              <th>Order</th>
+              <th>Batch Code</th>
+              <th>Product</th>
+              <th>Status</th>
+              <th>Delivery Progress</th>
+              <th>Date</th>
+              <th>Total</th>
+              <th>Payment Method</th>
+              <th>Paid Amount</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0
-              ? <tr><td colSpan={10} className="no-results">No matching results</td></tr>
-              : filtered.map((o) => (
+            {filtered.length === 0 ? (
+              <tr>
+                <td colSpan={10} className="no-results">
+                  No matching results
+                </td>
+              </tr>
+            ) : (
+              filtered.map((o) => (
                 <tr key={o.id}>
                   <td>{o.shortId}</td>
                   <td>{o.batch}</td>
                   <td>{o.product}</td>
-                  <td><StatusBadge status={o.status} /></td>
+                  <td>
+                    <StatusBadge status={o.status} />
+                  </td>
                   <td>
                     <StatusBadge status={o.delivery} />
                     <ProgressBar percent={o.progress} color={o.color} style={{ marginTop: 6 }} />
-                   </td>
+                  </td>
                   <td>{o.date}</td>
                   <td>{o.total}</td>
                   <td>{o.payment}</td>
                   <td>{o.paid}</td>
-                  <td><button className="btn" onClick={() => navigateTopLevel(`/client/orders/${o.id}`)}>View</button></td>
+                  <td>
+                    <button className="btn" onClick={() => navigateTopLevel(`/client/orders/${o.id}`)}>
+                      View
+                    </button>
+                  </td>
                 </tr>
-              ))}
+              ))
+            )}
           </tbody>
         </table>
       </section>

@@ -6,6 +6,37 @@ import StatusBadge from '../../components/StatusBadge';
 import './InvoiceDetail.css';
 import { downloadText } from '../../utils/download';
 import { useNavigation } from '../../context/NavigationContext';
+// Direct service imports – bypass VITE_USE_MOCK
+import { getInvoiceById, getClients } from '../../lib/api/invoicesClientsSettingsService';
+
+// ─── Backend invoice shape (snake_case) ────────────────────────────
+interface BackendInvoice {
+  id: number;
+  order_id: number | null;
+  client_id: number | null;
+  due_date: string;
+  paid_date: string | null;
+  total_amount: number | null;
+  status: string | null;
+  created_at: string;
+  notes: string | null;
+}
+
+interface DisplayInvoice {
+  id: string;
+  orderId: string;
+  clientName: string;
+  clientAddress: string;
+  clientTaxId: string;
+  issued: string;
+  due: string;
+  paidDate: string | null;
+  amount: number;
+  status: string;
+  vatRate: number;         // placeholder – not yet stored in DB
+  items: LineItem[];       // placeholder – line items not yet stored
+  notes: string;
+}
 
 interface LineItem {
   description: string;
@@ -13,45 +44,14 @@ interface LineItem {
   unitPrice: number;
 }
 
-// Normalized invoice structure
-interface Invoice {
-  id: string;
-  orderId: string;
-  clientId: string;
-  issued: string;      // ISO date
-  due: string;         // ISO date
-  paidDate: string | null;
-  amount: number;
-  status: string;
-  vatRate: number;
-  items: LineItem[];
-  notes: string;
-}
-
-// Client data for billing info
-interface Client {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  address: string;
-  taxId: string;
-  since: string | null;
-  stats: {
-    totalOrders: number;
-    totalSpent: number;
-  };
-}
-
-// Helper: format ISO date to "DD MMM YYYY"
+// ─── Helpers ───────────────────────────────────────────────────────
 function formatDate(isoDate: string | null): string {
   if (!isoDate) return '—';
-  const date = new Date(isoDate);
-  if (isNaN(date.getTime())) return '—';
-  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const d = new Date(isoDate);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-// Helper: format number as currency
 function formatEGP(value: number): string {
   return value.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -59,8 +59,7 @@ function formatEGP(value: number): string {
 export default function InvoiceDetail() {
   const { id: invoiceId = '' } = useParams<{ id: string }>();
   const { navigateTopLevel, goBack } = useNavigation();
-  const [invoice, setInvoice] = useState<Invoice | null>(null);
-  const [client, setClient] = useState<Client | null>(null);
+  const [invoice, setInvoice] = useState<DisplayInvoice | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
@@ -73,58 +72,71 @@ export default function InvoiceDetail() {
       return;
     }
 
-    // Fetch both invoices and clients
-    Promise.all([
-      fetch('/data/json/invoices.json').then(res => res.json()),
-      fetch('/data/json/clients.json').then(res => res.json())
-    ])
-      .then(([invoicesData, clientsData]) => {
-        const invoices: Invoice[] = invoicesData;
-        const clients: Client[] = clientsData;
+    const fetchInvoice = async () => {
+      try {
+        // Fetch invoice and clients list in parallel
+        const [invRes, clientsRes] = await Promise.all([
+          getInvoiceById(invoiceId),
+          getClients(),
+        ]);
 
-        const foundInvoice = invoices.find(inv => inv.id === invoiceId);
-        if (!foundInvoice) {
-          setError(`Invoice ${invoiceId} not found.`);
-          setLoading(false);
-          return;
-        }
+        const raw: BackendInvoice = invRes.data.data;
+        const clients = clientsRes.data.data.results;
 
-        const foundClient = clients.find(c => c.id === foundInvoice.clientId);
-        if (!foundClient) {
-          setError(`Client data for invoice ${invoiceId} not found.`);
-          setLoading(false);
-          return;
-        }
+        console.log('InvoiceDetail - raw invoice:', raw);
+        console.log('InvoiceDetail - clients:', clients);
 
-        setInvoice(foundInvoice);
-        setClient(foundClient);
+        // Find the client associated with this invoice
+        const client = clients.find(c => Number(c.id) === raw.client_id);
+        const clientName = client?.name || 'Unknown';
+        const clientAddress = client?.address || '—';
+        const clientTaxId = client?.taxId || '—';
+
+        const display: DisplayInvoice = {
+          id: String(raw.id),
+          orderId: raw.order_id ? `#${raw.order_id}` : '—',
+          clientName,
+          clientAddress,
+          clientTaxId,
+          issued: formatDate(raw.created_at),
+          due: formatDate(raw.due_date),
+          paidDate: formatDate(raw.paid_date),
+          amount: raw.total_amount ?? 0,
+          status: raw.status || '—',
+          vatRate: 0.14,            // placeholder – not stored yet
+          items: [],                // placeholder – no line items table yet
+          notes: raw.notes || '',
+        };
+
+        setInvoice(display);
+      } catch (err) {
+        console.error('Failed to load invoice:', err);
+        setError('Could not load invoice details.');
+      } finally {
         setLoading(false);
-      })
-      .catch((err) => {
-        console.error('Failed to load invoice detail:', err);
-        setError('Could not load this invoice. Please try again later.');
-        setLoading(false);
-      });
+      }
+    };
+
+    fetchInvoice();
   }, [invoiceId]);
 
   const handlePrint = () => window.print();
-
   const handleDownload = () => {
-    if (!invoice || !client) return;
+    if (!invoice) return;
     const sub = invoice.items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
     const v = sub * invoice.vatRate;
     const tot = sub + v;
     downloadText(`invoice-${invoice.id}.txt`, [
       `INVOICE #${invoice.id}`,
       ``,
-      `Billed To:   ${client.name}`,
-      `Address:     ${client.address}`,
-      `Tax ID:      ${client.taxId}`,
+      `Billed To:   ${invoice.clientName}`,
+      `Address:     ${invoice.clientAddress}`,
+      `Tax ID:      ${invoice.clientTaxId}`,
       ``,
       `Linked Order: ${invoice.orderId}`,
-      `Issue Date:   ${formatDate(invoice.issued)}`,
-      `Due Date:     ${formatDate(invoice.due)}`,
-      invoice.paidDate ? `Payment Date: ${formatDate(invoice.paidDate)}` : '',
+      `Issue Date:   ${invoice.issued}`,
+      `Due Date:     ${invoice.due}`,
+      invoice.paidDate ? `Payment Date: ${invoice.paidDate}` : '',
       ``,
       `Items:`,
       ...invoice.items.map(item =>
@@ -149,12 +161,12 @@ export default function InvoiceDetail() {
     );
   }
 
-  if (error || !invoice || !client) {
+  if (error || !invoice) {
     return (
       <AppShell role="client" activePage="client-invoices">
         <Topbar title="Invoice Detail" />
         <section className="table-wrap">
-          <div className="error-state">{error ?? 'Invoice not found.'}</div>
+          <div className="error-state">{error || 'Invoice not found.'}</div>
         </section>
       </AppShell>
     );
@@ -183,30 +195,30 @@ export default function InvoiceDetail() {
           <div className="invoice-meta-grid">
             <div className="invoice-meta-col">
               <p className="meta-section-label">Billed to</p>
-              <p className="meta-value-primary">{client.name}</p>
+              <p className="meta-value-primary">{invoice.clientName}</p>
               <p className="meta-field-label">Address</p>
-              <p className="meta-value">{client.address || '—'}</p>
+              <p className="meta-value">{invoice.clientAddress}</p>
               <p className="meta-field-label">Tax ID</p>
-              <p className="meta-value">{client.taxId || '—'}</p>
+              <p className="meta-value">{invoice.clientTaxId}</p>
             </div>
             <div className="invoice-meta-col">
               <p className="meta-section-label">Invoice details</p>
               <p className="meta-field-label">Linked order</p>
               <p className="meta-value">{invoice.orderId}</p>
               <p className="meta-field-label">Issue date</p>
-              <p className="meta-value">{formatDate(invoice.issued)}</p>
+              <p className="meta-value">{invoice.issued}</p>
               <p className="meta-field-label">Due date</p>
-              <p className="meta-value">{formatDate(invoice.due)}</p>
+              <p className="meta-value">{invoice.due}</p>
               {invoice.paidDate && (
                 <>
                   <p className="meta-field-label">Payment date</p>
-                  <p className="meta-value">{formatDate(invoice.paidDate)}</p>
+                  <p className="meta-value">{invoice.paidDate}</p>
                 </>
               )}
             </div>
           </div>
 
-          {/* Line items table */}
+          {/* Line items table — placeholder until backend stores items */}
           <div className="table-responsive">
             <table className="orders-table invoice-items-table">
               <thead>
@@ -218,14 +230,18 @@ export default function InvoiceDetail() {
                 </tr>
               </thead>
               <tbody>
-                {invoice.items.map((item, idx) => (
-                  <tr key={idx}>
-                    <td>{item.description}</td>
-                    <td style={{ textAlign: 'center' }}>{item.quantity}</td>
-                    <td style={{ textAlign: 'right' }}>{formatEGP(item.unitPrice)}</td>
-                    <td style={{ textAlign: 'right' }}>{formatEGP(item.quantity * item.unitPrice)}</td>
-                  </tr>
-                ))}
+                {invoice.items.length === 0 ? (
+                  <tr><td colSpan={4} style={{ textAlign: 'center', padding: '12px', color: 'var(--muted)' }}>Line items not available yet</td></tr>
+                ) : (
+                  invoice.items.map((item, idx) => (
+                    <tr key={idx}>
+                      <td>{item.description}</td>
+                      <td style={{ textAlign: 'center' }}>{item.quantity}</td>
+                      <td style={{ textAlign: 'right' }}>{formatEGP(item.unitPrice)}</td>
+                      <td style={{ textAlign: 'right' }}>{formatEGP(item.quantity * item.unitPrice)}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
