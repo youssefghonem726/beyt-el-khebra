@@ -3,52 +3,35 @@ import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import { useNavigation } from '../../context/NavigationContext';
+// Direct service imports – bypasses VITE_USE_MOCK
+import { getDeliveries } from '../../lib/api/deliveriesService';
+import type { DeliveryResponse } from '../../lib/api/deliveriesService';
+import { getOrders } from '../../lib/api/ordersQuotesService';
+import { getClients } from '../../lib/api/invoicesClientsSettingsService';
 
-interface DeliveryRaw {
-  id: string;
-  orderId: string;
-  clientId: string;
-  address: string;
-  driver: string;
-  company: string;
-  phone: string;
-  status: string;
-  progress: number;
-  scheduledDate: string; // ISO date
-}
-
-interface Order {
-  id: string;
-}
-
-interface Client {
-  id: string;
-  name: string;
-}
-
+// ─── Display type ──────────────────────────────────────────────────
 interface Delivery {
   id: string;
-  orderId: string;      // Real order ID (e.g., ORD-1021-2025)
-  orderDisplayId: string; // Display ID (e.g., "#1021")
+  orderId: string;        // real order ID (numeric)
+  orderDisplayId: string;  // display ID (e.g., "#1021")
   client: string;
   address: string;
-  scheduledDate: string; // Formatted date string
+  scheduledDate: string;   // formatted date string
   status: string;
 }
 
 type ExpandKey = { id: string; action: 'reschedule' | 'address' } | null;
 
-// Helper: format ISO date to "DD MMM YYYY"
-function formatDate(isoDate: string): string {
+// ─── Helpers ───────────────────────────────────────────────────────
+function formatDate(isoDate: string | null): string {
+  if (!isoDate) return '—';
   const d = new Date(isoDate);
   if (isNaN(d.getTime())) return '—';
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-// Helper: extract short order number (e.g., "1021" from "ORD-1021-2025" -> "#1021")
-function getShortOrderId(fullId: string): string {
-  const match = fullId.match(/ORD-(\d+)-/);
-  return match ? `#${match[1]}` : fullId;
+function getShortOrderId(orderId: number): string {
+  return `#${orderId}`;
 }
 
 export default function DeliveryList() {
@@ -63,24 +46,39 @@ export default function DeliveryList() {
   const [cancelled, setCancelled] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    Promise.all([
-      fetch('/data/json/deliveries.json').then(res => res.json()),
-      fetch('/data/json/orders.json').then(res => res.json()),
-      fetch('/data/json/clients.json').then(res => res.json())
-    ])
-      .then(([deliveriesRaw, ordersRaw, clientsRaw]) => {
-        const ordersMap: Record<string, Order> = {};
-        ordersRaw.forEach((o: Order) => { ordersMap[o.id] = o; });
-        const clientsMap: Record<string, Client> = {};
-        clientsRaw.forEach((c: Client) => { clientsMap[c.id] = c; });
+    const fetchData = async () => {
+      try {
+        // Fetch deliveries, orders, and clients in parallel
+        const [deliveriesRes, ordersRes, clientsRes] = await Promise.all([
+          getDeliveries(),
+          getOrders(),
+          getClients(),
+        ]);
 
-        const deliveryList: Delivery[] = deliveriesRaw.map((d: DeliveryRaw) => {
-          const client = clientsMap[d.clientId];
+        const deliveriesRaw: DeliveryResponse[] = deliveriesRes.data.data;
+        const orders: any[] = ordersRes.data.data;
+        const clients = clientsRes.data.data.results;
+
+        console.log('DeliveryList - deliveries:', deliveriesRaw);
+        console.log('DeliveryList - orders:', orders);
+        console.log('DeliveryList - clients:', clients);
+
+        // Build client map (user ID → client name)
+        const clientMap = new Map(clients.map((c: any) => [c.id, c.name]));
+
+        // Build order → customer map (order ID → customer user ID)
+        const orderCustomerMap = new Map(orders.map((o: any) => [o.id, o.customer]));
+
+        const deliveryList: Delivery[] = deliveriesRaw.map((d: DeliveryResponse) => {
+          // Find client name: from the delivery's clientId, or from the order's customer
+          const customerId = d.clientId || orderCustomerMap.get(d.orderId);
+          const clientName = customerId ? clientMap.get(customerId) || 'Unknown' : 'Unknown';
+
           return {
-            id: d.id,
-            orderId: d.orderId,
+            id: String(d.id),
+            orderId: String(d.orderId),
             orderDisplayId: getShortOrderId(d.orderId),
-            client: client ? client.name : 'Unknown Client',
+            client: clientName,
             address: d.address,
             scheduledDate: formatDate(d.scheduledDate),
             status: d.status,
@@ -88,13 +86,19 @@ export default function DeliveryList() {
         });
 
         setDeliveries(deliveryList);
+      } catch (err: any) {
+        if (err?.response?.status === 404) {
+          setDeliveries([]);
+        } else {
+          console.error('Failed to load deliveries:', err);
+          setError('Could not load delivery data. Please try again later.');
+        }
+      } finally {
         setLoading(false);
-      })
-      .catch((err) => {
-        console.error('Failed to load deliveries:', err);
-        setError('Could not load delivery data. Please try again later.');
-        setLoading(false);
-      });
+      }
+    };
+
+    fetchData();
   }, []);
 
   const toggle = (id: string, action: 'reschedule' | 'address') => {

@@ -1,35 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useNavigation } from '../../context/NavigationContext';
+// Direct service imports
+import { getDeliveryById } from '../../lib/api/deliveriesService';
+import type { DeliveryResponse } from '../../lib/api/deliveriesService';
+import { getClients } from '../../lib/api/invoicesClientsSettingsService';
 
 type ActionState = 'delivered' | 'rescheduled' | 'cancelled' | 'address-changed' | null;
 
-interface Delivery {
-  id: string;
-  orderId: string;
-  clientId: string;
-  address: string;
-  driver: string;
-  company: string;
-  phone: string;
-  status: string;
-  progress: number;
-  scheduledDate: string;
-}
-
-interface Order {
-  id: string;
-}
-
-interface Client {
-  id: string;
-  name: string;
-}
-
-// Helper to extract short order ID (e.g., "#1021" from "ORD-1021-2025")
-function getShortOrderId(fullId: string): string {
-  const match = fullId.match(/ORD-(\d+)-/);
-  return match ? `#${match[1]}` : fullId;
+function getShortOrderId(orderId: number): string {
+  return `#${orderId}`;
 }
 
 export default function DeliveryViewMore() {
@@ -50,31 +30,37 @@ export default function DeliveryViewMore() {
       return;
     }
 
-    Promise.all([
-      fetch('/data/deliveries.json').then(res => res.json()),
-      fetch('/data/orders.json').then(res => res.json()),
-      fetch('/data/clients.json').then(res => res.json())
-    ])
-      .then(([deliveriesRaw, ordersRaw, clientsRaw]) => {
-        const delivery = deliveriesRaw.find((d: Delivery) => d.id === deliveryId);
-        if (!delivery) {
+    const fetchData = async () => {
+      try {
+        // Fetch the specific delivery and clients list in parallel
+        const [deliveryRes, clientsRes] = await Promise.all([
+          getDeliveryById(deliveryId),
+          getClients(),
+        ]);
+
+        const delivery: DeliveryResponse = deliveryRes.data.data;
+        const clients = clientsRes.data.data.results;
+
+        console.log('DeliveryViewMore - delivery:', delivery);
+        console.log('DeliveryViewMore - clients:', clients);
+
+        // Find client name
+        const client = clients.find((c: any) => Number(c.id) === delivery.clientId);
+        setClientName(client ? client.name : 'Unknown');
+        setOrderDisplayId(getShortOrderId(delivery.orderId));
+      } catch (err: any) {
+        if (err?.response?.status === 404) {
           setError(`Delivery ${deliveryId} not found.`);
-          setLoading(false);
-          return;
+        } else {
+          console.error('Failed to load delivery:', err);
+          setError('Could not load delivery details. Please try again later.');
         }
-
-        const order = ordersRaw.find((o: Order) => o.id === delivery.orderId);
-        const client = clientsRaw.find((c: Client) => c.id === delivery.clientId);
-
-        setOrderDisplayId(order ? getShortOrderId(order.id) : delivery.orderId);
-        setClientName(client ? client.name : 'Unknown Client');
+      } finally {
         setLoading(false);
-      })
-      .catch((err) => {
-        console.error('Failed to load delivery data:', err);
-        setError('Could not load delivery details. Please try again later.');
-        setLoading(false);
-      });
+      }
+    };
+
+    fetchData();
   }, [deliveryId]);
 
   const confirm = (type: ActionState) => setAction(type);

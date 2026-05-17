@@ -19,3 +19,8 @@ export interface DeliveryResponse {
 
 export const getDeliveries = (): Promise<AxiosResponse<ApiSuccess<DeliveryResponse[]>>> =>
   api.get('/api/deliveries/');
+
+export const getDeliveryById = (
+  deliveryId: string
+): Promise<AxiosResponse<ApiSuccess<DeliveryResponse>>> =>
+  api.get(`/api/deliveries/${deliveryId}/`);
