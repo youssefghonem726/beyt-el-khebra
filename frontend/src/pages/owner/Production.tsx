@@ -30,11 +30,11 @@ interface Job {
 
 const STEP_ORDER = ['pending', 'design', 'printing', 'cutting', 'packaging', 'ready'];
 
-function formatDate(isoDate: string | null): string {
+function formatDate(isoDate: string | null, lang: string): string {
   if (!isoDate) return '-';
   const d = new Date(isoDate);
   if (Number.isNaN(d.getTime())) return '-';
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 function getProgress(job: Job): number {
@@ -56,7 +56,7 @@ function buildStages(currentStep: string, status: string): Stage[] {
   }));
 }
 
-function mapJob(job: any): Job {
+function mapJob(job: any, lang: string): Job {
   const currentStep = job.current_step || 'pending';
   const completedQty = Number(job.completed_quantity || 0);
   const qty = Number(job.quantity || 0);
@@ -72,7 +72,7 @@ function mapJob(job: any): Job {
     completedQty,
     status: job.status || 'ready_for_production',
     currentStep,
-    dueDate: formatDate(job.due_date),
+    dueDate: formatDate(job.due_date, lang),
     notes: job.notes || '-',
     stages: buildStages(currentStep, job.status || 'ready_for_production'),
   };
@@ -87,7 +87,7 @@ export default function Production() {
 }
 
 function ProductionInner() {
-  const { t } = useTranslation(['common', 'production']);
+  const { t, i18n } = useTranslation(['common', 'production']);
 
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,7 +104,7 @@ function ProductionInner() {
       setLoading(true);
       setError(null);
       const response = await getProductionJobs();
-      const jobList = (response.data.data || []).map(mapJob);
+      const jobList = (response.data.data || []).map((job: any) => mapJob(job, i18n.language));
       setJobs(jobList);
       setSelectedJob((current) => {
         if (!jobList.length) return null;

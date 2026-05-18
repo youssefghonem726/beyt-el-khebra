@@ -16,6 +16,24 @@
     "empty": "No completed orders",
     "completedAt": "Completed At"
   },
+  "back": "← Back to Orders",
+  "detail": {
+    "title": "Order {{displayId}}",
+    "client": "Client",
+    "status": "Status",
+    "product": "Product",
+    "qty": "Quantity",
+    "paper": "Paper / Material",
+    "notes": "Notes",
+    "pcs": "pcs"
+  },
+  "workView": {
+    "title": "Work View — {{displayId}}",
+    "stage": "Stage",
+    "statusCol": "Status",
+    "updatedAt": "Updated At",
+    "printed": "printed"
+  },
   "table": {
     "order": "Order",
     "status": "Status",

@@ -15,7 +15,7 @@ export default function ClientManagement() {
 }
 
 function ClientManagementInner() {
-  const { t } = useTranslation(['common', 'clientManagement']);
+  const { t, i18n } = useTranslation(['common', 'clientManagement']);
   const { navigateTopLevel } = useNavigation();
   const [query, setQuery]             = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -118,7 +118,7 @@ function ClientManagementInner() {
               <h3>{c.name}</h3>
               <p>{c.email}</p>
               <p>{c.phone}</p>
-              {c.since && <p>{t('clientManagement:card.since', { date: new Date(c.since).toLocaleDateString() })}</p>}
+              {c.since && <p>{t('clientManagement:card.since', { date: new Date(c.since).toLocaleDateString(i18n.language === 'ar' ? 'ar-EG' : 'en-GB') })}</p>}
               <p><strong>{t('clientManagement:card.openProfile')}</strong></p>
             </a>
           ))}

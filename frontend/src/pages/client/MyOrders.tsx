@@ -59,16 +59,16 @@ interface DisplayOrder {
   paid: string;
 }
 
-function formatDate(isoDate: string | null): string {
+function formatDate(isoDate: string | null, lang: string): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function formatAmount(amount: number | null): string {
+function formatAmount(amount: number | null, lang: string): string {
   if (amount === null || amount === undefined) return '—';
-  return `EGP ${amount.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `EGP ${amount.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function getProgressColor(progress: number, orderStatus: string): 'green' | 'orange' | 'red' {
@@ -86,7 +86,7 @@ export default function MyOrders() {
 }
 
 function MyOrdersInner() {
-  const { t } = useTranslation(['common', 'myOrders']);
+  const { t, i18n } = useTranslation(['common', 'myOrders']);
   const { navigateTopLevel } = useNavigation();
   const [orders, setOrders] = useState<DisplayOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -134,10 +134,10 @@ function MyOrdersInner() {
             delivery: deliveryStatus,
             progress,
             color: getProgressColor(progress, o.status),
-            date: formatDate(o.created_at || null),
-            total: formatAmount(o.total_price ?? null),
+            date: formatDate(o.created_at || null, i18n.language),
+            total: formatAmount(o.total_price ?? null, i18n.language),
             payment: o.payment_method || '—',
-            paid: formatAmount(o.paid_amount ?? null),
+            paid: formatAmount(o.paid_amount ?? null, i18n.language),
           };
         });
 

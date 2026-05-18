@@ -12,6 +12,31 @@
     "Open production": "فتح الإنتاج",
     "View invoice": "عرض الفاتورة",
     "Open delivery": "فتح التوصيل",
-    "View client": "عرض العميل"
+    "View client": "عرض العميل",
+    "View orders": "عرض الطلبات",
+    "View delivery": "عرض التوصيل"
+  },
+  "messages": {
+    "titles": {
+      "quoteReady": "عرض السعر جاهز",
+      "orderCompleted": "الطلب مكتمل",
+      "orderInProduction": "الطلب قيد الإنتاج",
+      "deliveryCreated": "تم إنشاء التوصيل",
+      "deliveryUpdated": "تم تحديث التوصيل"
+    },
+    "bodies": {
+      "quoteReady": "عرض السعر للطلب #{{orderId}} جاهز للمراجعة.",
+      "orderCompleted": "طلبك رقم #{{orderId}} اكتمل بنجاح.",
+      "orderInProduction": "طلبك رقم #{{orderId}} قيد الإنتاج الآن.",
+      "deliveryCreated": "تم إنشاء توصيل للطلب #{{orderId}}.",
+      "deliveryUpdated": "أصبح توصيل الطلب #{{orderId}} {{status}}."
+    }
+  },
+  "deliveryStatusText": {
+    "out_for_delivery": "خارجاً للتوصيل",
+    "delivered": "مُسلَّماً",
+    "delayed": "متأخراً",
+    "lost": "مفقوداً",
+    "pending": "قيد الانتظار"
   }
 }

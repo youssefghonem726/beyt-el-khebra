@@ -8,16 +8,16 @@ import ProgressBar from '../../components/ProgressBar';
 import { useNavigation } from '../../context/NavigationContext';
 import { getOrderById } from '../../lib/api/ordersQuotesService';
 
-function formatDate(isoDate: string | null): string {
+function formatDate(isoDate: string | null, lang: string): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function formatAmount(amount: number | null): string {
+function formatAmount(amount: number | null, lang: string): string {
   if (amount === null || amount === undefined) return '—';
-  return `EGP ${amount.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `EGP ${amount.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function getProgressColor(progress: number, orderStatus: string): 'green' | 'orange' | 'red' {
@@ -35,7 +35,7 @@ export default function ClientOrderDetail() {
 }
 
 function ClientOrderDetailInner() {
-  const { t } = useTranslation(['common', 'clientOrderDetail']);
+  const { t, i18n } = useTranslation(['common', 'clientOrderDetail']);
   const { id: routeOrderId } = useParams<{ id: string }>();
   const { navigateTopLevel, goBack } = useNavigation();
   const [order, setOrder] = useState<any>(null);
@@ -72,19 +72,19 @@ function ClientOrderDetailInner() {
           delivery: backendOrder.status === 'COMPLETED' ? 'delivered' : '—',
           progress,
           color: getProgressColor(progress, backendOrder.status),
-          date: formatDate(backendOrder.created_at),
-          deliveryDate: formatDate(backendOrder.due_date || null),
-          total: formatAmount(backendOrder.total_price),
+          date: formatDate(backendOrder.created_at, i18n.language),
+          deliveryDate: formatDate(backendOrder.due_date || null, i18n.language),
+          total: formatAmount(backendOrder.total_price, i18n.language),
           payment: backendOrder.payment_method || '—',
-          paid: formatAmount(backendOrder.paid_amount),
+          paid: formatAmount(backendOrder.paid_amount, i18n.language),
           invoiceId: backendOrder.invoice_id || null,
           specs: {
             qty: backendOrder.quantity,
             description: backendOrder.notes || '',
           },
           timeline: [
-            { labelKey: 'timeline.items.orderPlaced', date: formatDate(backendOrder.created_at), done: true },
-            { labelKey: 'timeline.items.production', date: backendOrder.status === 'COMPLETED' ? formatDate(backendOrder.updated_at) : null, done: backendOrder.status === 'COMPLETED' },
+            { labelKey: 'timeline.items.orderPlaced', date: formatDate(backendOrder.created_at, i18n.language), done: true },
+            { labelKey: 'timeline.items.production', date: backendOrder.status === 'COMPLETED' ? formatDate(backendOrder.updated_at, i18n.language) : null, done: backendOrder.status === 'COMPLETED' },
             { labelKey: 'timeline.items.delivery', date: null, done: false },
           ],
         };

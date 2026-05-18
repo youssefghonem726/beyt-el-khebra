@@ -26,12 +26,12 @@ type DeliveryForm = {
   notes: string;
 };
 
-const STATUS_OPTIONS: { value: DeliveryStatus; label: string }[] = [
-  { value: 'pending', label: 'Pending' },
-  { value: 'out_for_delivery', label: 'Out for delivery' },
-  { value: 'delivered', label: 'Delivered' },
-  { value: 'delayed', label: 'Delayed' },
-  { value: 'lost', label: 'Lost' },
+const DELIVERY_STATUS_VALUES: DeliveryStatus[] = [
+  'pending',
+  'out_for_delivery',
+  'delivered',
+  'delayed',
+  'lost',
 ];
 
 function unwrapList<T>(value: unknown): T[] {
@@ -42,11 +42,11 @@ function unwrapList<T>(value: unknown): T[] {
   return [];
 }
 
-function formatDate(value?: string | null): string {
+function formatDate(value: string | null | undefined, lang: string): string {
   if (!value) return '-';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleDateString('en-GB', {
+  return date.toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-GB', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
@@ -94,7 +94,7 @@ export default function DeliveryTracking() {
 }
 
 function DeliveryTrackingInner() {
-  const { t } = useTranslation(['common', 'deliveryTracking']);
+  const { t, i18n } = useTranslation(['common', 'deliveryTracking']);
   const { navigateTopLevel: _nav } = useNavigation();
   const [deliveries, setDeliveries] = useState<DeliveryResponse[]>([]);
   const [readyOrders, setReadyOrders] = useState<Order[]>([]);
@@ -109,6 +109,11 @@ function DeliveryTrackingInner() {
   const [deliveryForm, setDeliveryForm] = useState<DeliveryForm | null>(null);
   const [addressEdit, setAddressEdit] = useState('');
   const [notesEdit, setNotesEdit] = useState('');
+
+  const statusOptions = DELIVERY_STATUS_VALUES.map(value => ({
+    value,
+    label: t(`deliveryTracking:statusOptions.${value}`),
+  }));
 
   const loadData = async () => {
     setLoading(true);
@@ -131,7 +136,7 @@ function DeliveryTrackingInner() {
       });
     } catch (err) {
       console.error('Failed to load delivery data:', err);
-      setError('Could not load delivery data. Please try again later.');
+      setError(t('deliveryTracking:error'));
     } finally {
       setLoading(false);
     }
@@ -180,10 +185,10 @@ function DeliveryTrackingInner() {
       const res = await updateDelivery(delivery.id, { status });
       setDeliveries(items => items.map(item => (item.id === delivery.id ? res.data.data : item)));
       setSelected(res.data.data);
-      setToast(`Order #${delivery.orderId} delivery updated.`);
+      setToast(t('deliveryTracking:toast.statusUpdated', { orderId: String(delivery.orderId) }));
     } catch (err) {
       console.error('Failed to update delivery:', err);
-      setToast('Could not update delivery.');
+      setToast(t('deliveryTracking:toast.updateError'));
     } finally {
       setSaving(false);
     }
@@ -193,14 +198,14 @@ function DeliveryTrackingInner() {
     if (!selected) return;
     setSaving(true);
     try {
-      const res = await updateDelivery(selected.id, { address: addressEdit.trim() || 'Address missing' });
+      const res = await updateDelivery(selected.id, { address: addressEdit.trim() || t('deliveryTracking:detail.addressMissing') });
       setDeliveries(items => items.map(item => (item.id === selected.id ? res.data.data : item)));
       setSelected(res.data.data);
       setAddressEdit('');
-      setToast(`Order #${selected.orderId} address updated.`);
+      setToast(t('deliveryTracking:toast.addressSaved', { orderId: String(selected.orderId) }));
     } catch (err) {
       console.error('Failed to update delivery address:', err);
-      setToast('Could not update delivery address.');
+      setToast(t('deliveryTracking:toast.addressError'));
     } finally {
       setSaving(false);
     }
@@ -214,10 +219,10 @@ function DeliveryTrackingInner() {
       setDeliveries(items => items.map(item => (item.id === selected.id ? res.data.data : item)));
       setSelected(res.data.data);
       setNotesEdit('');
-      setToast(`Order #${selected.orderId} notes updated.`);
+      setToast(t('deliveryTracking:toast.notesSaved', { orderId: String(selected.orderId) }));
     } catch (err) {
       console.error('Failed to update delivery notes:', err);
-      setToast('Could not update delivery notes.');
+      setToast(t('deliveryTracking:toast.notesError'));
     } finally {
       setSaving(false);
     }
@@ -230,8 +235,8 @@ function DeliveryTrackingInner() {
     try {
       const res = await createDelivery({
         order_id: deliveryForm.orderId,
-        address: deliveryForm.address.trim() || 'Address missing',
-        driver: deliveryForm.driver.trim() || 'Unassigned',
+        address: deliveryForm.address.trim() || t('deliveryTracking:detail.addressMissing'),
+        driver: deliveryForm.driver.trim() || t('deliveryTracking:detail.unassigned'),
         company: deliveryForm.company.trim(),
         phone: deliveryForm.phone.trim(),
         scheduled_date: deliveryForm.scheduledDate || undefined,
@@ -240,15 +245,17 @@ function DeliveryTrackingInner() {
 
       setDeliveryForm(null);
       setSelected(res.data.data);
-      setToast(`Delivery created for order #${res.data.data.orderId}.`);
+      setToast(t('deliveryTracking:toast.created', { orderId: String(res.data.data.orderId) }));
       await loadData();
     } catch (err) {
       console.error('Failed to create delivery:', err);
-      setToast('Could not create delivery for this order.');
+      setToast(t('deliveryTracking:toast.createError'));
     } finally {
       setSaving(false);
     }
   };
+
+  const lang = i18n.language;
 
   if (loading) {
     return (
@@ -273,34 +280,34 @@ function DeliveryTrackingInner() {
       <Topbar title={t('deliveryTracking:title')} />
 
       <section className="grid-4 delivery-stats-grid" style={{ marginBottom: 14 }}>
-        <StatCard label="Total Deliveries" value={stats.total} sub="Created deliveries" />
-        <StatCard label="On Time" value={stats.onTime} sub="Pending or out for delivery" />
-        <StatCard label="Delivered" value={stats.delivered} sub="Completed handoffs" />
-        <StatCard label="Delayed" value={stats.delayed} sub="Needs follow-up" />
-        <StatCard label="Lost in Transit" value={stats.lost} sub="Needs immediate action" />
+        <StatCard label={t('deliveryTracking:stats.total')} value={stats.total} sub={t('deliveryTracking:stats.totalSub')} />
+        <StatCard label={t('deliveryTracking:stats.onTime')} value={stats.onTime} sub={t('deliveryTracking:stats.onTimeSub')} />
+        <StatCard label={t('deliveryTracking:stats.delivered')} value={stats.delivered} sub={t('deliveryTracking:stats.deliveredSub')} />
+        <StatCard label={t('deliveryTracking:stats.delayed')} value={stats.delayed} sub={t('deliveryTracking:stats.delayedSub')} />
+        <StatCard label={t('deliveryTracking:stats.lost')} value={stats.lost} sub={t('deliveryTracking:stats.lostSub')} />
       </section>
 
       <section className="box" style={{ marginBottom: 14 }}>
         <div className="table-head" style={{ marginBottom: 14 }}>
           <div>
-            <h3>Delivery-Ready Orders</h3>
+            <h3>{t('deliveryTracking:readyOrders.title')}</h3>
             <p className="muted" style={{ fontSize: 13 }}>
-              Completed orders stay here until the owner chooses shipping. Pickup orders can stay completed without delivery.
+              {t('deliveryTracking:readyOrders.subtitle')}
             </p>
           </div>
         </div>
 
         {readyOrders.length === 0 ? (
-          <p className="muted">No completed orders waiting for delivery creation.</p>
+          <p className="muted">{t('deliveryTracking:readyOrders.empty')}</p>
         ) : (
           <table className="orders-table">
             <thead>
               <tr>
-                <th>Order</th>
-                <th>Client</th>
-                <th>Products</th>
-                <th>Completed</th>
-                <th>Action</th>
+                <th>{t('deliveryTracking:readyOrders.colOrder')}</th>
+                <th>{t('deliveryTracking:readyOrders.colClient')}</th>
+                <th>{t('deliveryTracking:readyOrders.colProducts')}</th>
+                <th>{t('deliveryTracking:readyOrders.colCompleted')}</th>
+                <th>{t('deliveryTracking:readyOrders.colAction')}</th>
               </tr>
             </thead>
             <tbody>
@@ -309,10 +316,10 @@ function DeliveryTrackingInner() {
                   <td>#{order.id}</td>
                   <td>{orderClientName(order)}</td>
                   <td>{productSummary(order)}</td>
-                  <td>{formatDate(order.completed_at || order.updated_at || order.created_at)}</td>
+                  <td>{formatDate(order.completed_at || order.updated_at || order.created_at, lang)}</td>
                   <td>
                     <button className="btn" onClick={() => setDeliveryForm(emptyForm(order))}>
-                      Create Delivery
+                      {t('deliveryTracking:readyOrders.createDelivery')}
                     </button>
                   </td>
                 </tr>
@@ -331,7 +338,7 @@ function DeliveryTrackingInner() {
                 <input
                   className="input"
                   type="search"
-                  placeholder="Search by order, client or status..."
+                  placeholder={t('deliveryTracking:table.searchPlaceholder')}
                   value={query}
                   onChange={event => setQuery(event.target.value)}
                 />
@@ -341,10 +348,10 @@ function DeliveryTrackingInner() {
                 {dropdownOpen && (
                   <div className="filter-dropdown show">
                     <div className="field">
-                      <label>Status</label>
+                      <label>{t('deliveryTracking:table.filter.label')}</label>
                       <select className="select" value={filterStatus} onChange={event => setFilterStatus(event.target.value)}>
-                        <option value="">All</option>
-                        {STATUS_OPTIONS.map(option => (
+                        <option value="">{t('deliveryTracking:table.filter.all')}</option>
+                        {statusOptions.map(option => (
                           <option key={option.value} value={option.value}>{option.label}</option>
                         ))}
                       </select>
@@ -359,7 +366,7 @@ function DeliveryTrackingInner() {
 
             <div className="job-cards">
               {filteredDeliveries.length === 0 ? (
-                <p className="muted" style={{ padding: '12px 0' }}>No matching deliveries.</p>
+                <p className="muted" style={{ padding: '12px 0' }}>{t('deliveryTracking:table.empty')}</p>
               ) : (
                 filteredDeliveries.map(delivery => (
                   <article
@@ -376,15 +383,32 @@ function DeliveryTrackingInner() {
                       <h4>Order #{delivery.orderId}</h4>
                       <StatusBadge status={delivery.status} />
                     </div>
-                    <p style={{ marginBottom: 2 }}><strong>Client:</strong> {delivery.clientName || `Client #${delivery.clientId}`}</p>
-                    <p style={{ marginBottom: 2 }}><strong>Driver:</strong> {delivery.driver || 'Unassigned'} - {delivery.company || 'No company'}</p>
-                    <p style={{ marginBottom: 2 }}><strong>Scheduled:</strong> {formatDate(delivery.scheduledDate)}</p>
-                    <p style={{ marginBottom: 6 }}><strong>Address:</strong> {delivery.address || 'Address missing'}</p>
+                    <p style={{ marginBottom: 2 }}>
+                      <strong>{t('deliveryTracking:card.client')}:</strong>{' '}
+                      {delivery.clientName || `Client #${delivery.clientId}`}
+                    </p>
+                    <p style={{ marginBottom: 2 }}>
+                      <strong>{t('deliveryTracking:card.driver')}:</strong>{' '}
+                      {delivery.driver || t('deliveryTracking:card.unassigned')} -{' '}
+                      {delivery.company || t('deliveryTracking:card.noCompany')}
+                    </p>
+                    <p style={{ marginBottom: 2 }}>
+                      <strong>{t('deliveryTracking:card.scheduled')}:</strong>{' '}
+                      {formatDate(delivery.scheduledDate, lang)}
+                    </p>
+                    <p style={{ marginBottom: 6 }}>
+                      <strong>{t('deliveryTracking:card.address')}:</strong>{' '}
+                      {delivery.address || t('deliveryTracking:card.addressMissing')}
+                    </p>
                     {delivery.notes && (
-                      <p style={{ marginBottom: 6 }}><strong>Notes:</strong> {delivery.notes}</p>
+                      <p style={{ marginBottom: 6 }}>
+                        <strong>{t('deliveryTracking:card.notes')}:</strong> {delivery.notes}
+                      </p>
                     )}
                     <ProgressBar percent={delivery.progress || 0} color={progressColor(delivery.status)} />
-                    <p style={{ fontSize: 11, marginTop: 4, color: 'var(--muted)' }}>{delivery.progress || 0}% delivery progress</p>
+                    <p style={{ fontSize: 11, marginTop: 4, color: 'var(--muted)' }}>
+                      {t('deliveryTracking:card.deliveryProgress', { percent: String(delivery.progress || 0) })}
+                    </p>
                   </article>
                 ))
               )}
@@ -406,29 +430,29 @@ function DeliveryTrackingInner() {
 
             <h4 style={{ margin: '12px 0 8px' }}>{t('deliveryTracking:detail.heading')}</h4>
             <ul style={{ listStyle: 'none', display: 'grid', gap: 6, fontSize: 13 }}>
-              <li><strong>Tracking ID:</strong> {selected.id}</li>
-              <li><strong>Address:</strong> {selected.address || 'Address missing'}</li>
-              <li><strong>Driver:</strong> {selected.driver || 'Unassigned'}</li>
-              <li><strong>Company:</strong> {selected.company || '-'}</li>
-              <li><strong>Phone:</strong> {selected.phone || '-'}</li>
-              <li><strong>Scheduled:</strong> {formatDate(selected.scheduledDate)}</li>
-              <li><strong>Delivered:</strong> {formatDate(selected.deliveredAt)}</li>
-              <li><strong>Notes:</strong> {selected.notes || '-'}</li>
+              <li><strong>{t('deliveryTracking:detail.trackingId')}:</strong> {selected.id}</li>
+              <li><strong>{t('deliveryTracking:detail.address')}:</strong> {selected.address || t('deliveryTracking:detail.addressMissing')}</li>
+              <li><strong>{t('deliveryTracking:detail.driver')}:</strong> {selected.driver || t('deliveryTracking:detail.unassigned')}</li>
+              <li><strong>{t('deliveryTracking:detail.company')}:</strong> {selected.company || t('deliveryTracking:detail.noValue')}</li>
+              <li><strong>{t('deliveryTracking:detail.phone')}:</strong> {selected.phone || t('deliveryTracking:detail.noValue')}</li>
+              <li><strong>{t('deliveryTracking:detail.scheduled')}:</strong> {formatDate(selected.scheduledDate, lang)}</li>
+              <li><strong>{t('deliveryTracking:detail.deliveredAt')}:</strong> {formatDate(selected.deliveredAt, lang)}</li>
+              <li><strong>{t('deliveryTracking:detail.notes')}:</strong> {selected.notes || t('deliveryTracking:detail.noValue')}</li>
             </ul>
 
             <div className="line" />
 
-            <h4 style={{ margin: '12px 0 8px' }}>Progress</h4>
+            <h4 style={{ margin: '12px 0 8px' }}>{t('deliveryTracking:detail.progress')}</h4>
             <ProgressBar percent={selected.progress || 0} color={progressColor(selected.status)} />
             <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
-              {selected.progress || 0}% complete
+              {t('deliveryTracking:detail.progressPct', { percent: String(selected.progress || 0) })}
             </p>
 
             <div className="line" />
 
-            <h4 style={{ margin: '12px 0 8px' }}>Update Status</h4>
+            <h4 style={{ margin: '12px 0 8px' }}>{t('deliveryTracking:detail.updateStatus')}</h4>
             <div style={{ display: 'grid', gap: 8 }}>
-              {STATUS_OPTIONS.map(option => (
+              {statusOptions.map(option => (
                 <button
                   key={option.value}
                   className={`btn block${selected.status === option.value ? ' primary' : ''}`}
@@ -442,11 +466,11 @@ function DeliveryTrackingInner() {
 
             <div className="line" />
 
-            <h4 style={{ margin: '12px 0 8px' }}>Address</h4>
+            <h4 style={{ margin: '12px 0 8px' }}>{t('deliveryTracking:detail.addressSection.label')}</h4>
             <input
               className="input"
               value={addressEdit}
-              placeholder={selected.address || 'Address missing'}
+              placeholder={selected.address || t('deliveryTracking:detail.addressSection.placeholder')}
               onChange={event => setAddressEdit(event.target.value)}
               style={{ marginBottom: 8, width: '100%' }}
             />
@@ -455,16 +479,16 @@ function DeliveryTrackingInner() {
               disabled={saving || !addressEdit.trim()}
               onClick={saveAddress}
             >
-              Save Address
+              {t('deliveryTracking:detail.addressSection.save')}
             </button>
 
             <div className="line" />
 
-            <h4 style={{ margin: '12px 0 8px' }}>Notes</h4>
+            <h4 style={{ margin: '12px 0 8px' }}>{t('deliveryTracking:detail.notesSection.label')}</h4>
             <textarea
               className="textarea"
               value={notesEdit}
-              placeholder={selected.notes || 'Add delivery notes...'}
+              placeholder={selected.notes || t('deliveryTracking:detail.notesSection.placeholder')}
               onChange={event => setNotesEdit(event.target.value)}
               style={{ marginBottom: 8, width: '100%' }}
             />
@@ -473,7 +497,7 @@ function DeliveryTrackingInner() {
               disabled={saving}
               onClick={saveNotes}
             >
-              Save Notes
+              {t('deliveryTracking:detail.notesSection.save')}
             </button>
           </aside>
         )}
@@ -483,22 +507,24 @@ function DeliveryTrackingInner() {
         <div className="modal-backdrop">
           <div className="modal-panel" style={{ maxWidth: 620 }}>
             <div className="modal-head">
-              <h2>Create Delivery for Order #{deliveryForm.orderId}</h2>
-              <button className="btn dark" onClick={() => setDeliveryForm(null)}>X Close</button>
+              <h2>{t('deliveryTracking:modal.title', { orderId: String(deliveryForm.orderId) })}</h2>
+              <button className="btn dark" onClick={() => setDeliveryForm(null)}>
+                {t('deliveryTracking:modal.close')}
+              </button>
             </div>
             <div className="modal-body">
               <div className="form-grid-2">
                 <label className="field">
-                  <span>Delivery Address</span>
+                  <span>{t('deliveryTracking:modal.address')}</span>
                   <input
                     className="input"
                     value={deliveryForm.address}
-                    placeholder="Address missing"
+                    placeholder={t('deliveryTracking:modal.addressPlaceholder')}
                     onChange={event => setDeliveryForm({ ...deliveryForm, address: event.target.value })}
                   />
                 </label>
                 <label className="field">
-                  <span>Scheduled Date</span>
+                  <span>{t('deliveryTracking:modal.scheduledDate')}</span>
                   <input
                     className="input"
                     type="date"
@@ -507,47 +533,49 @@ function DeliveryTrackingInner() {
                   />
                 </label>
                 <label className="field">
-                  <span>Driver</span>
+                  <span>{t('deliveryTracking:modal.driver')}</span>
                   <input
                     className="input"
                     value={deliveryForm.driver}
-                    placeholder="Unassigned"
+                    placeholder={t('deliveryTracking:modal.driverPlaceholder')}
                     onChange={event => setDeliveryForm({ ...deliveryForm, driver: event.target.value })}
                   />
                 </label>
                 <label className="field">
-                  <span>Company</span>
+                  <span>{t('deliveryTracking:modal.company')}</span>
                   <input
                     className="input"
                     value={deliveryForm.company}
-                    placeholder="Optional"
+                    placeholder={t('deliveryTracking:modal.companyPlaceholder')}
                     onChange={event => setDeliveryForm({ ...deliveryForm, company: event.target.value })}
                   />
                 </label>
                 <label className="field">
-                  <span>Phone</span>
+                  <span>{t('deliveryTracking:modal.phone')}</span>
                   <input
                     className="input"
                     value={deliveryForm.phone}
-                    placeholder="Optional"
+                    placeholder={t('deliveryTracking:modal.phonePlaceholder')}
                     onChange={event => setDeliveryForm({ ...deliveryForm, phone: event.target.value })}
                   />
                 </label>
                 <label className="field">
-                  <span>Notes</span>
+                  <span>{t('deliveryTracking:modal.notes')}</span>
                   <textarea
                     className="textarea"
                     value={deliveryForm.notes}
-                    placeholder="Optional delivery notes"
+                    placeholder={t('deliveryTracking:modal.notesPlaceholder')}
                     onChange={event => setDeliveryForm({ ...deliveryForm, notes: event.target.value })}
                   />
                 </label>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18 }}>
-                <button className="btn" onClick={() => setDeliveryForm(null)}>Cancel</button>
+                <button className="btn" onClick={() => setDeliveryForm(null)}>
+                  {t('deliveryTracking:modal.cancel')}
+                </button>
                 <button className="btn primary" disabled={saving} onClick={submitCreateDelivery}>
-                  {saving ? 'Creating...' : 'Create Delivery'}
+                  {saving ? t('deliveryTracking:modal.creating') : t('deliveryTracking:modal.create')}
                 </button>
               </div>
             </div>

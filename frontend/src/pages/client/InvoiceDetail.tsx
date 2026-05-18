@@ -43,15 +43,15 @@ interface LineItem {
   unitPrice: number;
 }
 
-function formatDate(isoDate: string | null): string {
+function formatDate(isoDate: string | null, lang: string): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function formatEGP(value: number): string {
-  return value.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function formatEGP(value: number, lang: string): string {
+  return value.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 export default function InvoiceDetail() {
@@ -63,7 +63,7 @@ export default function InvoiceDetail() {
 }
 
 function InvoiceDetailInner() {
-  const { t } = useTranslation(['common', 'clientInvoices']);
+  const { t, i18n } = useTranslation(['common', 'clientInvoices']);
   const { id: invoiceId = '' } = useParams<{ id: string }>();
   const { navigateTopLevel, goBack } = useNavigation();
   const [invoice, setInvoice] = useState<DisplayInvoice | null>(null);
@@ -100,9 +100,9 @@ function InvoiceDetailInner() {
           clientName,
           clientAddress,
           clientTaxId,
-          issued: formatDate(raw.created_at),
-          due: formatDate(raw.due_date),
-          paidDate: formatDate(raw.paid_date),
+          issued: formatDate(raw.created_at, i18n.language),
+          due: formatDate(raw.due_date, i18n.language),
+          paidDate: formatDate(raw.paid_date, i18n.language),
           amount: raw.total_amount ?? 0,
           status: raw.status || '—',
           vatRate: 0.14,
@@ -230,8 +230,8 @@ function InvoiceDetailInner() {
                     <tr key={idx}>
                       <td>{item.description}</td>
                       <td style={{ textAlign: 'center' }}>{item.quantity}</td>
-                      <td style={{ textAlign: 'right' }}>{formatEGP(item.unitPrice)}</td>
-                      <td style={{ textAlign: 'right' }}>{formatEGP(item.quantity * item.unitPrice)}</td>
+                      <td style={{ textAlign: 'right' }}>{formatEGP(item.unitPrice, i18n.language)}</td>
+                      <td style={{ textAlign: 'right' }}>{formatEGP(item.quantity * item.unitPrice, i18n.language)}</td>
                     </tr>
                   ))
                 )}
@@ -242,15 +242,15 @@ function InvoiceDetailInner() {
           <div className="invoice-totals">
             <div className="invoice-total-row">
               <span className="total-label">{t('clientInvoices:detail.subtotal')}</span>
-              <span className="total-value">{formatEGP(subtotal)}</span>
+              <span className="total-value">{formatEGP(subtotal, i18n.language)}</span>
             </div>
             <div className="invoice-total-row">
               <span className="total-label">{t('clientInvoices:detail.vat', { rate: (invoice.vatRate * 100).toFixed(0) })}</span>
-              <span className="total-value">{formatEGP(vat)}</span>
+              <span className="total-value">{formatEGP(vat, i18n.language)}</span>
             </div>
             <div className="invoice-total-row invoice-grand-total">
               <span className="total-label">{t('clientInvoices:detail.grandTotal')}</span>
-              <span className="total-value">{formatEGP(total)} EGP</span>
+              <span className="total-value">{formatEGP(total, i18n.language)} EGP</span>
             </div>
           </div>
 
