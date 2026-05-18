@@ -18,6 +18,12 @@ interface DisplayNotification {
   };
 }
 
+function translateActionLabel(label: string, t: (key: string) => string): string {
+  const keyPath = `actions.${label}`;
+  const translated = t(`clientNotifications:${keyPath}`);
+  return translated === keyPath ? label : translated;
+}
+
 function formatTime(iso: string): string {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return '—';
@@ -58,7 +64,7 @@ function ClientNotificationsInner() {
           body: n.body,
           unread: n.unread,
           action: {
-            label: n.action_label || t('common:actions.view'),
+            label: n.action_label || '',
             page: n.action_page || '/',
           },
         })));
@@ -120,12 +126,14 @@ function ClientNotificationsInner() {
             </div>
             <p>{n.body}</p>
             <div className="notification-actions" style={{ marginTop: 10, display: 'flex', gap: 8 }}>
-              <button
-                className={`btn btn-sm${n.unread ? ' primary' : ''}`}
-                onClick={() => navigateTopLevel(n.action.page)}
-              >
-                {n.action.label}
-              </button>
+              {n.action.label && (
+                <button
+                  className={`btn btn-sm${n.unread ? ' primary' : ''}`}
+                  onClick={() => navigateTopLevel(n.action.page)}
+                >
+                  {translateActionLabel(n.action.label, t)}
+                </button>
+              )}
               <button className="btn btn-sm btn-outline" onClick={() => dismiss(n.id)}>
                 {t('clientNotifications:dismiss')}
               </button>

@@ -3,5 +3,15 @@
   "loading": "Loading notifications...",
   "error": "Could not load your notifications. Please try again later.",
   "empty": "No notifications.",
-  "dismiss": "Dismiss"
+  "dismiss": "Dismiss",
+  "actions": {
+    "View quote": "View Quote",
+    "Open unpriced queue": "Open Unpriced Queue",
+    "Open dashboard": "Open Dashboard",
+    "View order": "View Order",
+    "Open production": "Open Production",
+    "View invoice": "View Invoice",
+    "Open delivery": "Open Delivery",
+    "View client": "View Client"
+  }
 }
