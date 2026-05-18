@@ -20,5 +20,15 @@
   "markUnread": "تعليم كغير مقروء",
   "delete": "حذف",
   "confirmDelete": "حذف هذا الإشعار؟",
-  "confirmClearRead": "حذف جميع الإشعارات المقروءة؟"
+  "confirmClearRead": "حذف جميع الإشعارات المقروءة؟",
+  "actions": {
+    "Open unpriced queue": "فتح قائمة التسعير",
+    "View quote": "عرض السعر",
+    "Open dashboard": "فتح لوحة التحكم",
+    "View order": "عرض الطلب",
+    "Open production": "فتح الإنتاج",
+    "View invoice": "عرض الفاتورة",
+    "Open delivery": "فتح التوصيل",
+    "View client": "عرض العميل"
+  }
 }

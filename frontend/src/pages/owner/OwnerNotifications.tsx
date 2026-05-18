@@ -13,6 +13,12 @@ import {
 } from '../../lib/api/notificationsService';
 import type { Notification } from '../../lib/api/notificationsService';
 
+function translateActionLabel(label: string, t: (key: string) => string): string {
+  const keyPath = `actions.${label}`;
+  const translated = t(`ownerNotifications:${keyPath}`);
+  return translated === keyPath ? label : translated;
+}
+
 function formatDateTime(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '-';
@@ -224,7 +230,7 @@ function OwnerNotificationsInner() {
                     type="button"
                     onClick={() => navigateTopLevel(notification.action_page || '')}
                   >
-                    {notification.action_label}
+                    {translateActionLabel(notification.action_label, t)}
                   </button>
                 )}
 

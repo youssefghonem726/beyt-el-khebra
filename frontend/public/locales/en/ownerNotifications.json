@@ -20,5 +20,15 @@
   "markUnread": "Mark unread",
   "delete": "Delete",
   "confirmDelete": "Delete this notification?",
-  "confirmClearRead": "Delete all read notifications?"
+  "confirmClearRead": "Delete all read notifications?",
+  "actions": {
+    "Open unpriced queue": "Open Unpriced Queue",
+    "View quote": "View Quote",
+    "Open dashboard": "Open Dashboard",
+    "View order": "View Order",
+    "Open production": "Open Production",
+    "View invoice": "View Invoice",
+    "Open delivery": "Open Delivery",
+    "View client": "View Client"
+  }
 }
