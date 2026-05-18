@@ -44,11 +44,11 @@ interface PricingState {
   notes: string;
 }
 
-function formatDate(isoDate: string | null): string {
-  if (!isoDate) return 'Not provided';
+function formatDate(isoDate: string | null, lang: string, fallback: string): string {
+  if (!isoDate) return fallback;
   const d = new Date(isoDate);
-  if (Number.isNaN(d.getTime())) return 'Not provided';
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  if (Number.isNaN(d.getTime())) return fallback;
+  return d.toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 function getShortOrderId(id: number | string): string {
@@ -60,8 +60,8 @@ function getProductFallback(order: any): string {
   return order.product_summary || order.upload?.file_name || `Order #${order.id}`;
 }
 
-function showValue(value: unknown): string {
-  if (value === null || value === undefined || value === '') return 'Not provided';
+function showValue(value: unknown, fallback: string): string {
+  if (value === null || value === undefined || value === '') return fallback;
   return String(value);
 }
 
@@ -82,7 +82,7 @@ export default function UnpricedQueue() {
 }
 
 function UnpricedQueueInner() {
-  const { t } = useTranslation(['common', 'unpricedQueue']);
+  const { t, i18n } = useTranslation(['common', 'unpricedQueue']);
 
   const [jobs, setJobs] = useState<UnpricedJob[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,7 +125,7 @@ function UnpricedQueueInner() {
           id: String(order.id),
           displayId: getShortOrderId(order.id),
           client: clientName,
-          clientEmail: order.customer_email || mappedClient?.email || 'Not provided',
+          clientEmail: order.customer_email || mappedClient?.email || t('unpricedQueue:notProvided'),
           product: getProductFallback(order),
           items: items.map((item: any) => ({
             id: item.id,
@@ -144,7 +144,7 @@ function UnpricedQueueInner() {
             coil: item.coil ?? null,
           })),
           qty,
-          deadline: formatDate(deadlineIso),
+          deadline: formatDate(deadlineIso, i18n.language, t('unpricedQueue:notProvided')),
           dueDate: deadlineIso,
           createdAt: order.created_at ?? null,
           notes: order.notes ?? null,
@@ -171,7 +171,7 @@ function UnpricedQueueInner() {
   };
 
   const cancelOrder = async (job: UnpricedJob) => {
-    const confirmed = window.confirm(`Cancel order ${job.displayId}? It will be removed from the unpriced queue.`);
+    const confirmed = window.confirm(t('unpricedQueue:cancelConfirm', { id: job.displayId }));
     if (!confirmed) return;
 
     setCancellingId(job.id);
@@ -182,7 +182,7 @@ function UnpricedQueueInner() {
       await fetchData();
     } catch (err) {
       console.error('Failed to cancel order:', err);
-      setError('Could not cancel this order. Please try again.');
+      setError(t('unpricedQueue:cancelError'));
     } finally {
       setCancellingId(null);
     }
@@ -369,7 +369,7 @@ function UnpricedQueueInner() {
                       <tbody>
                         <tr><th>{t('unpricedQueue:pricing.details.orderId')}</th><td>{j.displayId}</td><th>{t('unpricedQueue:pricing.details.client')}</th><td>{j.client}</td></tr>
                         <tr><th>{t('unpricedQueue:pricing.details.email')}</th><td>{j.clientEmail}</td><th>{t('unpricedQueue:pricing.details.dueDate')}</th><td>{j.deadline}</td></tr>
-                        <tr><th>{t('unpricedQueue:pricing.details.uploadedFiles')}</th><td>{showValue(j.uploadLabel)}</td><th>{t('unpricedQueue:pricing.details.orderNotes')}</th><td>{showValue(j.notes)}</td></tr>
+                        <tr><th>{t('unpricedQueue:pricing.details.uploadedFiles')}</th><td>{showValue(j.uploadLabel, t('unpricedQueue:notProvided'))}</td><th>{t('unpricedQueue:pricing.details.orderNotes')}</th><td>{showValue(j.notes, t('unpricedQueue:notProvided'))}</td></tr>
                       </tbody>
                     </table>
                   </div>
@@ -396,13 +396,13 @@ function UnpricedQueueInner() {
                           <tr key={item.id}>
                             <td>{item.item_type}</td>
                             <td>{item.quantity}</td>
-                            <td>{showValue(item.page_count ?? item.pages)}</td>
-                            <td>{showValue(item.size)}</td>
-                            <td>{showValue(item.paper ?? item.material)}</td>
-                            <td>{showValue(item.color_mode)}</td>
-                            <td>{showValue(item.cover)}</td>
-                            <td>{showValue(item.binding ?? item.coil)}</td>
-                            <td>{showValue(item.notes)}</td>
+                            <td>{showValue(item.page_count ?? item.pages, t('unpricedQueue:pricing.notProvided'))}</td>
+                            <td>{showValue(item.size, t('unpricedQueue:pricing.notProvided'))}</td>
+                            <td>{showValue(item.paper ?? item.material, t('unpricedQueue:pricing.notProvided'))}</td>
+                            <td>{showValue(item.color_mode, t('unpricedQueue:pricing.notProvided'))}</td>
+                            <td>{showValue(item.cover, t('unpricedQueue:pricing.notProvided'))}</td>
+                            <td>{showValue(item.binding ?? item.coil, t('unpricedQueue:pricing.notProvided'))}</td>
+                            <td>{showValue(item.notes, t('unpricedQueue:pricing.notProvided'))}</td>
                           </tr>
                         )) : (
                           <tr>

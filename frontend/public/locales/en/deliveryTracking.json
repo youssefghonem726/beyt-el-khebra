@@ -7,14 +7,27 @@
     "totalSub": "All active deliveries",
     "onTime": "On Time",
     "onTimeSub": "Running as scheduled",
+    "delivered": "Delivered",
+    "deliveredSub": "Completed handoffs",
     "delayed": "Delayed",
     "delayedSub": "Behind schedule",
     "lost": "Lost in Transit",
     "lostSub": "Needs immediate action"
   },
+  "readyOrders": {
+    "title": "Delivery-Ready Orders",
+    "subtitle": "Completed orders stay here until the owner chooses shipping. Pickup orders can stay completed without delivery.",
+    "empty": "No completed orders waiting for delivery creation.",
+    "colOrder": "Order",
+    "colClient": "Client",
+    "colProducts": "Products",
+    "colCompleted": "Completed",
+    "colAction": "Action",
+    "createDelivery": "Create Delivery"
+  },
   "table": {
     "title": "All Deliveries",
-    "searchPlaceholder": "Search by order, client or driver…",
+    "searchPlaceholder": "Search by order, client or status...",
     "empty": "No matching deliveries.",
     "filter": {
       "label": "Status",
@@ -22,14 +35,24 @@
       "onTime": "On Time",
       "delayed": "Delayed",
       "lost": "Lost in Transit",
+      "pending": "Pending",
+      "out_for_delivery": "Out for Delivery",
+      "delivered": "Delivered",
       "apply": "Apply"
     }
   },
   "card": {
     "client": "Client",
     "driver": "Driver",
+    "company": "Company",
     "address": "Address",
-    "progress": "{{percent}}% delivered"
+    "scheduled": "Scheduled",
+    "notes": "Notes",
+    "progress": "{{percent}}% delivered",
+    "deliveryProgress": "{{percent}}% delivery progress",
+    "unassigned": "Unassigned",
+    "noCompany": "No company",
+    "addressMissing": "Address missing"
   },
   "detail": {
     "heading": "Delivery Details",
@@ -38,6 +61,9 @@
     "driver": "Driver",
     "company": "Company",
     "phone": "Phone",
+    "scheduled": "Scheduled",
+    "deliveredAt": "Delivered",
+    "notes": "Notes",
     "progress": "Progress",
     "progressPct": "{{percent}}% complete",
     "lostWarning": "More than 2 days delayed",
@@ -57,12 +83,59 @@
     "keepDelivery": "Keep Delivery",
     "cancelConfirm": "Cancel delivery {{order}} for {{client}}? This cannot be undone.",
     "yesCancel": "Yes, Cancel",
-    "keep": "Keep"
+    "keep": "Keep",
+    "updateStatus": "Update Status",
+    "addressMissing": "Address missing",
+    "unassigned": "Unassigned",
+    "noValue": "-",
+    "addressSection": {
+      "label": "Address",
+      "placeholder": "Address missing",
+      "save": "Save Address"
+    },
+    "notesSection": {
+      "label": "Notes",
+      "placeholder": "Add delivery notes...",
+      "save": "Save Notes"
+    }
+  },
+  "statusOptions": {
+    "pending": "Pending",
+    "out_for_delivery": "Out for Delivery",
+    "delivered": "Delivered",
+    "delayed": "Delayed",
+    "lost": "Lost"
+  },
+  "modal": {
+    "title": "Create Delivery for Order #{{orderId}}",
+    "close": "✕ Close",
+    "address": "Delivery Address",
+    "addressPlaceholder": "Address missing",
+    "scheduledDate": "Scheduled Date",
+    "driver": "Driver",
+    "driverPlaceholder": "Unassigned",
+    "company": "Company",
+    "companyPlaceholder": "Optional",
+    "phone": "Phone",
+    "phonePlaceholder": "Optional",
+    "notes": "Notes",
+    "notesPlaceholder": "Optional delivery notes",
+    "cancel": "Cancel",
+    "creating": "Creating...",
+    "create": "Create Delivery"
   },
   "toast": {
     "delivered": "✓ {{order}} marked as delivered.",
     "rescheduled": "↻ {{order}} rescheduled to {{date}}.",
     "addressUpdated": "📍 {{order}} address updated.",
-    "cancelled": "✕ {{order}} delivery cancelled."
+    "cancelled": "✕ {{order}} delivery cancelled.",
+    "statusUpdated": "Order #{{orderId}} delivery updated.",
+    "addressSaved": "Order #{{orderId}} address updated.",
+    "notesSaved": "Order #{{orderId}} notes updated.",
+    "created": "Delivery created for order #{{orderId}}.",
+    "updateError": "Could not update delivery.",
+    "addressError": "Could not update delivery address.",
+    "notesError": "Could not update delivery notes.",
+    "createError": "Could not create delivery for this order."
   }
 }

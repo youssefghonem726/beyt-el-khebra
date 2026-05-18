@@ -29,6 +29,18 @@
     "Open production": "فتح الإنتاج",
     "View invoice": "عرض الفاتورة",
     "Open delivery": "فتح التوصيل",
-    "View client": "عرض العميل"
+    "View client": "عرض العميل",
+    "Open order": "فتح الطلب",
+    "View orders": "عرض الطلبات"
+  },
+  "messages": {
+    "titles": {
+      "quoteApproved": "تمت الموافقة على عرض السعر",
+      "newOrderPlaced": "طلب جديد"
+    },
+    "bodies": {
+      "quoteApproved": "تمت الموافقة على عرض السعر للطلب #{{orderId}}.",
+      "newOrderPlaced": "طلب جديد #{{orderId}} من العميل {{client}}."
+    }
   }
 }
