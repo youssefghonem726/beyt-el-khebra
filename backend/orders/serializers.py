@@ -76,6 +76,18 @@ class OrderSerializer(serializers.ModelSerializer):
                     "quantity": item.quantity or 1,
                     "notes": item.notes,
                     "current_step": item.current_step,
+                    "due_date": item.due_date,
+                    "unit_price": item.unit_price,
+                    "total_price": item.total_price,
+                    "page_count": getattr(item, "page_count", None),
+                    "pages": getattr(item, "pages", None),
+                    "size": getattr(item, "size", None),
+                    "paper": getattr(item, "paper", None),
+                    "material": getattr(item, "material", None),
+                    "color_mode": getattr(item, "color_mode", None),
+                    "cover": getattr(item, "cover", None),
+                    "binding": getattr(item, "binding", None),
+                    "coil": getattr(item, "coil", None),
                 }
                 for item in order_items
             ]
@@ -89,6 +101,18 @@ class OrderSerializer(serializers.ModelSerializer):
                     "quantity": item.quantity or 1,
                     "notes": package.notes,
                     "current_step": None,
+                    "due_date": None,
+                    "unit_price": None,
+                    "total_price": None,
+                    "page_count": None,
+                    "pages": None,
+                    "size": item.size,
+                    "paper": None,
+                    "material": None,
+                    "color_mode": item.print_side,
+                    "cover": item.cover_finish or item.cover_color or item.cover_weight,
+                    "binding": item.casing,
+                    "coil": None,
                 })
 
         return package_items

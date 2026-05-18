@@ -25,8 +25,10 @@ const STATUS_CLASS_MAP: Record<string, string> = {
   on_time:                     'delivery-on-time',
   delayed:                     'delivery-delayed',
   lost_in_transit:             'delivery-lost',
+  lost:                        'delivery-lost',
   scheduled:                   'done',
   in_transit:                  'in-progress',
+  out_for_delivery:            'in-progress',
   delivered:                   'done',
 };
 

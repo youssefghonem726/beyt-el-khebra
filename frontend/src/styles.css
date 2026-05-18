@@ -192,6 +192,10 @@ a:hover { color: var(--primary-dark); }
   margin-bottom: 20px;
 }
 
+.delivery-stats-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .card {
   display: flex;
   flex-direction: column;

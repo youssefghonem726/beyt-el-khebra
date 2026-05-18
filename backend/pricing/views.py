@@ -29,7 +29,43 @@ PRICING_FIELDS = [
 
 
 def default_pricing_row():
-    return Pricing.objects.filter(user__isnull=True).first()
+    return (
+        Pricing.objects.filter(user__isnull=True).order_by("id").first()
+        or Pricing.objects.filter(id=1).first()
+    )
+
+
+@api_view(["GET", "PATCH"])
+def pricing_default(request):
+    user, auth_error = get_authenticated_user(request)
+    if auth_error:
+        return auth_error
+
+    if user.role not in ("owner", "staff"):
+        return error_response("Forbidden", status_code=403)
+
+    pricing = default_pricing_row()
+
+    if request.method == "GET":
+        if not pricing:
+            return success_response("No default pricing found", data=None)
+
+        serializer = PricingSerializer(pricing)
+        data = serializer.data
+        data["source"] = "default"
+        return success_response("Default pricing fetched", data=data)
+
+    if not pricing:
+        pricing = Pricing.objects.create(user=None)
+
+    serializer = PricingSerializer(pricing, data=request.data, partial=True)
+    if serializer.is_valid():
+        serializer.save(user=None)
+        data = serializer.data
+        data["source"] = "default"
+        return success_response("Default pricing updated", data=data)
+
+    return error_response("Validation error", errors=serializer.errors, status_code=400)
 
 
 @api_view(["GET", "PATCH"])
