@@ -1,16 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useTranslation } from 'react-i18next';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatCard from '../../components/StatCard';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
 import { useNavigation } from '../../context/NavigationContext';
-// Direct service imports – bypasses VITE_USE_MOCK
 import { getDeliveries } from '../../lib/api/deliveriesService';
 import type { DeliveryResponse } from '../../lib/api/deliveriesService';
 import { getClients } from '../../lib/api/invoicesClientsSettingsService';
 
-// UI types
 interface Client {
   id: number | string;
   name: string;
@@ -42,7 +41,16 @@ function getStatusColor(status: string): 'green' | 'orange' | 'red' {
 }
 
 export default function DeliveryTracking() {
-  const { navigateTopLevel } = useNavigation();
+  return (
+    <Suspense fallback={null}>
+      <DeliveryTrackingInner />
+    </Suspense>
+  );
+}
+
+function DeliveryTrackingInner() {
+  const { t } = useTranslation(['common', 'deliveryTracking']);
+  const { navigateTopLevel: _nav } = useNavigation();
   const [deliveries, setDeliveries] = useState<DisplayDelivery[]>([]);
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState<string | null>(null);
@@ -66,7 +74,6 @@ export default function DeliveryTracking() {
         const raw: DeliveryResponse[] = deliveriesRes.data.data;
         const clients: Client[] = clientsRes.data.data.results;
 
-        // Build client name map
         const clientsMap = new Map<number, string>();
         clients.forEach(c => clientsMap.set(Number(c.id), c.name));
 
@@ -86,12 +93,11 @@ export default function DeliveryTracking() {
         setDeliveries(deliveryList);
         if (deliveryList.length > 0) setSelected(deliveryList[0]);
       } catch (err: any) {
-        // If deliveries endpoint is 404 (not built yet) → empty list
         if (err?.response?.status === 404) {
           setDeliveries([]);
         } else {
           console.error('Failed to load delivery data:', err);
-          setError('Could not load delivery data. Please try again later.');
+          setError(t('deliveryTracking:error'));
         }
       } finally {
         setLoading(false);
@@ -103,8 +109,8 @@ export default function DeliveryTracking() {
 
   useEffect(() => {
     if (!toast) return;
-    const t = setTimeout(() => setToast(null), 2800);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setToast(null), 2800);
+    return () => clearTimeout(timer);
   }, [toast]);
 
   const applyUpdate = (orderShortId: string, changes: Partial<DisplayDelivery>, message: string) => {
@@ -136,8 +142,8 @@ export default function DeliveryTracking() {
   if (loading) {
     return (
       <AppShell role="owner" activePage="delivery-tracking">
-        <Topbar title="Delivery Tracking" />
-        <div className="loading-state">Loading deliveries...</div>
+        <Topbar title={t('deliveryTracking:title')} />
+        <div className="loading-state">{t('deliveryTracking:loading')}</div>
       </AppShell>
     );
   }
@@ -145,7 +151,7 @@ export default function DeliveryTracking() {
   if (error) {
     return (
       <AppShell role="owner" activePage="delivery-tracking">
-        <Topbar title="Delivery Tracking" />
+        <Topbar title={t('deliveryTracking:title')} />
         <div className="error-state">{error}</div>
       </AppShell>
     );
@@ -155,26 +161,25 @@ export default function DeliveryTracking() {
 
   return (
     <AppShell role="owner" activePage="delivery-tracking">
-      <Topbar title="Delivery Tracking" />
+      <Topbar title={t('deliveryTracking:title')} />
 
       <section className="grid-4" style={{ marginBottom: 14 }}>
-        <StatCard label="Total Deliveries" value={deliveries.length} sub="All active deliveries"  />
-        <StatCard label="On Time"          value={onTime}            sub="Running as scheduled"   />
-        <StatCard label="Delayed"          value={delayed}           sub="Behind schedule"        />
-        <StatCard label="Lost in Transit"  value={lost}              sub="Needs immediate action" />
+        <StatCard label={t('deliveryTracking:stats.total')}   value={deliveries.length} sub={t('deliveryTracking:stats.totalSub')} />
+        <StatCard label={t('deliveryTracking:stats.onTime')}  value={onTime}            sub={t('deliveryTracking:stats.onTimeSub')} />
+        <StatCard label={t('deliveryTracking:stats.delayed')} value={delayed}           sub={t('deliveryTracking:stats.delayedSub')} />
+        <StatCard label={t('deliveryTracking:stats.lost')}    value={lost}              sub={t('deliveryTracking:stats.lostSub')} />
       </section>
 
       <section className="production-layout">
-        {/* ── Delivery list ── */}
         <div className="stack">
           <article className="table-wrap">
             <div className="table-head">
-              <h3>All Deliveries</h3>
+              <h3>{t('deliveryTracking:table.title')}</h3>
               <div className="search-container">
                 <input
                   className="input"
                   type="search"
-                  placeholder="Search by order, client or driver…"
+                  placeholder={t('deliveryTracking:table.searchPlaceholder')}
                   value={query}
                   onChange={e => setQuery(e.target.value)}
                 />
@@ -182,15 +187,17 @@ export default function DeliveryTracking() {
                 {dropdownOpen && (
                   <div className="filter-dropdown show">
                     <div className="field">
-                      <label>Status</label>
+                      <label>{t('deliveryTracking:table.filter.label')}</label>
                       <select className="select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-                        <option value="">All</option>
-                        <option value="on_time">On Time</option>
-                        <option value="delayed">Delayed</option>
-                        <option value="lost_in_transit">Lost in Transit</option>
+                        <option value="">{t('deliveryTracking:table.filter.all')}</option>
+                        <option value="on_time">{t('deliveryTracking:table.filter.onTime')}</option>
+                        <option value="delayed">{t('deliveryTracking:table.filter.delayed')}</option>
+                        <option value="lost_in_transit">{t('deliveryTracking:table.filter.lost')}</option>
                       </select>
                     </div>
-                    <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>Apply</button>
+                    <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>
+                      {t('deliveryTracking:table.filter.apply')}
+                    </button>
                   </div>
                 )}
               </div>
@@ -198,7 +205,7 @@ export default function DeliveryTracking() {
 
             <div className="job-cards">
               {filtered.length === 0 ? (
-                <p className="muted" style={{ padding: '12px 0' }}>No matching deliveries.</p>
+                <p className="muted" style={{ padding: '12px 0' }}>{t('deliveryTracking:table.empty')}</p>
               ) : filtered.map(d => (
                 <article
                   key={d.order}
@@ -210,18 +217,19 @@ export default function DeliveryTracking() {
                     <h4>{d.order}</h4>
                     <StatusBadge status={d.status} />
                   </div>
-                  <p style={{ marginBottom: 2 }}><strong>Client:</strong> {d.client}</p>
-                  <p style={{ marginBottom: 2 }}><strong>Driver:</strong> {d.driver} — {d.company}</p>
-                  <p style={{ marginBottom: 6 }}><strong>Address:</strong> {d.address}</p>
+                  <p style={{ marginBottom: 2 }}><strong>{t('deliveryTracking:card.client')}:</strong> {d.client}</p>
+                  <p style={{ marginBottom: 2 }}><strong>{t('deliveryTracking:card.driver')}:</strong> {d.driver} — {d.company}</p>
+                  <p style={{ marginBottom: 6 }}><strong>{t('deliveryTracking:card.address')}:</strong> {d.address}</p>
                   <ProgressBar percent={d.progress} color={statusColor(d.status)} />
-                  <p style={{ fontSize: 11, marginTop: 4, color: 'var(--muted)' }}>{d.progress}% delivered</p>
+                  <p style={{ fontSize: 11, marginTop: 4, color: 'var(--muted)' }}>
+                    {t('deliveryTracking:card.progress', { percent: d.progress })}
+                  </p>
                 </article>
               ))}
             </div>
           </article>
         </div>
 
-        {/* ── Delivery detail panel ── */}
         {selected && (
           <aside className="box" style={{ alignSelf: 'flex-start', position: 'sticky', top: 18 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
@@ -232,41 +240,47 @@ export default function DeliveryTracking() {
 
             <div className="line" />
 
-            <h4 style={{ margin: '12px 0 8px' }}>Delivery Details</h4>
+            <h4 style={{ margin: '12px 0 8px' }}>{t('deliveryTracking:detail.heading')}</h4>
             <ul style={{ listStyle: 'none', display: 'grid', gap: 6, fontSize: 13 }}>
-              <li><strong>Tracking ID:</strong> {selected.id}</li>
-              <li><strong>Address:</strong> {selected.address}</li>
-              <li><strong>Driver:</strong> {selected.driver}</li>
-              <li><strong>Company:</strong> {selected.company}</li>
-              <li><strong>Phone:</strong> {selected.phone}</li>
+              <li><strong>{t('deliveryTracking:detail.trackingId')}:</strong> {selected.id}</li>
+              <li><strong>{t('deliveryTracking:detail.address')}:</strong> {selected.address}</li>
+              <li><strong>{t('deliveryTracking:detail.driver')}:</strong> {selected.driver}</li>
+              <li><strong>{t('deliveryTracking:detail.company')}:</strong> {selected.company}</li>
+              <li><strong>{t('deliveryTracking:detail.phone')}:</strong> {selected.phone}</li>
             </ul>
 
             <div className="line" />
 
-            <h4 style={{ margin: '12px 0 8px' }}>Progress</h4>
+            <h4 style={{ margin: '12px 0 8px' }}>{t('deliveryTracking:detail.progress')}</h4>
             <ProgressBar percent={selected.progress} color={statusColor(selected.status)} />
             <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
-              {selected.progress}% complete
+              {t('deliveryTracking:detail.progressPct', { percent: selected.progress })}
               {selected.status === 'lost_in_transit' && (
-                <span style={{ color: '#d9534f', marginLeft: 8 }}>More than 2 days delayed</span>
+                <span style={{ color: '#d9534f', marginLeft: 8 }}>{t('deliveryTracking:detail.lostWarning')}</span>
               )}
             </p>
 
             <div className="line" />
 
-            <h4 style={{ margin: '12px 0 8px' }}>Actions</h4>
+            <h4 style={{ margin: '12px 0 8px' }}>{t('deliveryTracking:detail.actions')}</h4>
 
             {isClosed ? (
               <p style={{ fontSize: 13, color: 'var(--muted)' }}>
-                {selected.status === 'delivered' ? '✓ Delivery completed.' : '✕ Delivery cancelled.'}
+                {selected.status === 'delivered'
+                  ? t('deliveryTracking:detail.deliveredClosed')
+                  : t('deliveryTracking:detail.cancelledClosed')}
               </p>
             ) : (
               <>
                 <button
                   className="btn primary block"
-                  onClick={() => applyUpdate(selected.order, { status: 'delivered', progress: 100, color: 'green' }, `✓ ${selected.order} marked as delivered.`)}
+                  onClick={() => applyUpdate(
+                    selected.order,
+                    { status: 'delivered', progress: 100, color: 'green' },
+                    t('deliveryTracking:toast.delivered', { order: selected.order }),
+                  )}
                 >
-                  Mark as Delivered
+                  {t('deliveryTracking:detail.markDelivered')}
                 </button>
 
                 <button
@@ -274,11 +288,15 @@ export default function DeliveryTracking() {
                   style={{ marginTop: 8 }}
                   onClick={() => { setActiveAction(activeAction === 'reschedule' ? null : 'reschedule'); setRescheduleDate(''); }}
                 >
-                  {activeAction === 'reschedule' ? 'Cancel Reschedule' : 'Reschedule'}
+                  {activeAction === 'reschedule'
+                    ? t('deliveryTracking:detail.cancelReschedule')
+                    : t('deliveryTracking:detail.reschedule')}
                 </button>
                 {activeAction === 'reschedule' && (
                   <div style={{ marginTop: 10, padding: '12px', background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--border)' }}>
-                    <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 6 }}>New delivery date</label>
+                    <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 6 }}>
+                      {t('deliveryTracking:detail.rescheduleLabel')}
+                    </label>
                     <input
                       className="input"
                       type="date"
@@ -290,11 +308,17 @@ export default function DeliveryTracking() {
                       <button
                         className="btn primary"
                         disabled={!rescheduleDate}
-                        onClick={() => applyUpdate(selected.order, { status: 'delayed', color: 'orange' }, `↻ ${selected.order} rescheduled to ${rescheduleDate}.`)}
+                        onClick={() => applyUpdate(
+                          selected.order,
+                          { status: 'delayed', color: 'orange' },
+                          t('deliveryTracking:toast.rescheduled', { order: selected.order, date: rescheduleDate }),
+                        )}
                       >
-                        Save
+                        {t('deliveryTracking:detail.save')}
                       </button>
-                      <button className="btn" onClick={() => setActiveAction(null)}>Cancel</button>
+                      <button className="btn" onClick={() => setActiveAction(null)}>
+                        {t('deliveryTracking:detail.cancel')}
+                      </button>
                     </div>
                   </div>
                 )}
@@ -304,11 +328,15 @@ export default function DeliveryTracking() {
                   style={{ marginTop: 8 }}
                   onClick={() => { setActiveAction(activeAction === 'address' ? null : 'address'); setNewAddress(selected.address); }}
                 >
-                  {activeAction === 'address' ? 'Cancel Address Change' : 'Change Address'}
+                  {activeAction === 'address'
+                    ? t('deliveryTracking:detail.cancelAddressChange')
+                    : t('deliveryTracking:detail.changeAddress')}
                 </button>
                 {activeAction === 'address' && (
                   <div style={{ marginTop: 10, padding: '12px', background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--border)' }}>
-                    <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 6 }}>New delivery address</label>
+                    <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 6 }}>
+                      {t('deliveryTracking:detail.newAddressLabel')}
+                    </label>
                     <input
                       className="input"
                       type="text"
@@ -320,11 +348,17 @@ export default function DeliveryTracking() {
                       <button
                         className="btn primary"
                         disabled={!newAddress.trim()}
-                        onClick={() => applyUpdate(selected.order, { address: newAddress.trim() }, `📍 ${selected.order} address updated.`)}
+                        onClick={() => applyUpdate(
+                          selected.order,
+                          { address: newAddress.trim() },
+                          t('deliveryTracking:toast.addressUpdated', { order: selected.order }),
+                        )}
                       >
-                        Save
+                        {t('deliveryTracking:detail.save')}
                       </button>
-                      <button className="btn" onClick={() => setActiveAction(null)}>Cancel</button>
+                      <button className="btn" onClick={() => setActiveAction(null)}>
+                        {t('deliveryTracking:detail.cancel')}
+                      </button>
                     </div>
                   </div>
                 )}
@@ -334,22 +368,30 @@ export default function DeliveryTracking() {
                   style={{ marginTop: 8, color: '#d9534f' }}
                   onClick={() => setActiveAction(activeAction === 'cancel' ? null : 'cancel')}
                 >
-                  {activeAction === 'cancel' ? 'Keep Delivery' : 'Cancel Delivery'}
+                  {activeAction === 'cancel'
+                    ? t('deliveryTracking:detail.keepDelivery')
+                    : t('deliveryTracking:detail.cancelDelivery')}
                 </button>
                 {activeAction === 'cancel' && (
                   <div style={{ marginTop: 10, padding: '12px', background: '#fff5f5', borderRadius: 8, border: '1px solid #f5c6cb' }}>
                     <p style={{ fontSize: 13, marginBottom: 10 }}>
-                      Cancel delivery <strong>{selected.order}</strong> for <strong>{selected.client}</strong>? This cannot be undone.
+                      {t('deliveryTracking:detail.cancelConfirm', { order: selected.order, client: selected.client })}
                     </p>
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button
                         className="btn"
                         style={{ background: '#d9534f', color: '#fff', border: 'none' }}
-                        onClick={() => applyUpdate(selected.order, { status: 'cancelled', progress: 0, color: 'red' }, `✕ ${selected.order} delivery cancelled.`)}
+                        onClick={() => applyUpdate(
+                          selected.order,
+                          { status: 'cancelled', progress: 0, color: 'red' },
+                          t('deliveryTracking:toast.cancelled', { order: selected.order }),
+                        )}
                       >
-                        Yes, Cancel
+                        {t('deliveryTracking:detail.yesCancel')}
                       </button>
-                      <button className="btn" onClick={() => setActiveAction(null)}>Keep</button>
+                      <button className="btn" onClick={() => setActiveAction(null)}>
+                        {t('deliveryTracking:detail.keep')}
+                      </button>
                     </div>
                   </div>
                 )}
