@@ -1,6 +1,7 @@
 // OwnerPanels.tsx (full refactored version)
 
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import StatCard from '../../components/StatCard';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
@@ -117,6 +118,7 @@ type PanelView =
   | { kind: 'work-view'; id: string; displayId: string; client: string; product: string; qty: number; progress: number; paper: string };
 
 export function ManagerOrdersPanel({ initialFilter = 'all' }: { initialFilter?: ManagerOrdersFilter }) {
+  const { t } = useTranslation(['common', 'managerOrders']);
   const [view, setView] = useState<PanelView | null>(null);
   const [pending, setPending] = useState<OrderBrief[]>([]);
   const [working, setWorking] = useState<WorkOrder[]>([]);
@@ -224,32 +226,34 @@ export function ManagerOrdersPanel({ initialFilter = 'all' }: { initialFilter?: 
         setWorkStages(stagesMap);
       } catch (err) {
         console.error(err);
-        setError('Could not load manager orders data.');
+        setError(t('managerOrders:error'));
       } finally {
         setLoading(false);
       }
     })();
   }, []);
 
-  if (loading) return <div className="loading-state">Loading orders…</div>;
+  if (loading) return <div className="loading-state">{t('managerOrders:loading')}</div>;
   if (error) return <div className="error-state">{error}</div>;
 
   if (view?.kind === 'order') {
     const detail = orderDetails[view.id];
     return (
       <div>
-        <button className="btn" style={{ marginBottom: 16 }} onClick={() => setView(null)}>← Back to Orders</button>
+        <button className="btn" style={{ marginBottom: 16 }} onClick={() => setView(null)}>
+          {t('managerOrders:back')}
+        </button>
         <div className="box">
-          <h3 style={{ marginBottom: 12 }}>Order {view.displayId}</h3>
+          <h3 style={{ marginBottom: 12 }}>{t('managerOrders:detail.title', { displayId: view.displayId })}</h3>
           <div className="form-grid-2" style={{ fontSize: 14 }}>
-            <p><strong>Client:</strong> {view.client}</p>
-            <p><strong>Status:</strong> <StatusBadge status={view.status} /></p>
+            <p><strong>{t('managerOrders:detail.client')}:</strong> {view.client}</p>
+            <p><strong>{t('managerOrders:detail.status')}:</strong> <StatusBadge status={view.status} /></p>
             {detail && (
               <>
-                <p><strong>Product:</strong> {detail.product}</p>
-                <p><strong>Quantity:</strong> {detail.qty} pcs</p>
-                <p><strong>Paper / Material:</strong> {detail.paper}</p>
-                <p style={{ gridColumn: '1 / -1' }}><strong>Notes:</strong> {detail.notes}</p>
+                <p><strong>{t('managerOrders:detail.product')}:</strong> {detail.product}</p>
+                <p><strong>{t('managerOrders:detail.qty')}:</strong> {detail.qty} {t('managerOrders:detail.pcs')}</p>
+                <p><strong>{t('managerOrders:detail.paper')}:</strong> {detail.paper}</p>
+                <p style={{ gridColumn: '1 / -1' }}><strong>{t('managerOrders:detail.notes')}:</strong> {detail.notes}</p>
               </>
             )}
           </div>
@@ -263,16 +267,24 @@ export function ManagerOrdersPanel({ initialFilter = 'all' }: { initialFilter?: 
     const stages = workStages[view.id] || [];
     return (
       <div>
-        <button className="btn" style={{ marginBottom: 16 }} onClick={() => setView(null)}>← Back to Orders</button>
+        <button className="btn" style={{ marginBottom: 16 }} onClick={() => setView(null)}>
+          {t('managerOrders:back')}
+        </button>
         <div className="box">
-          <h3 style={{ marginBottom: 4 }}>Work View — {view.displayId}</h3>
+          <h3 style={{ marginBottom: 4 }}>{t('managerOrders:workView.title', { displayId: view.displayId })}</h3>
           <p className="muted" style={{ fontSize: 13, marginBottom: 12 }}>{view.client} · {view.product}</p>
           <ProgressBar percent={pct} color={pct === 100 ? 'green' : pct >= 50 ? 'orange' : undefined} />
           <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6, marginBottom: 14 }}>
-            {view.progress} / {view.qty} printed ({pct}%)
+            {view.progress} / {view.qty} {t('managerOrders:workView.printed')} ({pct}%)
           </p>
           <table className="orders-table">
-            <thead><tr><th>Stage</th><th>Status</th><th>Updated At</th></tr></thead>
+            <thead>
+              <tr>
+                <th>{t('managerOrders:workView.stage')}</th>
+                <th>{t('managerOrders:workView.statusCol')}</th>
+                <th>{t('managerOrders:workView.updatedAt')}</th>
+              </tr>
+            </thead>
             <tbody>
               {stages.map(s => (
                 <tr key={s.stage}>
@@ -296,9 +308,16 @@ export function ManagerOrdersPanel({ initialFilter = 'all' }: { initialFilter?: 
     <div className="stack">
       <div className="grid-2">
         {showPending && <article className="table-wrap">
-          <div className="table-head"><h3>Pending Orders</h3></div>
+          <div className="table-head"><h3>{t('managerOrders:pending.title')}</h3></div>
           <table className="orders-table">
-            <thead><tr><th>Order</th><th>Status</th><th>Client</th><th>Action</th></tr></thead>
+            <thead>
+              <tr>
+                <th>{t('managerOrders:table.order')}</th>
+                <th>{t('managerOrders:table.status')}</th>
+                <th>{t('managerOrders:table.client')}</th>
+                <th>{t('managerOrders:table.action')}</th>
+              </tr>
+            </thead>
             <tbody>
               {pending.map(o => (
                 <tr key={o.id}>
@@ -310,19 +329,26 @@ export function ManagerOrdersPanel({ initialFilter = 'all' }: { initialFilter?: 
                       className="btn"
                       onClick={() => setView({ kind: 'order', id: o.id, displayId: o.displayId, client: o.client, status: o.status })}
                     >
-                      View
+                      {t('managerOrders:table.view')}
                     </button>
                   </td>
                 </tr>
               ))}
-              {pending.length === 0 && <tr><td colSpan={4}>No pending orders</td></tr>}
+              {pending.length === 0 && <tr><td colSpan={4}>{t('managerOrders:pending.empty')}</td></tr>}
             </tbody>
           </table>
         </article>}
         {showWorking && <article className="table-wrap">
-          <div className="table-head"><h3>Working Orders</h3></div>
+          <div className="table-head"><h3>{t('managerOrders:working.title')}</h3></div>
           <table className="orders-table">
-            <thead><tr><th>Order</th><th>Status</th><th>Client</th><th>Action</th></tr></thead>
+            <thead>
+              <tr>
+                <th>{t('managerOrders:table.order')}</th>
+                <th>{t('managerOrders:table.status')}</th>
+                <th>{t('managerOrders:table.client')}</th>
+                <th>{t('managerOrders:table.action')}</th>
+              </tr>
+            </thead>
             <tbody>
               {working.map(o => (
                 <tr key={o.id}>
@@ -334,20 +360,28 @@ export function ManagerOrdersPanel({ initialFilter = 'all' }: { initialFilter?: 
                       className="btn"
                       onClick={() => setView({ kind: 'work-view', id: o.id, displayId: o.displayId, client: o.client, product: o.product, qty: o.qty, progress: o.progress, paper: o.paper })}
                     >
-                      Work View
+                      {t('managerOrders:working.workView')}
                     </button>
                   </td>
                 </tr>
               ))}
-              {working.length === 0 && <tr><td colSpan={4}>No working orders</td></tr>}
+              {working.length === 0 && <tr><td colSpan={4}>{t('managerOrders:working.empty')}</td></tr>}
             </tbody>
           </table>
         </article>}
       </div>
       {showCompleted && <article className="table-wrap">
-        <div className="table-head"><h3>Completed Orders</h3></div>
+        <div className="table-head"><h3>{t('managerOrders:completed.title')}</h3></div>
         <table className="orders-table">
-          <thead><tr><th>Order</th><th>Status</th><th>Client</th><th>Completed At</th><th>Action</th></tr></thead>
+          <thead>
+            <tr>
+              <th>{t('managerOrders:table.order')}</th>
+              <th>{t('managerOrders:table.status')}</th>
+              <th>{t('managerOrders:table.client')}</th>
+              <th>{t('managerOrders:completed.completedAt')}</th>
+              <th>{t('managerOrders:table.action')}</th>
+            </tr>
+          </thead>
           <tbody>
             {completed.map(o => (
               <tr key={o.id}>
@@ -360,12 +394,12 @@ export function ManagerOrdersPanel({ initialFilter = 'all' }: { initialFilter?: 
                     className="btn"
                     onClick={() => setView({ kind: 'order', id: o.id, displayId: o.displayId, client: o.client, status: o.status })}
                   >
-                    View
+                    {t('managerOrders:table.view')}
                   </button>
                 </td>
               </tr>
             ))}
-            {completed.length === 0 && <tr><td colSpan={5}>No completed orders</td></tr>}
+            {completed.length === 0 && <tr><td colSpan={5}>{t('managerOrders:completed.empty')}</td></tr>}
           </tbody>
         </table>
       </article>}
@@ -384,6 +418,7 @@ interface BatchView {
 }
 
 export function BatchLookupPanel() {
+  const { t } = useTranslation(['common', 'batchLookup']);
   const [query, setQuery] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [selected, setSelected] = useState<BatchView | null>(null);
@@ -420,14 +455,14 @@ export function BatchLookupPanel() {
         setBatches(views);
       } catch (err) {
         console.error(err);
-        setError('Could not load batch data.');
+        setError(t('batchLookup:error'));
       } finally {
         setLoading(false);
       }
     })();
   }, []);
 
-  if (loading) return <div className="loading-state">Loading batches…</div>;
+  if (loading) return <div className="loading-state">{t('batchLookup:loading')}</div>;
   if (error) return <div className="error-state">{error}</div>;
 
   const filtered = batches.filter(b => {
@@ -438,14 +473,16 @@ export function BatchLookupPanel() {
   if (selected) {
     return (
       <div>
-        <button className="btn" style={{ marginBottom: 16 }} onClick={() => setSelected(null)}>← Back to Batch List</button>
+        <button className="btn" style={{ marginBottom: 16 }} onClick={() => setSelected(null)}>
+          {t('batchLookup:back')}
+        </button>
         <div className="box">
-          <h3 style={{ marginBottom: 12 }}>Batch {selected.code}</h3>
+          <h3 style={{ marginBottom: 12 }}>{t('batchLookup:modal.title', { code: selected.code })}</h3>
           <div className="form-grid-2" style={{ fontSize: 14 }}>
-            <p><strong>Order:</strong> {selected.order}</p>
-            <p><strong>Client:</strong> {selected.client}</p>
-            <p><strong>Date:</strong> {selected.date}</p>
-            <p><strong>Status:</strong> <StatusBadge status={selected.status} /></p>
+            <p><strong>{t('batchLookup:table.order')}:</strong> {selected.order}</p>
+            <p><strong>{t('batchLookup:modal.client')}:</strong> {selected.client}</p>
+            <p><strong>{t('batchLookup:table.date')}:</strong> {selected.date}</p>
+            <p><strong>{t('batchLookup:table.status')}:</strong> <StatusBadge status={selected.status} /></p>
           </div>
         </div>
       </div>
@@ -459,7 +496,7 @@ export function BatchLookupPanel() {
           <input
             className="input"
             type="search"
-            placeholder="Search by batch code, order ID, or client..."
+            placeholder={t('batchLookup:searchPlaceholder')}
             value={query}
             onChange={e => setQuery(e.target.value)}
           />
@@ -467,14 +504,16 @@ export function BatchLookupPanel() {
           {dropdownOpen && (
             <div className="filter-dropdown show">
               <div className="field">
-                <label>Status</label>
+                <label>{t('batchLookup:table.status')}</label>
                 <select className="select">
-                  <option value="">All Status</option>
-                  <option>Active</option>
-                  <option>Completed</option>
+                  <option value="">{t('batchLookup:filter.all')}</option>
+                  <option>{t('batchLookup:filter.active')}</option>
+                  <option>{t('batchLookup:filter.completed')}</option>
                 </select>
               </div>
-              <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>Apply</button>
+              <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>
+                {t('batchLookup:filter.apply')}
+              </button>
             </div>
           )}
         </div>
@@ -487,17 +526,24 @@ export function BatchLookupPanel() {
             downloadText('batch-export.csv', [header, ...rows]);
           }}
         >
-          Export CSV
+          {t('batchLookup:export')}
         </button>
       </div>
       <div className="table-responsive">
         <table className="orders-table">
           <thead>
-            <tr><th>Batch Code</th><th>Order</th><th>Client</th><th>Status</th><th>Date</th><th>Action</th></tr>
+            <tr>
+              <th>{t('batchLookup:table.batchCode')}</th>
+              <th>{t('batchLookup:table.order')}</th>
+              <th>{t('batchLookup:table.clientName')}</th>
+              <th>{t('batchLookup:table.status')}</th>
+              <th>{t('batchLookup:table.date')}</th>
+              <th>{t('batchLookup:table.action')}</th>
+            </tr>
           </thead>
           <tbody>
             {filtered.length === 0
-              ? <tr><td colSpan={6} className="no-results">No matching results</td></tr>
+              ? <tr><td colSpan={6} className="no-results">{t('batchLookup:noResults')}</td></tr>
               : filtered.map(b => (
                 <tr key={b.code}>
                   <td>{b.code}</td>
@@ -505,7 +551,7 @@ export function BatchLookupPanel() {
                   <td>{b.client}</td>
                   <td><StatusBadge status={b.status} /></td>
                   <td>{b.date}</td>
-                  <td><button className="btn" onClick={() => setSelected(b)}>View</button></td>
+                  <td><button className="btn" onClick={() => setSelected(b)}>{t('batchLookup:table.view')}</button></td>
                 </tr>
               ))}
           </tbody>
@@ -518,6 +564,7 @@ export function BatchLookupPanel() {
 // ─── Accounting Panel ─────────────────────────────────────────────────────────
 
 export function AccountingPanel() {
+  const { t } = useTranslation(['common', 'accounting']);
   const [invoices, setInvoices] = useState<any[]>([]);
   const [stats, setStats] = useState<{ label: string; value: string | number; sub: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -544,22 +591,22 @@ export function AccountingPanel() {
         const unpaidCount = overview.stats?.unpaid_orders ?? 0;
 
         setStats([
-          { label: 'Revenue Snapshot', value: `EGP ${(paidTotal / 1000).toFixed(0)}K`, sub: 'Total paid amount' },
-          { label: 'Pending Collection', value: `EGP ${(pendingTotal / 1000).toFixed(0)}K`, sub: 'Remaining order amount' },
-          { label: 'Paid Orders', value: paidCount, sub: 'Orders fully paid' },
-          { label: 'Unpaid Orders', value: unpaidCount, sub: 'Need finance follow-up' },
+          { label: t('accounting:stats.revenueSnapshot'), value: `EGP ${(paidTotal / 1000).toFixed(0)}K`, sub: t('accounting:stats.revenueSnapshotSub') },
+          { label: t('accounting:stats.pendingCollection'), value: `EGP ${(pendingTotal / 1000).toFixed(0)}K`, sub: t('accounting:stats.pendingCollectionSub') },
+          { label: t('accounting:stats.paidOrders'), value: paidCount, sub: t('accounting:stats.paidOrdersSub') },
+          { label: t('accounting:stats.unpaidOrders'), value: unpaidCount, sub: t('accounting:stats.unpaidOrdersSub') },
         ]);
         setInvoices(enriched);
       } catch (err) {
         console.error(err);
-        setError('Could not load accounting data.');
+        setError(t('accounting:error'));
       } finally {
         setLoading(false);
       }
     })();
   }, []);
 
-  if (loading) return <div className="loading-state">Loading accounting data…</div>;
+  if (loading) return <div className="loading-state">{t('accounting:loading')}</div>;
   if (error) return <div className="error-state">{error}</div>;
 
   return (
@@ -570,11 +617,18 @@ export function AccountingPanel() {
       <div className="table-responsive">
         <table className="orders-table">
           <thead>
-            <tr><th>Invoice #</th><th>Order</th><th>Client</th><th>Total</th><th>Status</th><th>Action</th></tr>
+            <tr>
+              <th>{t('accounting:invoices.colInvoice')}</th>
+              <th>{t('accounting:invoices.colOrder')}</th>
+              <th>{t('accounting:invoices.colClient')}</th>
+              <th>{t('accounting:invoices.colTotal')}</th>
+              <th>{t('accounting:invoices.colStatus')}</th>
+              <th>{t('accounting:invoices.colAction')}</th>
+            </tr>
           </thead>
           <tbody>
             {invoices.length === 0
-              ? <tr><td colSpan={6} className="no-results">No invoices found</td></tr>
+              ? <tr><td colSpan={6} className="no-results">{t('accounting:invoices.empty')}</td></tr>
               : invoices.map(inv => (
                 <tr key={inv.id}>
                   <td>{inv.id}</td>
@@ -595,7 +649,7 @@ export function AccountingPanel() {
                         ])
                       }
                     >
-                      Download
+                      {t('accounting:invoices.downloadBtn')}
                     </button>
                   </td>
                 </tr>
@@ -609,7 +663,6 @@ export function AccountingPanel() {
 
 // ─── Settings Panel ───────────────────────────────────────────────────────────
 
-// Maps backend UserProfile → local display row
 interface UserRow {
   id: number;
   email: string;
@@ -627,6 +680,7 @@ function toUserRow(u: UserProfile): UserRow {
 }
 
 export function SettingsPanel() {
+  const { t } = useTranslation(['common', 'ownerSettings']);
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -637,7 +691,6 @@ export function SettingsPanel() {
     template: 'Hello {{client_name}}, your order {{order_id}} is now {{status}}.',
   });
 
-  // Edit state — keyed by numeric user id
   const [editId, setEditId] = useState<number | null>(null);
   const [editRole, setEditRole] = useState<UserProfile['role']>('staff');
   const [editStatus, setEditStatus] = useState<'active' | 'inactive'>('active');
@@ -659,7 +712,6 @@ export function SettingsPanel() {
 
   const cancelEdit = () => setEditId(null);
 
-  // Calls PATCH /api/users/<id>/ — updates Supabase via backend
   const saveEdit = async () => {
     if (editId === null) return;
     setSaving(true);
@@ -668,17 +720,16 @@ export function SettingsPanel() {
         role: editRole,
         is_active: editStatus === 'active',
       });
-      // Only update local state after server confirms success
       setUsers(prev =>
         prev.map(u =>
           u.id === editId ? { ...u, role: editRole, status: editStatus } : u
         )
       );
       setEditId(null);
-      showToast('User updated successfully.');
+      showToast(t('ownerSettings:users.toastSaved'));
     } catch (err) {
       console.error(err);
-      showToast('Failed to save. Please try again.');
+      showToast(t('ownerSettings:users.toastError'));
     } finally {
       setSaving(false);
     }
@@ -687,7 +738,7 @@ export function SettingsPanel() {
   const handleSavePricingRoles = async () => {
     const threshold = Number(pricing.threshold);
     if (!pricing.owner.trim() || Number.isNaN(threshold) || threshold < 0) {
-      showToast('Enter a valid pricing owner and threshold.');
+      showToast(t('ownerSettings:pricingRoles.toastInvalid'));
       return;
     }
 
@@ -701,10 +752,10 @@ export function SettingsPanel() {
         owner: res.data.data.value.owner,
         threshold: String(res.data.data.value.approval_threshold),
       });
-      showToast('Pricing roles saved.');
+      showToast(t('ownerSettings:pricingRoles.toastSaved'));
     } catch (err) {
       console.error('Failed to save pricing roles:', err);
-      showToast('Could not save pricing roles.');
+      showToast(t('ownerSettings:pricingRoles.toastError'));
     } finally {
       setSavingPricingRoles(false);
     }
@@ -712,7 +763,7 @@ export function SettingsPanel() {
 
   const handleSaveWhatsapp = async () => {
     if (!whatsapp.number.trim() || !whatsapp.template.trim()) {
-      showToast('Enter a WhatsApp number and template.');
+      showToast(t('ownerSettings:whatsapp.toastInvalid'));
       return;
     }
 
@@ -726,10 +777,10 @@ export function SettingsPanel() {
         number: String(res.data.data.value.number ?? ''),
         template: String(res.data.data.value.template ?? ''),
       });
-      showToast('WhatsApp settings saved.');
+      showToast(t('ownerSettings:whatsapp.toastSaved'));
     } catch (err) {
       console.error('Failed to save WhatsApp settings:', err);
-      showToast('Could not save WhatsApp settings.');
+      showToast(t('ownerSettings:whatsapp.toastError'));
     } finally {
       setSavingWhatsapp(false);
     }
@@ -756,7 +807,7 @@ export function SettingsPanel() {
         }
       } catch (err) {
         console.error(err);
-        setError('Could not load users.');
+        setError(t('ownerSettings:error'));
       } finally {
         setLoading(false);
       }
@@ -766,10 +817,10 @@ export function SettingsPanel() {
   return (
     <div className="stack">
       <article className="box">
-        <h3>Pricing Roles</h3>
+        <h3>{t('ownerSettings:pricingRoles.title')}</h3>
         <div className="form-grid-2">
           <div className="field">
-            <label>Pricing Owner</label>
+            <label>{t('ownerSettings:pricingRoles.owner')}</label>
             <input
               className="input"
               type="text"
@@ -778,7 +829,7 @@ export function SettingsPanel() {
             />
           </div>
           <div className="field">
-            <label>Approval Threshold (EGP)</label>
+            <label>{t('ownerSettings:pricingRoles.threshold')}</label>
             <input
               className="input"
               type="number"
@@ -793,14 +844,14 @@ export function SettingsPanel() {
           onClick={handleSavePricingRoles}
           disabled={savingPricingRoles}
         >
-          {savingPricingRoles ? 'Saving...' : 'Save Pricing Roles'}
+          {savingPricingRoles ? t('ownerSettings:pricingRoles.saving') : t('ownerSettings:pricingRoles.save')}
         </button>
       </article>
 
       <article className="box">
-        <h3>Notification Format (WhatsApp)</h3>
+        <h3>{t('ownerSettings:whatsapp.title')}</h3>
         <div className="field">
-          <label>WhatsApp Business Number</label>
+          <label>{t('ownerSettings:whatsapp.number')}</label>
           <input
             className="input"
             type="text"
@@ -809,7 +860,7 @@ export function SettingsPanel() {
           />
         </div>
         <div className="field">
-          <label>Message Template</label>
+          <label>{t('ownerSettings:whatsapp.template')}</label>
           <textarea
             className="textarea"
             value={whatsapp.template}
@@ -822,22 +873,22 @@ export function SettingsPanel() {
           onClick={handleSaveWhatsapp}
           disabled={savingWhatsapp}
         >
-          {savingWhatsapp ? 'Saving...' : 'Save WhatsApp Settings'}
+          {savingWhatsapp ? t('ownerSettings:whatsapp.saving') : t('ownerSettings:whatsapp.save')}
         </button>
       </article>
 
       <article className="box">
-        <h3>User Management</h3>
-        {loading && <div className="loading-state">Loading users…</div>}
+        <h3>{t('ownerSettings:users.title')}</h3>
+        {loading && <div className="loading-state">{t('ownerSettings:loading')}</div>}
         {error && <div className="error-state">{error}</div>}
         {!loading && !error && (
           <table className="orders-table">
             <thead>
               <tr>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Status</th>
-                <th>Action</th>
+                <th>{t('ownerSettings:users.colEmail')}</th>
+                <th>{t('ownerSettings:users.colRole')}</th>
+                <th>{t('ownerSettings:users.colStatus')}</th>
+                <th>{t('ownerSettings:users.colAction')}</th>
               </tr>
             </thead>
             <tbody>
@@ -851,9 +902,9 @@ export function SettingsPanel() {
                         value={editRole}
                         onChange={e => setEditRole(e.target.value as UserProfile['role'])}
                       >
-                        <option value="owner">Owner</option>
-                        <option value="staff">Staff</option>
-                        <option value="client">Client</option>
+                        <option value="owner">{t('ownerSettings:users.roleOwner')}</option>
+                        <option value="staff">{t('ownerSettings:users.roleStaff')}</option>
+                        <option value="client">{t('ownerSettings:users.roleClient')}</option>
                       </select>
                     </td>
                     <td>
@@ -862,24 +913,16 @@ export function SettingsPanel() {
                         value={editStatus}
                         onChange={e => setEditStatus(e.target.value as 'active' | 'inactive')}
                       >
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
+                        <option value="active">{t('ownerSettings:users.statusActive')}</option>
+                        <option value="inactive">{t('ownerSettings:users.statusInactive')}</option>
                       </select>
                     </td>
                     <td style={{ display: 'flex', gap: 6 }}>
-                      <button
-                        className="btn primary"
-                        onClick={saveEdit}
-                        disabled={saving}
-                      >
-                        {saving ? 'Saving…' : 'Save'}
+                      <button className="btn primary" onClick={saveEdit} disabled={saving}>
+                        {saving ? t('ownerSettings:users.saving') : t('ownerSettings:users.save')}
                       </button>
-                      <button
-                        className="btn"
-                        onClick={cancelEdit}
-                        disabled={saving}
-                      >
-                        Cancel
+                      <button className="btn" onClick={cancelEdit} disabled={saving}>
+                        {t('ownerSettings:users.cancel')}
                       </button>
                     </td>
                   </tr>
@@ -889,13 +932,15 @@ export function SettingsPanel() {
                     <td>{u.role}</td>
                     <td><StatusBadge status={u.status} /></td>
                     <td>
-                      <button className="btn" onClick={() => startEdit(u)}>Edit</button>
+                      <button className="btn" onClick={() => startEdit(u)}>
+                        {t('ownerSettings:users.edit')}
+                      </button>
                     </td>
                   </tr>
                 )
               )}
               {users.length === 0 && (
-                <tr><td colSpan={4}>No users found.</td></tr>
+                <tr><td colSpan={4}>{t('ownerSettings:users.noUsers')}</td></tr>
               )}
             </tbody>
           </table>
@@ -925,6 +970,7 @@ interface ProductionJob {
 }
 
 export function ProductionPanel() {
+  const { t } = useTranslation(['common', 'production']);
   const [jobs, setJobs] = useState<ProductionJob[]>([]);
   const [productionStats, setProductionStats] = useState({
     active: 0,
@@ -976,14 +1022,14 @@ export function ProductionPanel() {
         });
       } catch (err) {
         console.error(err);
-        setError('Could not load production data.');
+        setError(t('production:error'));
       } finally {
         setLoading(false);
       }
     })();
   }, []);
 
-  if (loading) return <div className="loading-state">Loading jobs…</div>;
+  if (loading) return <div className="loading-state">{t('production:loading')}</div>;
   if (error) return <div className="error-state">{error}</div>;
 
   const filtered = jobs.filter(j => {
@@ -994,33 +1040,36 @@ export function ProductionPanel() {
   return (
     <div>
       <div className="grid-4" style={{ marginBottom: 14 }}>
-        <StatCard label="Active Jobs" value={productionStats.active} sub="Order items in production" />
-        <StatCard label="In Progress" value={productionStats.inProgress} sub="Items in printing" />
-        <StatCard label="On Hold" value={productionStats.onHold} sub="No backend hold source yet" />
-        <StatCard label="Completed" value={productionStats.completed} sub="Items ready" />
+        <StatCard label={t('production:stats.activeJobs')} value={productionStats.active} sub={t('production:stats.activeSub')} />
+        <StatCard label={t('production:stats.inProgress')} value={productionStats.inProgress} sub={t('production:stats.inProgressSub')} />
+        <StatCard label={t('production:stats.onHold')} value={productionStats.onHold} sub={t('production:stats.onHoldSub')} />
+        <StatCard label={t('production:stats.completed')} value={productionStats.completed} sub={t('production:stats.completedSub')} />
       </div>
       <input
         className="input"
         type="search"
-        placeholder="Search by job ID, client or product…"
+        placeholder={t('production:table.searchPlaceholder')}
         value={query}
         onChange={e => setQuery(e.target.value)}
         style={{ marginBottom: 12 }}
       />
       <div className="job-cards">
         {filtered.length === 0
-          ? <p className="muted">No production jobs found.</p>
+          ? <p className="muted">{t('production:table.empty')}</p>
           : filtered.map(j => (
             <article key={j.id} className="card" style={{ marginBottom: 10 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                 <h4>{j.id}</h4>
                 <StatusBadge status={j.status} />
               </div>
-              <p><strong>Client:</strong> {j.client} | <strong>Product:</strong> {j.product} — {j.qty} pcs</p>
-              <p style={{ marginBottom: 6 }}><strong>Due:</strong> {j.dueDate}</p>
+              <p>
+                <strong>{t('production:card.client')}:</strong> {j.client} |{' '}
+                <strong>{t('production:card.product')}:</strong> {j.product} — {j.qty} {t('production:card.pcsUnit')}
+              </p>
+              <p style={{ marginBottom: 6 }}><strong>{t('production:card.due')}:</strong> {j.dueDate}</p>
               <ProgressBar percent={pct(j)} color={progressColor(pct(j))} />
               <p style={{ fontSize: 11, marginTop: 4, color: 'var(--muted)' }}>
-                {j.progress} / {j.qty} printed ({pct(j)}%)
+                {j.progress} / {j.qty} {t('production:card.printed')} ({pct(j)}%)
               </p>
             </article>
           ))}
@@ -1032,6 +1081,7 @@ export function ProductionPanel() {
 // ─── Completed Jobs Panel ─────────────────────────────────────────────────────
 
 export function CompletedJobsPanel() {
+  const { t } = useTranslation(['common', 'completedJobs']);
   const [jobs, setJobs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1076,14 +1126,14 @@ export function CompletedJobsPanel() {
         setJobs(viewJobs);
       } catch (err) {
         console.error(err);
-        setError('Could not load completed jobs.');
+        setError(t('completedJobs:error'));
       } finally {
         setLoading(false);
       }
     })();
   }, []);
 
-  if (loading) return <div className="loading-state">Loading completed jobs…</div>;
+  if (loading) return <div className="loading-state">{t('completedJobs:loading')}</div>;
   if (error) return <div className="error-state">{error}</div>;
 
   return (
@@ -1091,12 +1141,16 @@ export function CompletedJobsPanel() {
       {jobs.map(j => (
         <div key={j.id} className="split" style={{ marginBottom: 14 }}>
           <article className="box">
-            <h3>Work Progress — {j.id}</h3>
-            <p><strong>{j.done} / {j.total}</strong> completed (100%)</p>
+            <h3>{t('completedJobs:progress.title', { id: j.id })}</h3>
+            <p><strong>{j.done} / {j.total}</strong> {t('completedJobs:progress.completed')} (100%)</p>
             <ProgressBar percent={100} style={{ margin: '8px 0 14px' }} />
             <table className="orders-table">
               <thead>
-                <tr><th>Stage</th><th>Status</th><th>Updated At</th></tr>
+                <tr>
+                  <th>{t('completedJobs:progress.table.stage')}</th>
+                  <th>{t('completedJobs:progress.table.status')}</th>
+                  <th>{t('completedJobs:progress.table.updatedAt')}</th>
+                </tr>
               </thead>
               <tbody>
                 {j.stages.map((s: any) => (
@@ -1110,18 +1164,18 @@ export function CompletedJobsPanel() {
             </table>
           </article>
           <aside className="box">
-            <h3>Job Info</h3>
+            <h3>{t('completedJobs:info.title')}</h3>
             <ul style={{ listStyle: 'none', display: 'grid', gap: 6, fontSize: 13 }}>
-              <li><strong>Client:</strong> {j.info.client}</li>
-              <li><strong>Batch Code:</strong> {j.info.batch}</li>
-              <li><strong>Product:</strong> {j.info.product}</li>
-              <li><strong>Quantity:</strong> {j.info.qty}</li>
-              <li><strong>Completion Date:</strong> {j.info.completion}</li>
+              <li><strong>{t('completedJobs:info.client')}:</strong> {j.info.client}</li>
+              <li><strong>{t('completedJobs:info.batch')}:</strong> {j.info.batch}</li>
+              <li><strong>{t('completedJobs:info.product')}:</strong> {j.info.product}</li>
+              <li><strong>{t('completedJobs:info.quantity')}:</strong> {j.info.qty}</li>
+              <li><strong>{t('completedJobs:info.completionDate')}:</strong> {j.info.completion}</li>
             </ul>
           </aside>
         </div>
       ))}
-      {jobs.length === 0 && <p className="muted">No completed jobs.</p>}
+      {jobs.length === 0 && <p className="muted">{t('completedJobs:empty')}</p>}
     </div>
   );
 }

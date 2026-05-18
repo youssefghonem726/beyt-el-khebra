@@ -11,7 +11,9 @@
     "inProgress": "قيد التنفيذ",
     "inProgressSub": "يجري العمل عليها",
     "completed": "مكتملة",
-    "completedSub": "عناصر جاهزة في طلبات نشطة"
+    "completedSub": "عناصر جاهزة في طلبات نشطة",
+    "onHold": "معلقة",
+    "onHoldSub": "لا يوجد مصدر للتعليق حالياً"
   },
   "steps": {
     "pending": "جاهز للإنتاج",
@@ -38,7 +40,10 @@
     "step": "المرحلة",
     "pcs": "{{count}} قطعة",
     "completedOf": "{{completed}} / {{total}} مكتمل ({{percent}}%)",
-    "openWorkView": "فتح عرض العمل"
+    "openWorkView": "فتح عرض العمل",
+    "due": "الاستحقاق",
+    "printed": "مطبوع",
+    "pcsUnit": "قطعة"
   },
   "detail": {
     "jobDetails": "تفاصيل المهمة",

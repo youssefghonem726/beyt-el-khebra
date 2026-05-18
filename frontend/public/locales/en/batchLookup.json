@@ -5,9 +5,12 @@
   "searchPlaceholder": "Search by batch code, order ID, client...",
   "export": "Export Search Query",
   "noResults": "No matching results",
+  "back": "← Back to Batch List",
   "filter": {
+    "all": "All Status",
     "active": "Active",
-    "completed": "Completed"
+    "completed": "Completed",
+    "apply": "Apply"
   },
   "table": {
     "batchCode": "Batch Code",

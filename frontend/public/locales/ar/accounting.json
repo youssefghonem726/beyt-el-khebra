@@ -46,7 +46,8 @@
     "view": "عرض",
     "recordPartial": "تسجيل دفعة جزئية",
     "saving": "جاري الحفظ...",
-    "markPaid": "تأكيد الدفع"
+    "markPaid": "تأكيد الدفع",
+    "downloadBtn": "تنزيل"
   },
   "preview": {
     "title": "معاينة الفاتورة",
