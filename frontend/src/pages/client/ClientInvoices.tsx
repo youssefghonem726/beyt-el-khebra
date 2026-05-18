@@ -1,132 +1,117 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useTranslation } from 'react-i18next';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
+import StatusBadge from '../../components/StatusBadge';
 import { useNavigation } from '../../context/NavigationContext';
-// Direct service import – bypasses VITE_USE_MOCK
-import { getNotifications } from '../../lib/api/notificationsService';
-import type { Notification as BackendNotification } from '../../lib/api/notificationsService';
+import { getInvoices } from '../../lib/api/invoicesClientsSettingsService';
+import type { Invoice } from '../../lib/api/types';
 
-// ─── Local display shape (matches original UI) ────────────────────────
-interface DisplayNotification {
-  id: number;
-  title: string;
-  time: string;              // formatted from created_at
-  body: string;
-  unread: boolean;
-  action: {
-    label: string;
-    page: string;
-  };
-}
-
-// ─── Helper ─────────────────────────────────────────────────────────
-function formatTime(iso: string): string {
-  const d = new Date(iso);
+function formatDate(value: string | null | undefined): string {
+  if (!value) return '—';
+  const d = new Date(value);
   if (isNaN(d.getTime())) return '—';
-  // Example: "16 May 2026, 15:36"
-  return d.toLocaleString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-export default function ClientNotifications() {
+function formatEGP(amount: number | null | undefined): string {
+  if (amount == null) return '—';
+  return `EGP ${amount.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+export default function ClientInvoices() {
+  return (
+    <Suspense fallback={null}>
+      <ClientInvoicesInner />
+    </Suspense>
+  );
+}
+
+function ClientInvoicesInner() {
+  const { t } = useTranslation(['common', 'clientInvoices']);
   const { navigateTopLevel } = useNavigation();
-  const [notifications, setNotifications] = useState<DisplayNotification[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchNotifications = async () => {
+    const fetchInvoices = async () => {
       try {
-        const res = await getNotifications();
-        const backendNotifs: BackendNotification[] = res.data.data;
-        console.log('ClientNotifications - raw:', backendNotifs);
-
-        const displayNotifs: DisplayNotification[] = backendNotifs.map((n) => ({
-          id: n.id,
-          title: n.title,
-          time: formatTime(n.created_at),
-          body: n.body,
-          unread: n.unread,
-          action: {
-            label: n.action_label || 'View',
-            page: n.action_page || '/',
-          },
-        }));
-
-        setNotifications(displayNotifs);
+        const res = await getInvoices();
+        setInvoices(res.data.data);
       } catch (err: any) {
-        // If endpoint returns 404, show empty list (fallback)
         if (err?.response?.status === 404) {
-          setNotifications([]);
+          setInvoices([]);
         } else {
-          console.error('Failed to load notifications:', err);
-          setError('Could not load your notifications. Please try again later.');
+          console.error('Failed to load invoices:', err);
+          setError(t('clientInvoices:error'));
         }
       } finally {
         setLoading(false);
       }
     };
-
-    fetchNotifications();
+    fetchInvoices();
   }, []);
-
-  const dismiss = (id: number) =>
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
 
   if (loading) {
     return (
-      <AppShell role="client" activePage="client-notifications">
-        <Topbar title="Notifications" />
-        <div className="loading-state">Loading notifications...</div>
+      <AppShell role="client" activePage="client-invoices">
+        <Topbar title={t('clientInvoices:title')} />
+        <div className="loading-state">{t('clientInvoices:loading')}</div>
       </AppShell>
     );
   }
 
   if (error) {
     return (
-      <AppShell role="client" activePage="client-notifications">
-        <Topbar title="Notifications" />
+      <AppShell role="client" activePage="client-invoices">
+        <Topbar title={t('clientInvoices:title')} />
         <div className="error-state">{error}</div>
       </AppShell>
     );
   }
 
   return (
-    <AppShell role="client" activePage="client-notifications">
-      <Topbar title="Notifications" />
-      <section className="stack notifications-stack">
-        {notifications.length === 0 && (
-          <div className="box" style={{ textAlign: 'center', color: 'var(--muted)', padding: 48 }}>
-            No notifications.
-          </div>
-        )}
-        {notifications.map((n) => (
-          <article key={n.id} className={`box notification-card${n.unread ? ' unread' : ''}`}>
-            <div className="notification-header" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-              <h3>{n.title}</h3>
-              <span className="timestamp" style={{ color: 'var(--muted)', fontSize: 13 }}>
-                {n.time}
-              </span>
-            </div>
-            <p>{n.body}</p>
-            <div className="notification-actions" style={{ marginTop: 10, display: 'flex', gap: 8 }}>
-              <button
-                className={`btn btn-sm${n.unread ? ' primary' : ''}`}
-                onClick={() => navigateTopLevel(n.action.page)}
-              >
-                {n.action.label}
-              </button>
-              <button className="btn btn-sm btn-outline" onClick={() => dismiss(n.id)}>
-                Dismiss
-              </button>
-            </div>
-          </article>
-        ))}
+    <AppShell role="client" activePage="client-invoices">
+      <Topbar title={t('clientInvoices:title')} />
+      <section className="table-wrap">
+        <div className="table-head" style={{ marginBottom: 10 }}>
+          <h3>{t('clientInvoices:myInvoices')}</h3>
+        </div>
+        <table className="orders-table">
+          <thead>
+            <tr>
+              <th>{t('clientInvoices:table.id')}</th>
+              <th>{t('clientInvoices:table.order')}</th>
+              <th>{t('clientInvoices:table.status')}</th>
+              <th>{t('clientInvoices:table.amount')}</th>
+              <th>{t('clientInvoices:table.dueDate')}</th>
+              <th>{t('clientInvoices:table.action')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {invoices.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="no-results">{t('clientInvoices:empty')}</td>
+              </tr>
+            ) : (
+              invoices.map((inv) => (
+                <tr key={inv.id}>
+                  <td><strong>#{inv.id}</strong></td>
+                  <td>{inv.order_id ? `#${inv.order_id}` : inv.orderId || '—'}</td>
+                  <td><StatusBadge status={inv.status} /></td>
+                  <td>{formatEGP(inv.total_amount ?? inv.amount)}</td>
+                  <td>{formatDate(inv.due_date ?? inv.due)}</td>
+                  <td>
+                    <button className="btn" onClick={() => navigateTopLevel(`/client/invoices/${inv.id}`)}>
+                      {t('clientInvoices:table.view')}
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </section>
     </AppShell>
   );

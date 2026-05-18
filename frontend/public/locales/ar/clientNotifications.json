@@ -1,0 +1,17 @@
+{
+  "title": "الإشعارات",
+  "loading": "جاري تحميل الإشعارات...",
+  "error": "تعذّر تحميل إشعاراتك. يرجى المحاولة مجدداً.",
+  "empty": "لا توجد إشعارات.",
+  "dismiss": "إغلاق",
+  "actions": {
+    "View quote": "عرض السعر",
+    "Open unpriced queue": "فتح قائمة التسعير",
+    "Open dashboard": "فتح لوحة التحكم",
+    "View order": "عرض الطلب",
+    "Open production": "فتح الإنتاج",
+    "View invoice": "عرض الفاتورة",
+    "Open delivery": "فتح التوصيل",
+    "View client": "عرض العميل"
+  }
+}

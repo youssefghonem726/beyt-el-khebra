@@ -1,0 +1,64 @@
+{
+  "title": "الفواتير",
+  "loading": "جاري تحميل الفواتير...",
+  "error": "تعذّر تحميل فواتيرك. يرجى المحاولة مجدداً.",
+  "myInvoices": "فواتيري",
+  "empty": "لا توجد فواتير.",
+  "table": {
+    "id": "رقم الفاتورة",
+    "order": "الطلب",
+    "status": "الحالة",
+    "amount": "المبلغ",
+    "dueDate": "تاريخ الاستحقاق",
+    "action": "إجراء",
+    "view": "عرض"
+  },
+  "detail": {
+    "title": "تفاصيل الفاتورة",
+    "loading": "جاري تحميل الفاتورة...",
+    "noId": "لم يتم تحديد رقم الفاتورة.",
+    "error": "تعذّر تحميل تفاصيل الفاتورة.",
+    "notFound": "الفاتورة غير موجودة.",
+    "backLabel": "الفواتير",
+    "invoiceId": "فاتورة #{{id}}",
+    "billedTo": "صادرة إلى",
+    "address": "العنوان",
+    "taxId": "الرقم الضريبي",
+    "invoiceDetails": "تفاصيل الفاتورة",
+    "linkedOrder": "الطلب المرتبط",
+    "issueDate": "تاريخ الإصدار",
+    "dueDate": "تاريخ الاستحقاق",
+    "paymentDate": "تاريخ الدفع",
+    "table": {
+      "item": "الصنف",
+      "qty": "الكمية",
+      "unitPrice": "سعر الوحدة (ج.م)",
+      "total": "الإجمالي (ج.م)",
+      "noItems": "بنود الفاتورة غير متاحة بعد"
+    },
+    "subtotal": "المجموع الجزئي",
+    "vat": "ضريبة القيمة المضافة ({{rate}}%)",
+    "grandTotal": "الإجمالي",
+    "payNow": "ادفع الآن",
+    "paymentConfirmed": "✓ تم تأكيد الدفع",
+    "print": "طباعة",
+    "download": "تحميل PDF",
+    "payment": {
+      "title": "بيانات الدفع",
+      "cardNumber": "رقم البطاقة",
+      "cardNumberPlaceholder": "1234 5678 9012 3456",
+      "expiry": "تاريخ الانتهاء",
+      "expiryPlaceholder": "MM / YY",
+      "cvv": "CVV",
+      "cvvPlaceholder": "•••",
+      "cardholderName": "اسم حامل البطاقة",
+      "cardholderPlaceholder": "الاسم على البطاقة",
+      "confirm": "تأكيد الدفع",
+      "cancel": "إلغاء"
+    },
+    "support": {
+      "message": "هل لديك مشكلة في هذه الفاتورة؟ فريق الدعم جاهز للمساعدة.",
+      "contact": "التواصل مع الدعم"
+    }
+  }
+}

@@ -1,19 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useTranslation } from 'react-i18next';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
-import { useNavigation } from '../../context/NavigationContext';
-// Direct service imports – bypasses VITE_USE_MOCK
 import { getMe, updateMe } from '../../lib/api/usersService';
 
 export default function ProfileSettings() {
-  const { navigateTopLevel } = useNavigation();
+  return (
+    <Suspense fallback={null}>
+      <ProfileSettingsInner />
+    </Suspense>
+  );
+}
+
+function ProfileSettingsInner() {
+  const { t } = useTranslation(['common', 'profileSettings']);
   const [info, setInfo] = useState({ name: '', email: '', phone: '' });
   const [toast, setToast] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch current user
   useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -26,7 +32,7 @@ export default function ProfileSettings() {
         });
       } catch (err) {
         console.error('Failed to load profile:', err);
-        setError('Could not load your profile. Please try again later.');
+        setError(t('profileSettings:error'));
       } finally {
         setLoading(false);
       }
@@ -46,7 +52,6 @@ export default function ProfileSettings() {
     setSubmitting(true);
     setError(null);
     try {
-      // Split name into first_name and last_name (last word is last name)
       const parts = info.name.trim().split(/\s+/);
       const firstName = parts[0] || '';
       const lastName = parts.slice(1).join(' ') || '';
@@ -57,10 +62,10 @@ export default function ProfileSettings() {
         email: info.email,
         phone: info.phone,
       });
-      showToast('Changes saved successfully.');
+      showToast(t('profileSettings:saveSuccess'));
     } catch (err) {
       console.error('Failed to update profile:', err);
-      setError('Could not save changes. Please try again.');
+      setError(t('profileSettings:saveError'));
     } finally {
       setSubmitting(false);
     }
@@ -69,8 +74,8 @@ export default function ProfileSettings() {
   if (loading) {
     return (
       <AppShell role="client" activePage="profile-settings">
-        <Topbar title="Profile Settings" />
-        <div className="loading-state">Loading profile...</div>
+        <Topbar title={t('profileSettings:title')} />
+        <div className="loading-state">{t('profileSettings:loading')}</div>
       </AppShell>
     );
   }
@@ -78,7 +83,7 @@ export default function ProfileSettings() {
   if (error) {
     return (
       <AppShell role="client" activePage="profile-settings">
-        <Topbar title="Profile Settings" />
+        <Topbar title={t('profileSettings:title')} />
         <div className="error-state">{error}</div>
       </AppShell>
     );
@@ -86,21 +91,21 @@ export default function ProfileSettings() {
 
   return (
     <AppShell role="client" activePage="profile-settings">
-      <Topbar title="Profile Settings" />
+      <Topbar title={t('profileSettings:title')} />
       <section className="split">
         <article className="box">
-          <h3>Account Information</h3>
+          <h3>{t('profileSettings:account.title')}</h3>
           <div className="form-grid-2">
             <div className="field">
-              <label>Full Name</label>
+              <label>{t('profileSettings:account.fullName')}</label>
               <input className="input" type="text" value={info.name} onChange={setField('name')} />
             </div>
             <div className="field">
-              <label>Email</label>
+              <label>{t('profileSettings:account.email')}</label>
               <input className="input" type="email" value={info.email} onChange={setField('email')} />
             </div>
             <div className="field">
-              <label>Phone</label>
+              <label>{t('profileSettings:account.phone')}</label>
               <input className="input" type="text" value={info.phone} onChange={setField('phone')} />
             </div>
           </div>
@@ -110,21 +115,21 @@ export default function ProfileSettings() {
             onClick={handleSave}
             disabled={submitting}
           >
-            {submitting ? 'Saving…' : 'Save Changes'}
+            {submitting ? t('profileSettings:account.saving') : t('profileSettings:account.save')}
           </button>
         </article>
 
         <aside className="box">
-          <h3>Security</h3>
+          <h3>{t('profileSettings:security.title')}</h3>
           <p style={{ color: 'var(--muted)', fontSize: 13 }}>
-            Password changes are managed by Supabase. Use the “Forgot password” link on the login page or contact support.
+            {t('profileSettings:security.description')}
           </p>
           <button
             className="btn"
             style={{ marginTop: 10 }}
             onClick={() => window.open('https://your-supabase-project.supabase.co/auth/v1/recover', '_blank')}
           >
-            Reset Password
+            {t('profileSettings:security.resetPassword')}
           </button>
         </aside>
       </section>
