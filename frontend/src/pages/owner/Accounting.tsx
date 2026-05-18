@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatCard from '../../components/StatCard';
@@ -7,6 +8,8 @@ import SearchFilter from '../../components/SearchFilter';
 import ClientSummary from '../../components/ClientSummary';
 import { downloadText } from '../../utils/download';
 import { generateInvoice, getAccountingOverview, payInvoice } from '../../lib/api/invoicesService';
+
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
 interface InvoiceItem {
   id: number;
@@ -65,25 +68,35 @@ function formatDate(value?: string): string {
   return date.toLocaleDateString('en-EG', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-function buildInvoiceLines(invoice: DisplayInvoice): string[] {
+function buildInvoiceLines(invoice: DisplayInvoice, t: TFn): string[] {
   return [
-    `Invoice: ${invoice.id}`,
-    `Order: ${invoice.order}`,
-    `Client: ${invoice.client}`,
-    `Date: ${formatDate(invoice.createdAt)}`,
-    `Items: ${invoice.itemSummary}`,
-    `Total: ${invoice.total}`,
-    `Paid: ${invoice.paidAmount}`,
-    `Remaining: ${invoice.remainingAmount}`,
-    `Payment status: ${invoice.status}`,
+    `${t('accounting:download.invoice')}: ${invoice.id}`,
+    `${t('accounting:download.order')}: ${invoice.order}`,
+    `${t('accounting:download.client')}: ${invoice.client}`,
+    `${t('accounting:download.date')}: ${formatDate(invoice.createdAt)}`,
+    `${t('accounting:download.items')}: ${invoice.itemSummary}`,
+    `${t('accounting:download.total')}: ${invoice.total}`,
+    `${t('accounting:download.paid')}: ${invoice.paidAmount}`,
+    `${t('accounting:download.remaining')}: ${invoice.remainingAmount}`,
+    `${t('accounting:download.paymentStatus')}: ${invoice.status}`,
   ];
 }
 
 export default function Accounting() {
+  return (
+    <Suspense fallback={null}>
+      <AccountingInner />
+    </Suspense>
+  );
+}
+
+function AccountingInner() {
+  const { t } = useTranslation(['common', 'accounting']);
+
   const [invoices, setInvoices] = useState<DisplayInvoice[]>([]);
   const [filteredInvoices, setFilteredInvoices] = useState<DisplayInvoice[]>([]);
   const [invoiceCandidates, setInvoiceCandidates] = useState<InvoiceCandidate[]>([]);
-  const [stats, setStats] = useState<{ label: string; value: string | number; sub: string }[]>([]);
+  const [stats, setStats] = useState<{ labelKey: string; value: string | number; subKey: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -123,10 +136,10 @@ export default function Accounting() {
       });
 
       setStats([
-        { label: 'Revenue Snapshot', value: formatLarge(overview.stats?.revenue_snapshot ?? 0), sub: 'Total paid amount' },
-        { label: 'Pending Collection', value: formatLarge(overview.stats?.pending_collection ?? 0), sub: 'Remaining order amount' },
-        { label: 'Paid Orders', value: overview.stats?.paid_orders ?? 0, sub: 'Orders fully paid' },
-        { label: 'Unpaid Orders', value: overview.stats?.unpaid_orders ?? 0, sub: 'Need finance follow-up' },
+        { labelKey: 'revenueSnapshot', value: formatLarge(overview.stats?.revenue_snapshot ?? 0), subKey: 'revenueSnapshotSub' },
+        { labelKey: 'pendingCollection', value: formatLarge(overview.stats?.pending_collection ?? 0), subKey: 'pendingCollectionSub' },
+        { labelKey: 'paidOrders', value: overview.stats?.paid_orders ?? 0, subKey: 'paidOrdersSub' },
+        { labelKey: 'unpaidOrders', value: overview.stats?.unpaid_orders ?? 0, subKey: 'unpaidOrdersSub' },
       ]);
 
       setInvoices(displayList);
@@ -134,7 +147,7 @@ export default function Accounting() {
       setInvoiceCandidates(overview.invoice_candidates ?? []);
     } catch (err) {
       console.error('Failed to load accounting data:', err);
-      setError('Could not load accounting data. Please try again later.');
+      setError(t('accounting:error'));
     } finally {
       setLoading(false);
     }
@@ -171,7 +184,7 @@ export default function Accounting() {
       await fetchData();
     } catch (err) {
       console.error('Failed to generate invoice:', err);
-      setError('Could not generate invoice for this order.');
+      setError(t('accounting:generateError'));
     } finally {
       setSavingId(null);
     }
@@ -184,7 +197,7 @@ export default function Accounting() {
       await fetchData();
     } catch (err) {
       console.error('Failed to mark invoice paid:', err);
-      setError('Could not mark invoice as paid.');
+      setError(t('accounting:markPaidError'));
     } finally {
       setSavingId(null);
     }
@@ -201,12 +214,12 @@ export default function Accounting() {
 
     const amount = Number(partialAmount);
     if (!Number.isFinite(amount) || amount <= 0) {
-      setPartialError('Enter an amount greater than 0.');
+      setPartialError(t('accounting:partial.errorZero'));
       return;
     }
 
     if (amount > partialInvoice.remainingAmountValue) {
-      setPartialError('Amount cannot be greater than the remaining balance.');
+      setPartialError(t('accounting:partial.errorExceed'));
       return;
     }
 
@@ -218,32 +231,24 @@ export default function Accounting() {
       await fetchData();
     } catch (err) {
       console.error('Failed to record partial payment:', err);
-      setPartialError('Could not record partial payment.');
+      setPartialError(t('accounting:partial.error'));
     } finally {
       setSavingId(null);
     }
   };
 
-  const statsView = (
-    <section className="grid-4">
-      {stats.map((stat, idx) => (
-        <StatCard key={idx} label={stat.label} value={stat.value} sub={stat.sub} />
-      ))}
-    </section>
-  );
-
   if (loading) {
     return (
       <AppShell role="owner" activePage="accounting">
-        <Topbar title="Accounting Page" />
+        <Topbar title={t('accounting:title')} />
         <section className="grid-4">
-          <StatCard label="Revenue Snapshot" value="..." sub="Total paid amount" />
-          <StatCard label="Pending Collection" value="..." sub="Remaining order amount" />
-          <StatCard label="Paid Orders" value="..." sub="Orders fully paid" />
-          <StatCard label="Unpaid Orders" value="..." sub="Need finance follow-up" />
+          <StatCard label={t('accounting:stats.revenueSnapshot')}   value="..." sub={t('accounting:stats.revenueSnapshotSub')} />
+          <StatCard label={t('accounting:stats.pendingCollection')} value="..." sub={t('accounting:stats.pendingCollectionSub')} />
+          <StatCard label={t('accounting:stats.paidOrders')}        value="..." sub={t('accounting:stats.paidOrdersSub')} />
+          <StatCard label={t('accounting:stats.unpaidOrders')}      value="..." sub={t('accounting:stats.unpaidOrdersSub')} />
         </section>
         <section className="table-wrap">
-          <div className="loading-state">Loading accounting data...</div>
+          <div className="loading-state">{t('accounting:loading')}</div>
         </section>
       </AppShell>
     );
@@ -251,8 +256,18 @@ export default function Accounting() {
 
   return (
     <AppShell role="owner" activePage="accounting">
-      <Topbar title="Accounting Page" />
-      {statsView}
+      <Topbar title={t('accounting:title')} />
+
+      <section className="grid-4">
+        {stats.map((stat, idx) => (
+          <StatCard
+            key={idx}
+            label={t(`accounting:stats.${stat.labelKey}`)}
+            value={stat.value}
+            sub={t(`accounting:stats.${stat.subKey}`)}
+          />
+        ))}
+      </section>
 
       {error && <div className="error-state" style={{ marginTop: 12 }}>{error}</div>}
 
@@ -261,19 +276,19 @@ export default function Accounting() {
       {invoiceCandidates.length > 0 && (
         <section className="table-wrap">
           <div className="table-head">
-            <h3>Invoice-Ready Orders</h3>
+            <h3>{t('accounting:candidates.title')}</h3>
           </div>
           <table className="orders-table">
             <thead>
               <tr>
-                <th>Order</th>
-                <th>Client Name</th>
-                <th>Total</th>
-                <th>Paid</th>
-                <th>Remaining</th>
-                <th>Order Status</th>
-                <th>Payment</th>
-                <th>Action</th>
+                <th>{t('accounting:candidates.colOrder')}</th>
+                <th>{t('accounting:candidates.colClient')}</th>
+                <th>{t('accounting:candidates.colTotal')}</th>
+                <th>{t('accounting:candidates.colPaid')}</th>
+                <th>{t('accounting:candidates.colRemaining')}</th>
+                <th>{t('accounting:candidates.colOrderStatus')}</th>
+                <th>{t('accounting:candidates.colPayment')}</th>
+                <th>{t('accounting:candidates.colAction')}</th>
               </tr>
             </thead>
             <tbody>
@@ -292,7 +307,9 @@ export default function Accounting() {
                       disabled={savingId === `order-${order.order_id}`}
                       onClick={() => handleGenerateInvoice(order.order_id)}
                     >
-                      {savingId === `order-${order.order_id}` ? 'Generating...' : 'Generate Invoice'}
+                      {savingId === `order-${order.order_id}`
+                        ? t('accounting:candidates.generating')
+                        : t('accounting:candidates.generate')}
                     </button>
                   </td>
                 </tr>
@@ -304,13 +321,13 @@ export default function Accounting() {
 
       <section className="table-wrap">
         <div className="table-head">
-          <h3>Invoices</h3>
+          <h3>{t('accounting:invoices.title')}</h3>
           <SearchFilter
-            placeholder="Search by invoice, client, order..."
+            placeholder={t('accounting:invoices.searchPlaceholder')}
             filters={[
-              { label: 'Paid', value: 'paid' },
-              { label: 'Partial', value: 'partial' },
-              { label: 'Unpaid', value: 'unpaid' },
+              { label: t('accounting:invoices.filterPaid'),    value: 'paid' },
+              { label: t('accounting:invoices.filterPartial'), value: 'partial' },
+              { label: t('accounting:invoices.filterUnpaid'),  value: 'unpaid' },
             ]}
             onSearch={handleSearch}
           />
@@ -318,20 +335,20 @@ export default function Accounting() {
         <table className="orders-table">
           <thead>
             <tr>
-              <th>Invoice #</th>
-              <th>Order</th>
-              <th>Client Name</th>
-              <th>Items</th>
-              <th>Total</th>
-              <th>Paid</th>
-              <th>Remaining</th>
-              <th>Status</th>
-              <th>Action</th>
+              <th>{t('accounting:invoices.colInvoice')}</th>
+              <th>{t('accounting:invoices.colOrder')}</th>
+              <th>{t('accounting:invoices.colClient')}</th>
+              <th>{t('accounting:invoices.colItems')}</th>
+              <th>{t('accounting:invoices.colTotal')}</th>
+              <th>{t('accounting:invoices.colPaid')}</th>
+              <th>{t('accounting:invoices.colRemaining')}</th>
+              <th>{t('accounting:invoices.colStatus')}</th>
+              <th>{t('accounting:invoices.colAction')}</th>
             </tr>
           </thead>
           <tbody>
             {filteredInvoices.length === 0 ? (
-              <tr><td colSpan={9} className="no-results">No invoices found.</td></tr>
+              <tr><td colSpan={9} className="no-results">{t('accounting:invoices.empty')}</td></tr>
             ) : filteredInvoices.map((inv) => (
               <tr key={inv.id}>
                 <td>{inv.id}</td>
@@ -344,7 +361,7 @@ export default function Accounting() {
                 <td><StatusBadge status={inv.status} /></td>
                 <td style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <button className="btn" onClick={() => setPreviewInvoice(inv)}>
-                    View
+                    {t('accounting:invoices.view')}
                   </button>
                   {inv.status !== 'paid' && (
                     <>
@@ -353,14 +370,14 @@ export default function Accounting() {
                         disabled={savingId === inv.id}
                         onClick={() => openPartialPayment(inv)}
                       >
-                        Record Partial Payment
+                        {t('accounting:invoices.recordPartial')}
                       </button>
                       <button
                         className="btn primary"
                         disabled={savingId === inv.id}
                         onClick={() => handleMarkPaid(inv.id)}
                       >
-                        {savingId === inv.id ? 'Saving...' : 'Mark Paid'}
+                        {savingId === inv.id ? t('accounting:invoices.saving') : t('accounting:invoices.markPaid')}
                       </button>
                     </>
                   )}
@@ -373,53 +390,50 @@ export default function Accounting() {
 
       {previewInvoice && (
         <div style={{
-          position: 'fixed',
-          inset: 0,
-          zIndex: 999,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: 'rgba(0, 0, 0, 0.35)',
-          padding: 18,
+          position: 'fixed', inset: 0, zIndex: 999,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(0, 0, 0, 0.35)', padding: 18,
         }}>
           <div style={{
-            width: '100%',
-            maxWidth: 620,
-            background: 'var(--surface)',
-            borderRadius: 'var(--radius)',
-            boxShadow: '0 8px 28px rgba(0, 0, 0, 0.14)',
-            padding: 22,
+            width: '100%', maxWidth: 620,
+            background: 'var(--surface)', borderRadius: 'var(--radius)',
+            boxShadow: '0 8px 28px rgba(0, 0, 0, 0.14)', padding: 22,
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3>Invoice Preview</h3>
-              <button className="btn" onClick={() => setPreviewInvoice(null)}>Close</button>
+              <h3>{t('accounting:preview.title')}</h3>
+              <button className="btn" onClick={() => setPreviewInvoice(null)}>{t('accounting:preview.close')}</button>
             </div>
             <div style={{ display: 'grid', gap: 12 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div><strong>Invoice #</strong><br />{previewInvoice.id}</div>
-                <div><strong>Order</strong><br />{previewInvoice.order}</div>
-                <div><strong>Client</strong><br />{previewInvoice.client}</div>
-                <div><strong>Invoice Date</strong><br />{formatDate(previewInvoice.createdAt)}</div>
+                <div><strong>{t('accounting:preview.invoiceNum')}</strong><br />{previewInvoice.id}</div>
+                <div><strong>{t('accounting:preview.order')}</strong><br />{previewInvoice.order}</div>
+                <div><strong>{t('accounting:preview.client')}</strong><br />{previewInvoice.client}</div>
+                <div><strong>{t('accounting:preview.date')}</strong><br />{formatDate(previewInvoice.createdAt)}</div>
               </div>
               <div>
-                <strong>Items</strong>
+                <strong>{t('accounting:preview.items')}</strong>
                 <div style={{ marginTop: 6 }}>{previewInvoice.itemSummary}</div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-                <div><strong>Total</strong><br />{previewInvoice.total}</div>
-                <div><strong>Paid</strong><br />{previewInvoice.paidAmount}</div>
-                <div><strong>Remaining</strong><br />{previewInvoice.remainingAmount}</div>
+                <div><strong>{t('accounting:preview.total')}</strong><br />{previewInvoice.total}</div>
+                <div><strong>{t('accounting:preview.paid')}</strong><br />{previewInvoice.paidAmount}</div>
+                <div><strong>{t('accounting:preview.remaining')}</strong><br />{previewInvoice.remainingAmount}</div>
               </div>
-              <div><strong>Payment Status</strong><br /><StatusBadge status={previewInvoice.status} /></div>
+              <div>
+                <strong>{t('accounting:preview.paymentStatus')}</strong><br />
+                <StatusBadge status={previewInvoice.status} />
+              </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
               <button
                 className="btn"
-                onClick={() => downloadText(`invoice-${previewInvoice.id}.txt`, buildInvoiceLines(previewInvoice))}
+                onClick={() => downloadText(`invoice-${previewInvoice.id}.txt`, buildInvoiceLines(previewInvoice, t as TFn))}
               >
-                Download
+                {t('accounting:preview.download')}
               </button>
-              <button className="btn primary" onClick={() => setPreviewInvoice(null)}>Close</button>
+              <button className="btn primary" onClick={() => setPreviewInvoice(null)}>
+                {t('accounting:preview.close')}
+              </button>
             </div>
           </div>
         </div>
@@ -427,38 +441,30 @@ export default function Accounting() {
 
       {partialInvoice && (
         <div style={{
-          position: 'fixed',
-          inset: 0,
-          zIndex: 999,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: 'rgba(0, 0, 0, 0.35)',
-          padding: 18,
+          position: 'fixed', inset: 0, zIndex: 999,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(0, 0, 0, 0.35)', padding: 18,
         }}>
           <div style={{
-            width: '100%',
-            maxWidth: 520,
-            background: 'var(--surface)',
-            borderRadius: 'var(--radius)',
-            boxShadow: '0 8px 28px rgba(0, 0, 0, 0.14)',
-            padding: 22,
+            width: '100%', maxWidth: 520,
+            background: 'var(--surface)', borderRadius: 'var(--radius)',
+            boxShadow: '0 8px 28px rgba(0, 0, 0, 0.14)', padding: 22,
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3>Record Partial Payment</h3>
-              <button className="btn" onClick={() => setPartialInvoice(null)}>Close</button>
+              <h3>{t('accounting:partial.title')}</h3>
+              <button className="btn" onClick={() => setPartialInvoice(null)}>{t('accounting:partial.close')}</button>
             </div>
             <div style={{ display: 'grid', gap: 10 }}>
-              <div><strong>Invoice #</strong><br />{partialInvoice.id}</div>
-              <div><strong>Order</strong><br />{partialInvoice.order}</div>
-              <div><strong>Client</strong><br />{partialInvoice.client}</div>
+              <div><strong>{t('accounting:partial.invoiceNum')}</strong><br />{partialInvoice.id}</div>
+              <div><strong>{t('accounting:partial.order')}</strong><br />{partialInvoice.order}</div>
+              <div><strong>{t('accounting:partial.client')}</strong><br />{partialInvoice.client}</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-                <div><strong>Total</strong><br />{partialInvoice.total}</div>
-                <div><strong>Paid</strong><br />{partialInvoice.paidAmount}</div>
-                <div><strong>Remaining</strong><br />{partialInvoice.remainingAmount}</div>
+                <div><strong>{t('accounting:partial.total')}</strong><br />{partialInvoice.total}</div>
+                <div><strong>{t('accounting:partial.paid')}</strong><br />{partialInvoice.paidAmount}</div>
+                <div><strong>{t('accounting:partial.remaining')}</strong><br />{partialInvoice.remainingAmount}</div>
               </div>
               <label className="form-group">
-                <span>Payment Amount</span>
+                <span>{t('accounting:partial.amountLabel')}</span>
                 <input
                   className="search-input"
                   style={{ width: '100%' }}
@@ -470,19 +476,21 @@ export default function Accounting() {
                     setPartialAmount(event.target.value);
                     setPartialError(null);
                   }}
-                  placeholder="Amount in EGP"
+                  placeholder={t('accounting:partial.amountPlaceholder')}
                 />
               </label>
               {partialError && <div className="error-state" style={{ padding: 0 }}>{partialError}</div>}
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
-              <button className="btn" onClick={() => setPartialInvoice(null)}>Cancel</button>
+              <button className="btn" onClick={() => setPartialInvoice(null)}>
+                {t('accounting:partial.cancel')}
+              </button>
               <button
                 className="btn primary"
                 disabled={savingId === partialInvoice.id}
                 onClick={handlePartialPaymentSubmit}
               >
-                {savingId === partialInvoice.id ? 'Saving...' : 'Submit Payment'}
+                {savingId === partialInvoice.id ? t('accounting:partial.saving') : t('accounting:partial.submit')}
               </button>
             </div>
           </div>

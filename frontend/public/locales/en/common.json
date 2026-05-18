@@ -52,5 +52,10 @@
     "loading": "Loading...",
     "noResults": "No matching results",
     "error": "Something went wrong"
+  },
+  "filter": {
+    "status": "Status",
+    "allStatus": "All Status",
+    "apply": "Apply Filters"
   }
 }

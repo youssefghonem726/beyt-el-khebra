@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface FilterOption {
   label: string;
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export default function SearchFilter({ placeholder = 'Search...', filters, onSearch }: Props) {
+  const { t } = useTranslation('common');
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('');
   const [open, setOpen] = useState(false);
@@ -39,15 +41,15 @@ export default function SearchFilter({ placeholder = 'Search...', filters, onSea
           {open && (
             <div className="filter-dropdown show">
               <div className="field">
-                <label>Status</label>
+                <label>{t('filter.status')}</label>
                 <select className="select" value={filter} onChange={(e) => setFilter(e.target.value)}>
-                  <option value="">All Status</option>
+                  <option value="">{t('filter.allStatus')}</option>
                   {filters.map((f) => (
                     <option key={f.value} value={f.value}>{f.label}</option>
                   ))}
                 </select>
               </div>
-              <button className="btn primary" type="button" onClick={apply}>Apply Filters</button>
+              <button className="btn primary" type="button" onClick={apply}>{t('filter.apply')}</button>
             </div>
           )}
         </>
