@@ -1,0 +1,117 @@
+{
+  "title": "تقديم طلب",
+  "back": "رجوع →",
+  "client": {
+    "sectionTitle": "اختر عميلاً",
+    "label": "العميل",
+    "placeholder": "اكتب أو ابحث عن عميل…",
+    "newClientForm": {
+      "title": "إنشاء عميل جديد",
+      "fullName": "الاسم الكامل *",
+      "email": "البريد الإلكتروني",
+      "phone": "الهاتف",
+      "namePlaceholder": "اسم العميل",
+      "emailPlaceholder": "مثال: client@example.com",
+      "phonePlaceholder": "+20 1xx xxx xxxx",
+      "creating": "جاري الإنشاء…",
+      "createAndSelect": "إنشاء واختيار",
+      "cancel": "إلغاء"
+    }
+  },
+  "picker": {
+    "intro": "اختر طريقة تقديم هذا الطلب للعميل {{name}}.",
+    "package": {
+      "title": "طلب حزمة",
+      "description": "ادمج عدة منتجات مطبوعة (كتب، بطاقات، ملصقات…) في طلب واحد."
+    },
+    "single": {
+      "title": "طلب فردي",
+      "description": "اطلب منتجاً مطبوعاً واحداً بخيارات تخصيص كاملة."
+    }
+  },
+  "addDocAsItem": {
+    "title": "إضافة مستند كعنصر",
+    "addButton": "إضافة كعنصر",
+    "hint": "سيُنشئ هذا عنصر {{type}} جديداً يرتبط بهذا المستند."
+  },
+  "addItems": {
+    "title": "أضف عناصر للحزمة",
+    "help": "انقر على نوع المنتج لإضافته للطلب.",
+    "empty": "لم تُضف أي عناصر بعد."
+  },
+  "singleType": {
+    "title": "ماذا تريد طباعته؟",
+    "help": "اختر نوع المنتج لضبط الطلب."
+  },
+  "notes": {
+    "title": "ملاحظات إضافية",
+    "placeholder": "تعليمات خاصة، تفاصيل التشطيب…"
+  },
+  "success": {
+    "title": "تم تقديم الطلب!",
+    "assignedTo": "مُسنَد إلى {{name}}",
+    "packageItemSingular": "{{count}} عنصر في الحزمة",
+    "packageItemPlural": "{{count}} عناصر في الحزمة",
+    "pcs": "{{count}} قطعة",
+    "placeAnother": "تقديم طلب آخر"
+  },
+  "errors": {
+    "loadClients": "فشل تحميل العملاء. هل الخادم يعمل؟",
+    "createClient": "فشل إنشاء العميل. يرجى المحاولة مجدداً.",
+    "placeOrder": "فشل تقديم الطلب. يرجى المحاولة مجدداً."
+  },
+  "itemTypes": {
+    "book": "كتاب",
+    "booklet": "كتيّب",
+    "card": "بطاقة عمل",
+    "sticker": "ملصق",
+    "poster": "بوستر"
+  },
+  "shared": {
+    "fileAndQty": "الملف والكمية",
+    "printFile": "ملف الطباعة (PDF)",
+    "quantity": "الكمية",
+    "qtyPlaceholder": "مثال: 100",
+    "qtyPlaceholderSingle": "مثال: 500",
+    "remove": "إزالة",
+    "change": "تغيير",
+    "browse": "📁 استعراض...",
+    "selected": "تم الاختيار: {{name}}",
+    "specs": {
+      "book": "مواصفات الكتاب",
+      "booklet": "مواصفات الكتيّب",
+      "card": "مواصفات البطاقة",
+      "sticker": "مواصفات الملصق",
+      "poster": "مواصفات البوستر"
+    },
+    "fields": {
+      "coverFile": "ملف الغلاف",
+      "coverFinish": "تشطيب الغلاف",
+      "colors": "الألوان",
+      "size": "المقاس",
+      "printType": "نوع الطباعة",
+      "binding": "التجليد",
+      "paperWeight": "وزن الورق",
+      "finish": "التشطيب",
+      "material": "المادة",
+      "shape": "الشكل"
+    },
+    "docLibrary": {
+      "title": "استخدم ملفاً من مكتبة العميل",
+      "help": "اختر ملفاً محفوظاً لاستخدامه كملف طباعة، أو ارفع ملفاً جديداً أدناه.",
+      "orderedCount": "مطلوب {{count}}×"
+    },
+    "orderSummary": {
+      "title": "ملخص الطلب",
+      "client": "العميل",
+      "noItems": "لم تُضف أي عناصر بعد.",
+      "pcs": "{{count}} قطعة",
+      "file": "الملف",
+      "type": "النوع",
+      "quantity": "الكمية",
+      "priceNote": "سيُرسل الطلب إلى قائمة التسعير.",
+      "submitPackage": "تقديم طلب الحزمة",
+      "submitSingle": "تقديم الطلب"
+    }
+  }
+}

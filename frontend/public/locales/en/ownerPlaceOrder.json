@@ -1,0 +1,117 @@
+{
+  "title": "Place Order",
+  "back": "← Back",
+  "client": {
+    "sectionTitle": "Select Client",
+    "label": "Client",
+    "placeholder": "Type or search for a client…",
+    "newClientForm": {
+      "title": "Create New Client",
+      "fullName": "Full Name *",
+      "email": "Email",
+      "phone": "Phone",
+      "namePlaceholder": "Client name",
+      "emailPlaceholder": "e.g. client@example.com",
+      "phonePlaceholder": "+20 1xx xxx xxxx",
+      "creating": "Creating…",
+      "createAndSelect": "Create & Select",
+      "cancel": "Cancel"
+    }
+  },
+  "picker": {
+    "intro": "Choose how you'd like to place this order for {{name}}.",
+    "package": {
+      "title": "Package Order",
+      "description": "Combine multiple print items (books, cards, posters…) into one order."
+    },
+    "single": {
+      "title": "Individual Order",
+      "description": "Order a single print item with full customization options."
+    }
+  },
+  "addDocAsItem": {
+    "title": "Add document as item",
+    "addButton": "Add as Item",
+    "hint": "This will create a new {{type}} item referencing this document."
+  },
+  "addItems": {
+    "title": "Add Items to Your Package",
+    "help": "Click a product type to add it to the order.",
+    "empty": "No items added yet."
+  },
+  "singleType": {
+    "title": "What would you like to print?",
+    "help": "Pick a product type to configure the order."
+  },
+  "notes": {
+    "title": "Additional Notes",
+    "placeholder": "Special instructions, finishing details…"
+  },
+  "success": {
+    "title": "Order Placed!",
+    "assignedTo": "Assigned to {{name}}",
+    "packageItemSingular": "{{count}} item in package",
+    "packageItemPlural": "{{count}} items in package",
+    "pcs": "{{count}} pcs",
+    "placeAnother": "Place Another Order"
+  },
+  "errors": {
+    "loadClients": "Failed to load clients. Is the backend running?",
+    "createClient": "Failed to create client. Please try again.",
+    "placeOrder": "Failed to place order. Please try again."
+  },
+  "itemTypes": {
+    "book": "Book",
+    "booklet": "Booklet",
+    "card": "Business Card",
+    "sticker": "Sticker",
+    "poster": "Poster"
+  },
+  "shared": {
+    "fileAndQty": "File & Quantity",
+    "printFile": "Print File (PDF)",
+    "quantity": "Quantity",
+    "qtyPlaceholder": "e.g. 100",
+    "qtyPlaceholderSingle": "e.g. 500",
+    "remove": "Remove",
+    "change": "Change",
+    "browse": "📁 Browse...",
+    "selected": "Selected: {{name}}",
+    "specs": {
+      "book": "Book Specifications",
+      "booklet": "Booklet Specifications",
+      "card": "Card Specifications",
+      "sticker": "Sticker Specifications",
+      "poster": "Poster Specifications"
+    },
+    "fields": {
+      "coverFile": "Cover File",
+      "coverFinish": "Cover Finish",
+      "colors": "Colors",
+      "size": "Size",
+      "printType": "Print Type",
+      "binding": "Binding",
+      "paperWeight": "Paper Weight",
+      "finish": "Finish",
+      "material": "Material",
+      "shape": "Shape"
+    },
+    "docLibrary": {
+      "title": "Use a file from this client's library",
+      "help": "Select a saved file to use as the print file, or upload a new one below.",
+      "orderedCount": "Ordered {{count}}×"
+    },
+    "orderSummary": {
+      "title": "Order Summary",
+      "client": "Client",
+      "noItems": "No items added yet.",
+      "pcs": "{{count}} pcs",
+      "file": "File",
+      "type": "Type",
+      "quantity": "Quantity",
+      "priceNote": "Order will be sent to the Unpriced Queue for pricing.",
+      "submitPackage": "Place Package Order",
+      "submitSingle": "Place Order"
+    }
+  }
+}

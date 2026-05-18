@@ -1,0 +1,96 @@
+{
+  "title": "Place New Order",
+  "back": "← Back",
+  "picker": {
+    "intro": "Choose how you'd like to place your order.",
+    "package": {
+      "title": "Package Order",
+      "description": "Combine multiple print items (books, cards, posters…) into one order."
+    },
+    "single": {
+      "title": "Individual Order",
+      "description": "Order a single print item with full customization options."
+    }
+  },
+  "itemTypes": {
+    "book": "Book",
+    "booklet": "Booklet",
+    "card": "Business Card",
+    "sticker": "Sticker",
+    "poster": "Poster"
+  },
+  "library": {
+    "title": "Use a file from your library",
+    "helpPackage": "Select a saved file to use as the print file for your first item.",
+    "helpSingle": "Select a saved file to use as your print file, or upload a new one below.",
+    "orderedCount": "Ordered {{count}}×"
+  },
+  "addItems": {
+    "title": "Add Items to Your Package",
+    "help": "Click a product type to add it to your order.",
+    "empty": "No items added yet. Click a type above to add it."
+  },
+  "singleType": {
+    "title": "What would you like to print?",
+    "help": "Pick a product type to configure your order."
+  },
+  "notes": {
+    "title": "Additional Notes",
+    "placeholder": "Special instructions, finishing details…"
+  },
+  "summary": {
+    "title": "Order Summary",
+    "empty": "No items added yet.",
+    "file": "File",
+    "type": "Type",
+    "quantity": "Quantity",
+    "pcs": "{{count}} pcs",
+    "priceNote": "A price quote will be sent to you after submission."
+  },
+  "submit": {
+    "package": "Submit Package",
+    "single": "Submit Order",
+    "submitting": "Submitting…"
+  },
+  "success": {
+    "title": "Order Submitted!",
+    "subtext": "We've received your order and will send you a quote shortly.",
+    "viewOrders": "View My Orders",
+    "placeAnother": "Place Another"
+  },
+  "errors": {
+    "submitFailed": "Failed to submit order. Please try again."
+  },
+  "fileField": {
+    "change": "Change",
+    "browse": "📁 Browse...",
+    "selected": "Selected: {{name}}"
+  },
+  "itemEditor": {
+    "remove": "Remove",
+    "fileAndQty": "File & Quantity",
+    "printFile": "Print File (PDF)",
+    "quantity": "Quantity",
+    "qtyPlaceholder": "e.g. 100",
+    "qtyPlaceholderSingle": "e.g. 500",
+    "specs": {
+      "book": "Book Specifications",
+      "booklet": "Booklet Specifications",
+      "card": "Card Specifications",
+      "sticker": "Sticker Specifications",
+      "poster": "Poster Specifications"
+    }
+  },
+  "fields": {
+    "coverFile": "Cover File",
+    "coverFinish": "Cover Finish",
+    "colors": "Colors",
+    "size": "Size",
+    "printType": "Print Type",
+    "binding": "Binding",
+    "paperWeight": "Paper Weight",
+    "finish": "Finish",
+    "material": "Material",
+    "shape": "Shape"
+  }
+}

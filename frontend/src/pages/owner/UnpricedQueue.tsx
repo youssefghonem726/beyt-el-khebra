@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useTranslation } from 'react-i18next';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatCard from '../../components/StatCard';
@@ -6,8 +7,8 @@ import { getUnpricedQueue, submitQuoteForOrder } from '../../lib/api/ordersQuote
 import { getClients } from '../../lib/api/invoicesClientsSettingsService';
 
 interface UnpricedJob {
-  id: string;          
-  displayId: string;   
+  id: string;
+  displayId: string;
   client: string;
   product: string;
   items: Array<{
@@ -17,7 +18,7 @@ interface UnpricedJob {
     notes?: string | null;
   }>;
   qty: number;
-  deadline: string;    
+  deadline: string;
   dueDate: string | null;
   createdAt: string | null;
 }
@@ -28,7 +29,6 @@ interface PricingState {
   notes: string;
 }
 
-// Helpers
 function formatDate(isoDate: string | null): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
@@ -46,6 +46,16 @@ function getProductFallback(order: any): string {
 }
 
 export default function UnpricedQueue() {
+  return (
+    <Suspense fallback={null}>
+      <UnpricedQueueInner />
+    </Suspense>
+  );
+}
+
+function UnpricedQueueInner() {
+  const { t } = useTranslation(['common', 'unpricedQueue']);
+
   const [jobs, setJobs] = useState<UnpricedJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -104,7 +114,7 @@ export default function UnpricedQueue() {
       setJobs(jobList);
     } catch (err) {
       console.error('Failed to load unpriced queue:', err);
-      setError('Could not load unpriced jobs. Please try again later.');
+      setError(t('unpricedQueue:error'));
     } finally {
       setLoading(false);
     }
@@ -161,7 +171,7 @@ export default function UnpricedQueue() {
       await fetchData();
     } catch (err) {
       console.error('Failed to submit quote:', err);
-      setError('Could not submit quote. Please check the price and try again.');
+      setError(t('unpricedQueue:submitError'));
     } finally {
       setSubmittingId(null);
     }
@@ -199,28 +209,32 @@ export default function UnpricedQueue() {
 
   const shell = (children: React.ReactNode) => (
     <AppShell role="owner" activePage="unpriced-queue">
-      <Topbar title="Unpriced Queue" />
+      <Topbar title={t('unpricedQueue:title')} />
       <section className="grid-4" style={{ marginBottom: 14 }}>
-        <StatCard label="Total Unpriced" value={jobs.length} sub="Jobs waiting for pricing" />
-        <StatCard label="Due Soon" value={dueSoon} sub="Due within 3 days" />
-        <StatCard label="Overdue" value={overdue} sub={overdue === 0 ? 'No overdue jobs' : 'Past due date'} />
-        <StatCard label="Average Processing" value={`${averageProcessingDays.toFixed(1)}d`} sub="Average queue age" />
+        <StatCard label={t('unpricedQueue:stats.totalUnpriced')} value={jobs.length} sub={t('unpricedQueue:stats.totalSub')} />
+        <StatCard label={t('unpricedQueue:stats.dueSoon')} value={dueSoon} sub={t('unpricedQueue:stats.dueSoonSub')} />
+        <StatCard
+          label={t('unpricedQueue:stats.overdue')}
+          value={overdue}
+          sub={overdue === 0 ? t('unpricedQueue:stats.overdueNone') : t('unpricedQueue:stats.overdueSome')}
+        />
+        <StatCard label={t('unpricedQueue:stats.avgProcessing')} value={`${averageProcessingDays.toFixed(1)}d`} sub={t('unpricedQueue:stats.avgSub')} />
       </section>
       {children}
     </AppShell>
   );
 
-  if (loading) return shell(<div className="loading-state">Loading jobs...</div>);
+  if (loading) return shell(<div className="loading-state">{t('unpricedQueue:loading')}</div>);
   if (error) return shell(<div className="error-state">{error}</div>);
 
   return shell(
     <section className="table-wrap">
       <div className="table-head">
-        <h3>Unpriced Jobs</h3>
+        <h3>{t('unpricedQueue:table.title')}</h3>
       </div>
 
       {jobs.length === 0 && (
-        <p className="muted" style={{ padding: '20px 0' }}>All jobs have been priced.</p>
+        <p className="muted" style={{ padding: '20px 0' }}>{t('unpricedQueue:table.empty')}</p>
       )}
 
       <div className="stack">
@@ -238,36 +252,44 @@ export default function UnpricedQueue() {
                   color: '#856404',
                   fontWeight: 600,
                 }}>
-                  UNPRICED
+                  {t('unpricedQueue:job.badge')}
                 </span>
               </div>
-              <p style={{ marginBottom: 2 }}><strong>Client:</strong> {j.client}</p>
+              <p style={{ marginBottom: 2 }}>
+                <strong>{t('unpricedQueue:job.client')}:</strong> {j.client}
+              </p>
               {j.items.length <= 1 ? (
                 <p style={{ marginBottom: 2 }}>
-                  <strong>Product:</strong>{' '}
-                  {j.items[0] ? `${j.items[0].item_type} (${j.items[0].quantity} pcs)` : j.product}
+                  <strong>{t('unpricedQueue:job.product')}:</strong>{' '}
+                  {j.items[0]
+                    ? `${j.items[0].item_type} (${t('unpricedQueue:job.pcs', { count: j.items[0].quantity })})`
+                    : j.product}
                 </p>
               ) : (
                 <div style={{ marginBottom: 8 }}>
-                  <p style={{ marginBottom: 4 }}><strong>Products:</strong></p>
+                  <p style={{ marginBottom: 4 }}><strong>{t('unpricedQueue:job.products')}:</strong></p>
                   <ul style={{ margin: '0 0 0 18px', padding: 0 }}>
                     {j.items.map(item => (
                       <li key={item.id}>
-                        {item.item_type} - {item.quantity} pcs
+                        {item.item_type} - {t('unpricedQueue:job.pcs', { count: item.quantity })}
                       </li>
                     ))}
                   </ul>
                 </div>
               )}
-              <p style={{ marginBottom: 2 }}><strong>Quantity:</strong> {j.qty} pcs</p>
-              <p style={{ marginBottom: 10 }}><strong>Deadline:</strong> {j.deadline}</p>
+              <p style={{ marginBottom: 2 }}>
+                <strong>{t('unpricedQueue:job.quantity')}:</strong> {t('unpricedQueue:job.pcs', { count: j.qty })}
+              </p>
+              <p style={{ marginBottom: 10 }}>
+                <strong>{t('unpricedQueue:job.deadline')}:</strong> {j.deadline}
+              </p>
 
               <div className="card-actions">
                 <button
                   className={`btn${isOpen ? ' primary' : ''}`}
                   onClick={() => openPricing(j.id)}
                 >
-                  {isOpen ? 'Cancel' : 'Price This Job'}
+                  {isOpen ? t('unpricedQueue:pricing.cancel') : t('unpricedQueue:pricing.priceThisJob')}
                 </button>
               </div>
 
@@ -279,31 +301,31 @@ export default function UnpricedQueue() {
                   borderRadius: 8,
                   border: '1px solid var(--border)',
                 }}>
-                  <h4 style={{ marginBottom: 14, fontSize: 14 }}>Set Price for {j.displayId}</h4>
-
-                  {/* Price list removed – settings endpoint pending */}
+                  <h4 style={{ marginBottom: 14, fontSize: 14 }}>
+                    {t('unpricedQueue:pricing.panelTitle', { id: j.displayId })}
+                  </h4>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
                     <div className="field" style={{ margin: 0 }}>
-                      <label>Unit Price (EGP)</label>
+                      <label>{t('unpricedQueue:pricing.unitPrice')}</label>
                       <input
                         className="input"
                         type="number"
                         min="0"
                         step="0.01"
-                        placeholder="e.g. 2.50"
+                        placeholder={t('unpricedQueue:pricing.unitPricePlaceholder')}
                         value={pricing.unitPrice}
                         onChange={(e) => setPricing((p) => ({ ...p, unitPrice: e.target.value }))}
                       />
                     </div>
                     <div className="field" style={{ margin: 0 }}>
-                      <label>VAT Rate (%)</label>
+                      <label>{t('unpricedQueue:pricing.vatRate')}</label>
                       <input
                         className="input"
                         type="number"
                         min="0"
                         max="100"
-                        placeholder="14"
+                        placeholder={t('unpricedQueue:pricing.vatPlaceholder')}
                         value={pricing.vatRate}
                         onChange={(e) => setPricing((p) => ({ ...p, vatRate: e.target.value }))}
                       />
@@ -320,26 +342,28 @@ export default function UnpricedQueue() {
                       fontSize: 13,
                     }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                        <span className="muted">Subtotal ({j.qty} × EGP {fmt(unitPrice)})</span>
+                        <span className="muted">
+                          {t('unpricedQueue:pricing.subtotal', { qty: j.qty, price: fmt(unitPrice) })}
+                        </span>
                         <span>EGP {fmt(getSubtotal(j.qty))}</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                        <span className="muted">VAT ({pricing.vatRate}%)</span>
+                        <span className="muted">{t('unpricedQueue:pricing.vat', { rate: pricing.vatRate })}</span>
                         <span>EGP {fmt(getVat(j.qty))}</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
-                        <span>Total</span>
+                        <span>{t('unpricedQueue:pricing.total')}</span>
                         <span>EGP {fmt(getTotal(j.qty))}</span>
                       </div>
                     </div>
                   )}
 
                   <div className="field" style={{ margin: '0 0 14px' }}>
-                    <label>Notes (optional)</label>
+                    <label>{t('unpricedQueue:pricing.notes')}</label>
                     <textarea
                       className="input"
                       style={{ minHeight: 72, resize: 'vertical' }}
-                      placeholder="Any special pricing notes or conditions…"
+                      placeholder={t('unpricedQueue:pricing.notesPlaceholder')}
                       value={pricing.notes}
                       onChange={(e) => setPricing((p) => ({ ...p, notes: e.target.value }))}
                     />
@@ -351,9 +375,11 @@ export default function UnpricedQueue() {
                       disabled={!pricing.unitPrice || unitPrice <= 0 || submittingId === j.id}
                       onClick={() => submitPrice(j)}
                     >
-                      {submittingId === j.id ? 'Submitting...' : 'Submit Quote'}
+                      {submittingId === j.id ? t('unpricedQueue:pricing.submitting') : t('unpricedQueue:pricing.submit')}
                     </button>
-                    <button className="btn" onClick={() => setPricingId(null)} disabled={submittingId === j.id}>Cancel</button>
+                    <button className="btn" onClick={() => setPricingId(null)} disabled={submittingId === j.id}>
+                      {t('unpricedQueue:pricing.cancel')}
+                    </button>
                   </div>
                 </div>
               )}
