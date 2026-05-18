@@ -29,6 +29,18 @@
     "Open production": "Open Production",
     "View invoice": "View Invoice",
     "Open delivery": "Open Delivery",
-    "View client": "View Client"
+    "View client": "View Client",
+    "Open order": "Open Order",
+    "View orders": "View Orders"
+  },
+  "messages": {
+    "titles": {
+      "quoteApproved": "Quote approved",
+      "newOrderPlaced": "New order placed"
+    },
+    "bodies": {
+      "quoteApproved": "Quote approved for Order #{{orderId}}.",
+      "newOrderPlaced": "New order #{{orderId}} placed by {{client}}."
+    }
   }
 }

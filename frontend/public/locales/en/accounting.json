@@ -46,7 +46,8 @@
     "view": "View",
     "recordPartial": "Record Partial Payment",
     "saving": "Saving...",
-    "markPaid": "Mark Paid"
+    "markPaid": "Mark Paid",
+    "downloadBtn": "Download"
   },
   "preview": {
     "title": "Invoice Preview",

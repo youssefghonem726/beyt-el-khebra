@@ -3,6 +3,9 @@
   "loading": "Loading jobs...",
   "error": "Could not load unpriced jobs. Please try again later.",
   "submitError": "Could not submit quote. Please check the price and try again.",
+  "notProvided": "Not provided",
+  "cancelConfirm": "Cancel order {{id}}? It will be removed from the unpriced queue.",
+  "cancelError": "Could not cancel this order. Please try again.",
   "stats": {
     "totalUnpriced": "Total Unpriced",
     "totalSub": "Jobs waiting for pricing",
@@ -25,10 +28,15 @@
     "products": "Products",
     "pcs": "{{count}} pcs",
     "quantity": "Quantity",
-    "deadline": "Deadline"
+    "deadline": "Deadline",
+    "cancelOrder": "Cancel Order",
+    "cancelling": "Cancelling..."
   },
   "pricing": {
     "panelTitle": "Set Price for {{id}}",
+    "priceTableLabel": "Select from pricing table",
+    "selectPlaceholder": "— Choose a price type —",
+    "customPriceBtn": "Custom Price",
     "unitPrice": "Unit Price (EGP)",
     "unitPricePlaceholder": "e.g. 2.50",
     "vatRate": "VAT Rate (%)",
@@ -41,6 +49,27 @@
     "submit": "Submit Quote",
     "submitting": "Submitting...",
     "cancel": "Cancel",
-    "priceThisJob": "Price This Job"
+    "priceThisJob": "Price This Job",
+    "details": {
+      "orderId": "Order ID",
+      "client": "Client",
+      "email": "Email",
+      "dueDate": "Due Date",
+      "uploadedFiles": "Uploaded Files",
+      "orderNotes": "Order Notes"
+    },
+    "itemsToPrice": "Items to Price",
+    "itemCols": {
+      "product": "Product",
+      "qty": "Qty",
+      "pages": "Pages",
+      "size": "Size",
+      "paperMaterial": "Paper / Material",
+      "color": "Color Mode",
+      "cover": "Cover",
+      "bindingCoil": "Binding / Coil",
+      "notes": "Notes"
+    },
+    "notProvided": "—"
   }
 }

@@ -71,15 +71,15 @@ function toNumber(value: unknown): number {
   return 0;
 }
 
-function formatDate(isoDate: string | null | undefined): string {
+function formatDate(isoDate: string | null | undefined, lang: string): string {
   if (!isoDate) return DASH;
   const date = new Date(isoDate);
   if (Number.isNaN(date.getTime())) return DASH;
-  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  return date.toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function formatAmount(amount: number): string {
-  return `EGP ${amount.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+function formatAmount(amount: number, lang: string): string {
+  return `EGP ${amount.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function formatCustomerSinceT(since: string | null, t: TFn): string {
@@ -132,7 +132,7 @@ export default function ClientDetail() {
 }
 
 function ClientDetailInner() {
-  const { t } = useTranslation(['common', 'clientManagement']);
+  const { t, i18n } = useTranslation(['common', 'clientManagement']);
   const { id: clientId = '0' } = useParams<{ id: string }>();
   const { navigateTopLevel } = useNavigation();
 
@@ -198,9 +198,9 @@ function ClientDetailInner() {
 
     return [
       { labelKey: 'totalOrders', value: String(totalOrders) },
-      { labelKey: 'avgPrice', value: formatAmount(averageOrderPrice) },
+      { labelKey: 'avgPrice', value: formatAmount(averageOrderPrice, i18n.language) },
       { labelKey: 'customerSince', value: formatCustomerSinceT(client?.since ?? null, t as TFn) },
-      { labelKey: 'totalSpent', value: formatAmount(totalSpent) },
+      { labelKey: 'totalSpent', value: formatAmount(totalSpent, i18n.language) },
     ];
   }, [client?.since, orders, t]);
 
@@ -211,8 +211,8 @@ function ClientDetailInner() {
         fullId: String(order.id),
         product: getProductSummary(order, t as TFn),
         status: order.status || 'UNPRICED_PENDING',
-        date: formatDate(order.created_at),
-        total: formatAmount(toNumber(order.total_price)),
+        date: formatDate(order.created_at, i18n.language),
+        total: formatAmount(toNumber(order.total_price), i18n.language),
       })),
     [orders, t]
   );

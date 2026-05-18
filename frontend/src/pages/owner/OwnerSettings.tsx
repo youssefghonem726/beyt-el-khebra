@@ -57,8 +57,8 @@ function toUserRow(user: UserProfile): User {
   };
 }
 
-function fmt(n: number | null | undefined) {
-  return Number(n ?? 0).toLocaleString('en-EG', {
+function fmt(n: number | null | undefined, lang: string) {
+  return Number(n ?? 0).toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-EG', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
@@ -73,7 +73,7 @@ export default function OwnerSettings() {
 }
 
 function OwnerSettingsInner() {
-  const { t } = useTranslation(['common', 'ownerSettings']);
+  const { t, i18n } = useTranslation(['common', 'ownerSettings']);
   const { navigateTopLevel: _nav } = useNavigation();
 
   const [users, setUsers] = useState<User[]>([]);
@@ -335,7 +335,7 @@ function OwnerSettingsInner() {
                               style={{ width: 120, textAlign: 'right' }}
                             />
                           ) : (
-                            fmt(defaultPricing[field.key] as number | null)
+                            fmt(defaultPricing[field.key] as number | null, i18n.language)
                           )}
                         </td>
                         <td style={{ textAlign: 'center' }}>

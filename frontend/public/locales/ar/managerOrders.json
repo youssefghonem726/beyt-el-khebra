@@ -16,6 +16,24 @@
     "empty": "لا توجد طلبات مكتملة",
     "completedAt": "تاريخ الاكتمال"
   },
+  "back": "← العودة إلى الطلبات",
+  "detail": {
+    "title": "الطلب {{displayId}}",
+    "client": "العميل",
+    "status": "الحالة",
+    "product": "المنتج",
+    "qty": "الكمية",
+    "paper": "الورق / المادة",
+    "notes": "ملاحظات",
+    "pcs": "قطعة"
+  },
+  "workView": {
+    "title": "عرض العمل — {{displayId}}",
+    "stage": "المرحلة",
+    "statusCol": "الحالة",
+    "updatedAt": "آخر تحديث",
+    "printed": "مطبوع"
+  },
   "table": {
     "order": "الطلب",
     "status": "الحالة",

@@ -48,18 +48,18 @@ interface BatchView {
   clientInfo: { address: string; phone: string; taxId: string };
 }
 
-function formatDateShort(isoDate: string | null): string {
+function formatDateShort(isoDate: string | null, lang: string): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function formatDateTime(isoDate: string | null): string {
+function formatDateTime(isoDate: string | null, lang: string): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 export default function BatchLookup({ role = 'manager' }: Props) {
@@ -71,7 +71,7 @@ export default function BatchLookup({ role = 'manager' }: Props) {
 }
 
 function BatchLookupInner({ role = 'manager' }: Props) {
-  const { t } = useTranslation(['common', 'batchLookup']);
+  const { t, i18n } = useTranslation(['common', 'batchLookup']);
   const [batches, setBatches] = useState<BatchView[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -102,17 +102,17 @@ function BatchLookupInner({ role = 'manager' }: Props) {
             order: `#${b.orderId}`,
             client: client ? client.name : 'Unknown',
             status: b.status,
-            date: order?.created_at ? formatDateShort(order.created_at) : '—',
+            date: order?.created_at ? formatDateShort(order.created_at, i18n.language) : '—',
             product: b.product,
             qty: b.qty,
             progress: b.progress,
             priority: b.priority,
             assignedTo: b.assignedTo || 'Unassigned',
-            deadline: formatDateShort(b.deadline ?? null),
+            deadline: formatDateShort(b.deadline ?? null, i18n.language),
             notes: b.notes,
             stages: (b.stages || []).map((s) => ({
               ...s,
-              updatedAt: s.updatedAt ? formatDateTime(s.updatedAt) : '—',
+              updatedAt: s.updatedAt ? formatDateTime(s.updatedAt, i18n.language) : '—',
             })),
             clientInfo: {
               address: client?.address || '—',

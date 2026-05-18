@@ -17,11 +17,11 @@ interface DisplayOrder {
   completedAt?: string;
 }
 
-function formatDate(isoDate: string | null): string {
+function formatDate(isoDate: string | null, lang: string): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleString('en-GB', {
+  return d.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-GB', {
     day: '2-digit', month: 'short', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   });
@@ -36,7 +36,7 @@ export default function ManagerOrders({ role = 'manager' }: Props) {
 }
 
 function ManagerOrdersInner({ role = 'manager' }: Props) {
-  const { t } = useTranslation(['common', 'managerOrders']);
+  const { t, i18n } = useTranslation(['common', 'managerOrders']);
   const { navigateTopLevel } = useNavigation();
   const [pending, setPending] = useState<DisplayOrder[]>([]);
   const [working, setWorking] = useState<DisplayOrder[]>([]);
@@ -60,7 +60,7 @@ function ManagerOrdersInner({ role = 'manager' }: Props) {
           client: clientMap.get(order.customer) || 'Unknown',
           completedAt:
             order.status === 'COMPLETED' || order.status === 'CANCELED'
-              ? formatDate(order.updated_at)
+              ? formatDate(order.updated_at, i18n.language)
               : undefined,
         }));
 

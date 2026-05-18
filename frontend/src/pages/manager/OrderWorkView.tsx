@@ -54,18 +54,18 @@ interface Props {
   role?: 'manager' | 'owner';
 }
 
-function formatDateTime(isoDate: string | null): string {
+function formatDateTime(isoDate: string | null, lang: string): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-function formatDate(isoDate: string | null): string {
+function formatDate(isoDate: string | null, lang: string): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 function formatSize(kb: number): string {
@@ -133,7 +133,7 @@ export default function OrderWorkView({ jobId, role = 'manager' }: Props) {
 }
 
 function OrderWorkViewInner({ jobId, role = 'manager' }: Props) {
-  const { t } = useTranslation(['common', 'orderWorkView']);
+  const { t, i18n } = useTranslation(['common', 'orderWorkView']);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -168,7 +168,7 @@ function OrderWorkViewInner({ jobId, role = 'manager' }: Props) {
           const stagesDisplay: StageDisplay[] = (batch.stages || []).map((s: any) => ({
             stage: s.stage,
             status: s.status,
-            updated: formatDateTime(s.updatedAt || s.updated_at),
+            updated: formatDateTime(s.updatedAt || s.updated_at, i18n.language),
           }));
 
           const clientUploads = clientId ? uploadsByOwner.get(clientId) || [] : [];
@@ -196,7 +196,7 @@ function OrderWorkViewInner({ jobId, role = 'manager' }: Props) {
               qty: batch.qty,
               status: batch.status,
               priority: batch.priority,
-              deadline: formatDate(batch.deadline),
+              deadline: formatDate(batch.deadline, i18n.language),
               team: batch.assignedTo || 'Unassigned',
               notes: batch.notes || '—',
             },

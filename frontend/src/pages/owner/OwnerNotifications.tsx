@@ -13,16 +13,40 @@ import {
 } from '../../lib/api/notificationsService';
 import type { Notification } from '../../lib/api/notificationsService';
 
+const TITLE_KEY_MAP: Record<string, string> = {
+  'Quote approved': 'quoteApproved',
+  'New order placed': 'newOrderPlaced',
+};
+
+function translateTitle(title: string, t: (key: string) => string): string {
+  const key = TITLE_KEY_MAP[title];
+  if (!key) return title;
+  const result = t(`ownerNotifications:messages.titles.${key}`);
+  return result.startsWith('messages.') ? title : result;
+}
+
+function translateBody(body: string, t: (key: string, opts?: Record<string, string>) => string): string {
+  let m: RegExpMatchArray | null;
+
+  m = body.match(/^Quote approved for Order #(\d+)\.$/);
+  if (m) return t('ownerNotifications:messages.bodies.quoteApproved', { orderId: m[1] });
+
+  m = body.match(/^New order #(\d+) placed by (.+)\.$/);
+  if (m) return t('ownerNotifications:messages.bodies.newOrderPlaced', { orderId: m[1], client: m[2] });
+
+  return body;
+}
+
 function translateActionLabel(label: string, t: (key: string) => string): string {
   const keyPath = `actions.${label}`;
   const translated = t(`ownerNotifications:${keyPath}`);
   return translated === keyPath ? label : translated;
 }
 
-function formatDateTime(value: string): string {
+function formatDateTime(value: string, lang: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleString('en-GB', {
+  return date.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-GB', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
@@ -40,7 +64,7 @@ export default function OwnerNotifications() {
 }
 
 function OwnerNotificationsInner() {
-  const { t } = useTranslation(['common', 'ownerNotifications']);
+  const { t, i18n } = useTranslation(['common', 'ownerNotifications']);
   const { navigateTopLevel } = useNavigation();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -211,9 +235,9 @@ function OwnerNotificationsInner() {
             >
               <div className="table-head" style={{ alignItems: 'flex-start' }}>
                 <div>
-                  <h3 style={{ marginBottom: 4 }}>{notification.title}</h3>
+                  <h3 style={{ marginBottom: 4 }}>{translateTitle(notification.title, t)}</h3>
                   <p className="muted" style={{ fontSize: 12 }}>
-                    {formatDateTime(notification.created_at)}
+                    {formatDateTime(notification.created_at, i18n.language)}
                   </p>
                 </div>
                 <span className={`status ${notification.unread ? 'pending' : 'done'}`}>
@@ -221,7 +245,7 @@ function OwnerNotificationsInner() {
                 </span>
               </div>
 
-              <p>{notification.body}</p>
+              <p>{translateBody(notification.body, t)}</p>
 
               <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
                 {notification.action_page && notification.action_label && (
