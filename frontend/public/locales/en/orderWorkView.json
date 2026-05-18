@@ -1,0 +1,34 @@
+{
+  "title": "Work View",
+  "titleSingle": "Work View — {{id}}",
+  "titleAll": "Order Work View",
+  "loading": "Loading jobs…",
+  "error": "Could not load work view. Please try again later.",
+  "notFound": "Job not found.",
+  "progress": {
+    "title": "Work Progress — {{id}}",
+    "completed": "completed",
+    "table": {
+      "stage": "Stage",
+      "status": "Status",
+      "updatedAt": "Updated At"
+    }
+  },
+  "info": {
+    "title": "Job Info",
+    "client": "Client",
+    "batch": "Batch Code",
+    "product": "Product",
+    "quantity": "Quantity",
+    "status": "Status",
+    "priority": "Priority",
+    "deadline": "Deadline",
+    "assignedTo": "Assigned To",
+    "notes": "Notes"
+  },
+  "documents": {
+    "title": "Documents",
+    "empty": "No documents attached.",
+    "download": "↓ Download"
+  }
+}
