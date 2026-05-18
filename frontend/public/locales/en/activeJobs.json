@@ -1,0 +1,74 @@
+{
+  "title": "Production Dashboard",
+  "loading": "Loading production data...",
+  "error": "Could not load production data. Please try again later.",
+  "empty": "No jobs available.",
+  "noMatch": "No matching jobs.",
+  "stats": {
+    "activeJobs": "Active Jobs",
+    "inQueue": "Currently in queue",
+    "inProgress": "In Progress",
+    "beingWorked": "Being worked on",
+    "onHold": "On Hold",
+    "waiting": "Waiting on something",
+    "completed": "Completed",
+    "finished": "Finished jobs"
+  },
+  "filter": {
+    "all": "All",
+    "inProgress": "In Progress",
+    "onHold": "On Hold",
+    "completed": "Completed"
+  },
+  "list": {
+    "title": "Active Jobs",
+    "searchPlaceholder": "Search by job ID, client or product…",
+    "client": "Client",
+    "product": "Product",
+    "due": "Due",
+    "printed": "printed",
+    "openWorkView": "Open Work View"
+  },
+  "detail": {
+    "title": "Job Details",
+    "product": "Product",
+    "quantity": "Quantity",
+    "pcs": "pcs",
+    "paper": "Paper",
+    "dueDate": "Due Date",
+    "progress": "Progress",
+    "complete": "complete",
+    "steps": "Production Steps",
+    "current": "← current",
+    "openWorkView": "Open Work View"
+  },
+  "steps": {
+    "File Approved": "File Approved",
+    "Printing Started": "Printing Started",
+    "Finishing": "Finishing",
+    "Quality Check": "Quality Check",
+    "Ready for Delivery": "Ready for Delivery"
+  },
+  "workView": {
+    "title": "Work View — {{id}}",
+    "close": "✕ Close",
+    "stages": "Production Stages",
+    "stepsTitle": "Production Steps",
+    "table": {
+      "stage": "Stage",
+      "status": "Status",
+      "updatedAt": "Updated At"
+    },
+    "client": "Client",
+    "batch": "Batch",
+    "product": "Product",
+    "quantity": "Quantity",
+    "paper": "Paper",
+    "dueDate": "Due Date",
+    "priority": "Priority",
+    "assignedTo": "Assigned To",
+    "notes": "Notes",
+    "pcs": "pcs",
+    "printed": "printed"
+  }
+}
