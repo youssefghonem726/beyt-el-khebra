@@ -1,15 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useTranslation } from 'react-i18next';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import { useNavigation } from '../../context/NavigationContext';
-// Direct service import – bypasses VITE_USE_MOCK
 import { getQuotes } from '../../lib/api/quotesService';
 import type { QuoteResponse } from '../../lib/api/quotesService';
 
 interface QuoteSummary {
   id: number;
-  status: string;           // normalized for StatusBadge
+  status: string;
   amount: number;
 }
 
@@ -17,7 +17,6 @@ function fmt(n: number): string {
   return n.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-// Compute total from line items if total_estimated_price is missing
 function computeTotalFromItems(items: QuoteResponse['items']): number {
   return items.reduce((sum, item) => {
     const price =
@@ -29,6 +28,15 @@ function computeTotalFromItems(items: QuoteResponse['items']): number {
 }
 
 export default function Quotes() {
+  return (
+    <Suspense fallback={null}>
+      <QuotesInner />
+    </Suspense>
+  );
+}
+
+function QuotesInner() {
+  const { t } = useTranslation(['common', 'quotes']);
   const { navigateTopLevel } = useNavigation();
   const [quotes, setQuotes] = useState<QuoteSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,7 +47,6 @@ export default function Quotes() {
       try {
         const res = await getQuotes();
         const rawQuotes: QuoteResponse[] = res.data.data;
-        console.log('Quotes - raw:', rawQuotes);
 
         const summaries: QuoteSummary[] = rawQuotes.map((q) => {
           let amount: number;
@@ -52,18 +59,16 @@ export default function Quotes() {
             amount = computeTotalFromItems(q.items || []);
           }
 
-          // Map backend status to a value StatusBadge understands
           const statusMap: Record<string, string> = {
             pending: 'awaiting_confirmation',
             approved: 'approved',
             rejected: 'rejected',
             converted: 'converted',
           };
-          const normalizedStatus = statusMap[q.status] || q.status;
 
           return {
             id: q.id,
-            status: normalizedStatus,
+            status: statusMap[q.status] || q.status,
             amount,
           };
         });
@@ -71,7 +76,7 @@ export default function Quotes() {
         setQuotes(summaries);
       } catch (err) {
         console.error('Failed to load quotes:', err);
-        setError('Could not load your quotes. Please try again later.');
+        setError(t('quotes:error'));
       } finally {
         setLoading(false);
       }
@@ -83,8 +88,8 @@ export default function Quotes() {
   if (loading) {
     return (
       <AppShell role="client" activePage="quotes">
-        <Topbar title="Quotes" />
-        <div className="loading-state">Loading quotes...</div>
+        <Topbar title={t('quotes:title')} />
+        <div className="loading-state">{t('quotes:loading')}</div>
       </AppShell>
     );
   }
@@ -92,7 +97,7 @@ export default function Quotes() {
   if (error) {
     return (
       <AppShell role="client" activePage="quotes">
-        <Topbar title="Quotes" />
+        <Topbar title={t('quotes:title')} />
         <div className="error-state">{error}</div>
       </AppShell>
     );
@@ -100,50 +105,41 @@ export default function Quotes() {
 
   return (
     <AppShell role="client" activePage="quotes">
-      <Topbar title="Quotes" />
+      <Topbar title={t('quotes:title')} />
 
       <section className="table-wrap">
         <div className="table-head" style={{ marginBottom: 10 }}>
-          <h3>My Quotes</h3>
-          <button
-            className="btn primary"
-            onClick={() => navigateTopLevel('place-new-order')}
-          >
-            Request New Quote
+          <h3>{t('quotes:myQuotes')}</h3>
+          <button className="btn primary" onClick={() => navigateTopLevel('place-new-order')}>
+            {t('quotes:requestNew')}
           </button>
         </div>
         <table className="orders-table">
           <thead>
             <tr>
-              <th>Quote ID</th>
-              <th>Status</th>
-              <th>Amount</th>
-              <th>Action</th>
+              <th>{t('quotes:table.id')}</th>
+              <th>{t('quotes:table.status')}</th>
+              <th>{t('quotes:table.amount')}</th>
+              <th>{t('quotes:table.action')}</th>
             </tr>
           </thead>
           <tbody>
             {quotes.length === 0 ? (
               <tr>
-                <td colSpan={4} className="no-results">
-                  No quotes available.
-                </td>
+                <td colSpan={4} className="no-results">{t('quotes:empty')}</td>
               </tr>
             ) : (
               quotes.map((q) => (
                 <tr key={q.id}>
                   <td>#{q.id}</td>
-                  <td>
-                    <StatusBadge status={q.status} />
-                  </td>
+                  <td><StatusBadge status={q.status} /></td>
                   <td style={{ fontWeight: 600 }}>EGP {fmt(q.amount)}</td>
                   <td>
                     <button
                       className="btn"
-                      onClick={() =>
-                        navigateTopLevel(`/client/quotes/${q.id}`)
-                      }
+                      onClick={() => navigateTopLevel(`/client/quotes/${q.id}`)}
                     >
-                      Review Quote
+                      {t('quotes:table.review')}
                     </button>
                   </td>
                 </tr>
@@ -152,7 +148,6 @@ export default function Quotes() {
           </tbody>
         </table>
       </section>
-      {/* Standard pricing section removed – no client-facing pricing API yet */}
     </AppShell>
   );
 }
