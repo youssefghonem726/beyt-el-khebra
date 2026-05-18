@@ -1,0 +1,50 @@
+{
+  "title": "لوحة التحكم",
+  "loading": "جاري تحميل لوحة التحكم...",
+  "error": "تعذّر تحميل بيانات لوحة التحكم. يرجى المحاولة مجدداً.",
+  "welcome": {
+    "greeting": "مرحباً بعودتك، {{name}}",
+    "sub": "إليك آخر تحديثات طلباتك."
+  },
+  "stats": {
+    "totalOrders": "إجمالي الطلبات",
+    "allTime": "منذ البداية",
+    "pendingQuote": "بانتظار التسعير",
+    "awaitingPricing": "في انتظار التسعير",
+    "inProgress": "قيد التنفيذ",
+    "inProduction": "يُنتج حالياً",
+    "completed": "مكتمل",
+    "successCompleted": "اكتمل بنجاح"
+  },
+  "orders": {
+    "title": "طلباتي",
+    "searchPlaceholder": "البحث برقم الطلب أو المنتج",
+    "noResults": "لا توجد نتائج مطابقة"
+  },
+  "table": {
+    "id": "رقم الطلب",
+    "product": "المنتج",
+    "status": "الحالة",
+    "orderDate": "تاريخ الطلب",
+    "deliveryDate": "تاريخ التسليم",
+    "total": "الإجمالي",
+    "action": "إجراء",
+    "view": "عرض"
+  },
+  "quickActions": {
+    "title": "إجراءات سريعة",
+    "placeOrder": "تقديم طلب جديد",
+    "viewQuotes": "عرض الأسعار",
+    "contactSupport": "التواصل مع الدعم"
+  },
+  "statusGuide": {
+    "title": "دليل حالات الطلب",
+    "desc": {
+      "UNPRICED_PENDING": "طلبك بانتظار التسعير.",
+      "PRICED_PENDING_CONFIRMATION": "تم إرسال السعر – بانتظار موافقتك.",
+      "IN_PROGRESS": "طلبك قيد الإنتاج.",
+      "COMPLETED": "اكتمل الطلب وجاهز للتسليم.",
+      "CANCELED": "تم إلغاء الطلب."
+    }
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "title": "Dashboard",
+  "loading": "Loading your dashboard...",
+  "error": "Could not load dashboard data. Please try again later.",
+  "welcome": {
+    "greeting": "Welcome back, {{name}}",
+    "sub": "Here's what is happening with your orders."
+  },
+  "stats": {
+    "totalOrders": "Total Orders",
+    "allTime": "All time",
+    "pendingQuote": "Pending Quote",
+    "awaitingPricing": "Awaiting pricing",
+    "inProgress": "In Progress",
+    "inProduction": "Currently in production",
+    "completed": "Completed",
+    "successCompleted": "Successfully completed"
+  },
+  "orders": {
+    "title": "My Orders",
+    "searchPlaceholder": "Search by order ID or product",
+    "noResults": "No matching results"
+  },
+  "table": {
+    "id": "Order ID",
+    "product": "Product",
+    "status": "Status",
+    "orderDate": "Order Date",
+    "deliveryDate": "Delivery Date",
+    "total": "Total",
+    "action": "Action",
+    "view": "View"
+  },
+  "quickActions": {
+    "title": "Quick Actions",
+    "placeOrder": "Place New Order",
+    "viewQuotes": "View Quotes",
+    "contactSupport": "Contact Support"
+  },
+  "statusGuide": {
+    "title": "Order Status Guide",
+    "desc": {
+      "UNPRICED_PENDING": "Your order is waiting for pricing.",
+      "PRICED_PENDING_CONFIRMATION": "Quote has been sent – awaiting your approval.",
+      "IN_PROGRESS": "Your order is being produced.",
+      "COMPLETED": "Order is complete and ready for delivery.",
+      "CANCELED": "Order has been cancelled."
+    }
+  }
+}
