@@ -8,12 +8,20 @@ import { downloadText } from '../../utils/download';
 import {
   getOrders,
   getBatches,
+  getProductionJobs,
   getClients,
-  getInvoices,
+  getSettings,
   getUsers,
+  updatePricingRolesSettings,
+  updateUser,
+  updateProductionJob,
+  updateWhatsappSettings,
 } from '../../lib/api';
+import type { UserProfile } from '../../lib/api';
+import { getDashboardStats } from '../../lib/api/dashboardService';
+import { getAccountingOverview } from '../../lib/api/invoicesService';
 
-// ─── Helpers (unchanged) ───────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatDate(isoDate: string | null): string {
   if (!isoDate) return '—';
@@ -26,7 +34,13 @@ function formatDateTime(isoDate: string | null): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 function getShortOrderId(orderId: string): string {
@@ -38,7 +52,34 @@ function formatAmount(amount: number): string {
   return `EGP ${amount.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-// ─── Manager Orders Panel ─────────────────────────────────────────────────
+function normalizeStatus(status: unknown): string {
+  return String(status ?? '').trim().toUpperCase();
+}
+
+function getOrderClientId(order: any): string {
+  return String(order.clientId ?? order.customer ?? order.customer_id ?? '');
+}
+
+function getClientName(clientsMap: Map<string, string>, clientId: unknown): string {
+  return clientsMap.get(String(clientId ?? '')) || 'Unknown';
+}
+
+const PENDING_ORDER_STATUSES = new Set(['UNPRICED_PENDING', 'PRICED_PENDING_CONFIRMATION']);
+const WORKING_ORDER_STATUSES = new Set(['IN_PROGRESS']);
+const COMPLETED_ORDER_STATUSES = new Set(['COMPLETED', 'CLOSED']);
+const PRODUCTION_STEP_LABELS: Record<string, string> = {
+  pending: 'Ready',
+  design: 'Design',
+  printing: 'Printing',
+  cutting: 'Cutting',
+  packaging: 'Packaging',
+  ready: 'Ready',
+};
+const PRODUCTION_STEP_ORDER = ['pending', 'design', 'printing', 'cutting', 'packaging', 'ready'];
+
+export type ManagerOrdersFilter = 'all' | 'pending' | 'working' | 'completed';
+
+// ─── Manager Orders Panel ─────────────────────────────────────────────────────
 
 interface OrderBrief {
   id: string;
@@ -75,7 +116,7 @@ type PanelView =
   | { kind: 'order'; id: string; displayId: string; client: string; status: string }
   | { kind: 'work-view'; id: string; displayId: string; client: string; product: string; qty: number; progress: number; paper: string };
 
-export function ManagerOrdersPanel() {
+export function ManagerOrdersPanel({ initialFilter = 'all' }: { initialFilter?: ManagerOrdersFilter }) {
   const [view, setView] = useState<PanelView | null>(null);
   const [pending, setPending] = useState<OrderBrief[]>([]);
   const [working, setWorking] = useState<WorkOrder[]>([]);
@@ -88,44 +129,58 @@ export function ManagerOrdersPanel() {
   useEffect(() => {
     (async () => {
       try {
-        const [ordersRes, batchesRes, clientsRes] = await Promise.all([
+        const [ordersRes, productionRes, clientsRes] = await Promise.all([
           getOrders(),
-          getBatches(),
+          getProductionJobs(),
           getClients(),
         ]);
         const orders = ordersRes.data.data;
-        const batches = batchesRes.data.data;
+        const productionJobs = productionRes.data.data || [];
+        const batches: any[] = [];
         const clients = clientsRes.data.data.results;
-        const clientsMap = new Map(clients.map(c => [c.id, c.name]));
+        const clientsMap = new Map(clients.map(c => [String(c.id), c.name]));
 
         const buildBrief = (order: any): OrderBrief => ({
-          id: order.id,
-          displayId: getShortOrderId(order.id),
-          client: clientsMap.get(order.clientId) || 'Unknown',
+          id: String(order.id),
+          displayId: getShortOrderId(String(order.id)),
+          client: order.customer_name || getClientName(clientsMap, getOrderClientId(order)),
           status: order.status,
         });
 
         const pendingOrders = orders
-          .filter((o: any) => o.status === 'unpriced_pending' || o.status === 'priced_pending_confirmation')
+          .filter((o: any) => PENDING_ORDER_STATUSES.has(normalizeStatus(o.status)))
           .map(buildBrief);
 
-        const workingOrders = orders
-          .filter((o: any) => o.status === 'in_progress')
-          .map(buildBrief);
+        const workingOrders = productionJobs
+          .filter((job: any) => normalizeStatus(job.status) !== 'COMPLETED')
+          .map((job: any) => {
+            const qty = Number(job.quantity || 0);
+            const completedQty = Number(job.completed_quantity || 0);
+            return {
+              id: `job-${job.id}`,
+              displayId: `#${job.order_id} / ${job.job_id || `JOB-${job.id}`}`,
+              client: job.client_name || 'Unknown',
+              status: job.status || 'ready_for_production',
+              product: job.product || 'Order Item',
+              qty,
+              progress: completedQty,
+              paper: PRODUCTION_STEP_LABELS[job.current_step] || job.current_step || '-',
+            };
+          });
 
         const completedOrders = orders
-          .filter((o: any) => o.status === 'completed' || o.status === 'canceled')
+          .filter((o: any) => COMPLETED_ORDER_STATUSES.has(normalizeStatus(o.status)))
           .map((o: any) => ({
             ...buildBrief(o),
-            completedAt: formatDate(o.deliveryDate || o.orderDate),
+            completedAt: formatDate(o.completed_at || o.updated_at || o.created_at),
           }));
 
         const details: Record<string, OrderDetail> = {};
         orders.forEach((order: any) => {
-          const batch = batches.find((b: any) => b.orderId === order.id);
-          details[order.id] = {
-            product: order.product,
-            qty: batch?.qty || order.specs?.qty || 0,
+          const batch = batches.find((b: any) => String(b.orderId) === String(order.id));
+          details[String(order.id)] = {
+            product: order.product_summary || order.product || batch?.product || 'Order',
+            qty: batch?.qty || order.specs?.qty || order.quantity || 0,
             paper: order.specs?.paper || batch?.paper || '—',
             notes: batch?.notes || order.specs?.description || '—',
           };
@@ -134,25 +189,36 @@ export function ManagerOrdersPanel() {
         const stagesMap: Record<string, WorkStage[]> = {};
         batches.forEach((batch: any) => {
           if (batch.stages) {
-            stagesMap[batch.orderId] = batch.stages.map((s: any) => ({
+            stagesMap[String(batch.orderId)] = batch.stages.map((s: any) => ({
               stage: s.stage,
               status: s.status,
               updated: formatDateTime(s.updatedAt),
             }));
           }
         });
+        productionJobs.forEach((job: any) => {
+          const currentStep = job.current_step || 'pending';
+          const currentIndex = Math.max(PRODUCTION_STEP_ORDER.indexOf(currentStep), 0);
+          stagesMap[`job-${job.id}`] = PRODUCTION_STEP_ORDER.map((step, index) => ({
+            stage: PRODUCTION_STEP_LABELS[step] || step,
+            status: index < currentIndex ? 'completed' : index === currentIndex ? job.status : 'pending',
+            updated: '-',
+          }));
+        });
 
         setPending(pendingOrders);
-        setWorking(workingOrders.map((w: any) => {
-          const batch = batches.find((b: any) => b.orderId === w.id);
-          return {
-            ...w,
-            product: w.product,
-            qty: batch?.qty || 0,
-            progress: batch?.progress || 0,
-            paper: w.specs?.paper || batch?.paper || '—',
-          };
-        }));
+        setWorking(
+          workingOrders.map((w: any) => {
+            const batch = batches.find((b: any) => String(b.orderId) === String(w.id));
+            return {
+              ...w,
+              product: w.product,
+              qty: batch?.qty || w.qty || 0,
+              progress: batch?.progress || w.progress || 0,
+              paper: w.specs?.paper || batch?.paper || '—',
+            };
+          })
+        );
         setCompleted(completedOrders);
         setOrderDetails(details);
         setWorkStages(stagesMap);
@@ -168,7 +234,6 @@ export function ManagerOrdersPanel() {
   if (loading) return <div className="loading-state">Loading orders…</div>;
   if (error) return <div className="error-state">{error}</div>;
 
-  // View rendering (unchanged from original)
   if (view?.kind === 'order') {
     const detail = orderDetails[view.id];
     return (
@@ -223,11 +288,14 @@ export function ManagerOrdersPanel() {
     );
   }
 
-  // Main table view
+  const showPending = initialFilter === 'all' || initialFilter === 'pending';
+  const showWorking = initialFilter === 'all' || initialFilter === 'working';
+  const showCompleted = initialFilter === 'all' || initialFilter === 'completed';
+
   return (
     <div className="stack">
       <div className="grid-2">
-        <article className="table-wrap">
+        {showPending && <article className="table-wrap">
           <div className="table-head"><h3>Pending Orders</h3></div>
           <table className="orders-table">
             <thead><tr><th>Order</th><th>Status</th><th>Client</th><th>Action</th></tr></thead>
@@ -237,14 +305,21 @@ export function ManagerOrdersPanel() {
                   <td>{o.displayId}</td>
                   <td><StatusBadge status={o.status} /></td>
                   <td>{o.client}</td>
-                  <td><button className="btn" onClick={() => setView({ kind: 'order', id: o.id, displayId: o.displayId, client: o.client, status: o.status })}>View</button></td>
+                  <td>
+                    <button
+                      className="btn"
+                      onClick={() => setView({ kind: 'order', id: o.id, displayId: o.displayId, client: o.client, status: o.status })}
+                    >
+                      View
+                    </button>
+                  </td>
                 </tr>
               ))}
               {pending.length === 0 && <tr><td colSpan={4}>No pending orders</td></tr>}
             </tbody>
           </table>
-        </article>
-        <article className="table-wrap">
+        </article>}
+        {showWorking && <article className="table-wrap">
           <div className="table-head"><h3>Working Orders</h3></div>
           <table className="orders-table">
             <thead><tr><th>Order</th><th>Status</th><th>Client</th><th>Action</th></tr></thead>
@@ -254,15 +329,22 @@ export function ManagerOrdersPanel() {
                   <td>{o.displayId}</td>
                   <td><StatusBadge status={o.status} /></td>
                   <td>{o.client}</td>
-                  <td><button className="btn" onClick={() => setView({ kind: 'work-view', id: o.id, displayId: o.displayId, client: o.client, product: o.product, qty: o.qty, progress: o.progress, paper: o.paper })}>Work View</button></td>
+                  <td>
+                    <button
+                      className="btn"
+                      onClick={() => setView({ kind: 'work-view', id: o.id, displayId: o.displayId, client: o.client, product: o.product, qty: o.qty, progress: o.progress, paper: o.paper })}
+                    >
+                      Work View
+                    </button>
+                  </td>
                 </tr>
               ))}
               {working.length === 0 && <tr><td colSpan={4}>No working orders</td></tr>}
             </tbody>
           </table>
-        </article>
+        </article>}
       </div>
-      <article className="table-wrap">
+      {showCompleted && <article className="table-wrap">
         <div className="table-head"><h3>Completed Orders</h3></div>
         <table className="orders-table">
           <thead><tr><th>Order</th><th>Status</th><th>Client</th><th>Completed At</th><th>Action</th></tr></thead>
@@ -273,18 +355,25 @@ export function ManagerOrdersPanel() {
                 <td><StatusBadge status={o.status} /></td>
                 <td>{o.client}</td>
                 <td>{o.completedAt}</td>
-                <td><button className="btn" onClick={() => setView({ kind: 'order', id: o.id, displayId: o.displayId, client: o.client, status: o.status })}>View</button></td>
+                <td>
+                  <button
+                    className="btn"
+                    onClick={() => setView({ kind: 'order', id: o.id, displayId: o.displayId, client: o.client, status: o.status })}
+                  >
+                    View
+                  </button>
+                </td>
               </tr>
             ))}
             {completed.length === 0 && <tr><td colSpan={5}>No completed orders</td></tr>}
           </tbody>
         </table>
-      </article>
+      </article>}
     </div>
   );
 }
 
-// ─── Batch Lookup Panel ───────────────────────────────────────────────────
+// ─── Batch Lookup Panel ───────────────────────────────────────────────────────
 
 interface BatchView {
   code: string;
@@ -313,17 +402,19 @@ export function BatchLookupPanel() {
         const batchesData = batchesRes.data.data;
         const ordersData = ordersRes.data.data;
         const clientsData = clientsRes.data.data.results;
-        const ordersMap = new Map(ordersData.map(o => [o.id, o]));
-        const clientsMap = new Map(clientsData.map(c => [c.id, c.name]));
+        const ordersMap = new Map(ordersData.map(o => [String(o.id), o]));
+        const clientsMap = new Map(clientsData.map(c => [String(c.id), c.name]));
 
         const views: BatchView[] = batchesData.map((b: any) => {
-          const order = ordersMap.get(b.orderId);
+          const orderId = String(b.orderId ?? b.order_id ?? '');
+          const order = ordersMap.get(orderId);
+          const batchCode = b.code || b.batch_code || b.id;
           return {
-            code: b.id,
-            order: order ? getShortOrderId(order.id) : b.orderId,
-            client: order ? clientsMap.get(order.clientId) || 'Unknown' : 'Unknown',
+            code: String(batchCode),
+            order: order ? getShortOrderId(String(order.id)) : orderId,
+            client: order ? getClientName(clientsMap, getOrderClientId(order)) : 'Unknown',
             status: b.status,
-            date: formatDate(order?.orderDate || null),
+            date: formatDate(b.created_at || b.updated_at || order?.orderDate || order?.created_at || null),
           };
         });
         setBatches(views);
@@ -365,31 +456,55 @@ export function BatchLookupPanel() {
     <div>
       <div className="table-head" style={{ marginBottom: 12 }}>
         <div className="search-container" style={{ flex: 1 }}>
-          <input className="input" type="search" placeholder="Search by batch code, order ID, or client..." value={query} onChange={(e) => setQuery(e.target.value)} />
+          <input
+            className="input"
+            type="search"
+            placeholder="Search by batch code, order ID, or client..."
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+          />
           <button className="filter-icon" type="button" onClick={() => setDropdownOpen(o => !o)}>▼</button>
           {dropdownOpen && (
             <div className="filter-dropdown show">
-              <div className="field"><label>Status</label><select className="select"><option value="">All Status</option><option>Active</option><option>Completed</option></select></div>
+              <div className="field">
+                <label>Status</label>
+                <select className="select">
+                  <option value="">All Status</option>
+                  <option>Active</option>
+                  <option>Completed</option>
+                </select>
+              </div>
               <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>Apply</button>
             </div>
           )}
         </div>
-        <button className="btn" onClick={() => {
-          const header = 'Batch Code,Order,Client,Status,Date';
-          const rows = filtered.map(b => `${b.code},${b.order},${b.client},${b.status},${b.date}`);
-          downloadText('batch-export.csv', [header, ...rows]);
-        }}>Export CSV</button>
+        <button
+          className="btn"
+          disabled={filtered.length === 0}
+          onClick={() => {
+            const header = 'Batch Code,Order,Client,Status,Date';
+            const rows = filtered.map(b => [b.code, b.order, b.client, b.status, b.date].map(value => `"${String(value).replace(/"/g, '""')}"`).join(','));
+            downloadText('batch-export.csv', [header, ...rows]);
+          }}
+        >
+          Export CSV
+        </button>
       </div>
       <div className="table-responsive">
         <table className="orders-table">
-          <thead><tr><th>Batch Code</th><th>Order</th><th>Client</th><th>Status</th><th>Date</th><th>Action</th></tr></thead>
+          <thead>
+            <tr><th>Batch Code</th><th>Order</th><th>Client</th><th>Status</th><th>Date</th><th>Action</th></tr>
+          </thead>
           <tbody>
             {filtered.length === 0
               ? <tr><td colSpan={6} className="no-results">No matching results</td></tr>
               : filtered.map(b => (
                 <tr key={b.code}>
-                  <td>{b.code}</td><td>{b.order}</td><td>{b.client}</td>
-                  <td><StatusBadge status={b.status} /></td><td>{b.date}</td>
+                  <td>{b.code}</td>
+                  <td>{b.order}</td>
+                  <td>{b.client}</td>
+                  <td><StatusBadge status={b.status} /></td>
+                  <td>{b.date}</td>
                   <td><button className="btn" onClick={() => setSelected(b)}>View</button></td>
                 </tr>
               ))}
@@ -400,7 +515,7 @@ export function BatchLookupPanel() {
   );
 }
 
-// ─── Accounting Panel ─────────────────────────────────────────────────────
+// ─── Accounting Panel ─────────────────────────────────────────────────────────
 
 export function AccountingPanel() {
   const [invoices, setInvoices] = useState<any[]>([]);
@@ -411,29 +526,28 @@ export function AccountingPanel() {
   useEffect(() => {
     (async () => {
       try {
-        const [invoicesRes, clientsRes] = await Promise.all([getInvoices(), getClients()]);
-        const invoicesData = invoicesRes.data.data;
-        const clientsData = clientsRes.data.data.results;
-        const clientsMap = new Map(clientsData.map(c => [c.id, c.name]));
+        const overviewRes = await getAccountingOverview();
+        const overview = overviewRes.data.data;
+        const invoicesData = overview.invoices ?? [];
 
         const enriched = invoicesData.map((inv: any) => ({
           id: inv.id,
-          order: getShortOrderId(inv.orderId),
-          client: clientsMap.get(inv.clientId) || 'Unknown',
-          total: formatAmount(inv.amount),
-          status: inv.status,
+          order: getShortOrderId(String(inv.orderId ?? inv.order_id ?? inv.order ?? '-')),
+          client: inv.client_name || 'Unknown',
+          total: formatAmount(inv.total ?? inv.total_amount ?? 0),
+          status: inv.payment_status || inv.status || 'unpaid',
         }));
 
-        const paidTotal = invoicesData.filter((i: any) => i.status === 'paid').reduce((s: number, i: any) => s + i.amount, 0);
-        const pendingTotal = invoicesData.filter((i: any) => i.status !== 'paid').reduce((s: number, i: any) => s + i.amount, 0);
-        const paidCount = invoicesData.filter((i: any) => i.status === 'paid').length;
-        const unpaidCount = invoicesData.filter((i: any) => i.status !== 'paid').length;
+        const paidTotal = overview.stats?.revenue_snapshot ?? 0;
+        const pendingTotal = overview.stats?.pending_collection ?? 0;
+        const paidCount = overview.stats?.paid_orders ?? 0;
+        const unpaidCount = overview.stats?.unpaid_orders ?? 0;
 
         setStats([
-          { label: 'Revenue Snapshot', value: `EGP ${(paidTotal / 1000).toFixed(0)}K`, sub: 'Total paid invoices' },
-          { label: 'Pending Collection', value: `EGP ${(pendingTotal / 1000).toFixed(0)}K`, sub: 'Awaiting payment' },
-          { label: 'Paid Invoices', value: paidCount, sub: 'Paid to date' },
-          { label: 'Unpaid Invoices', value: unpaidCount, sub: 'Follow-up required' },
+          { label: 'Revenue Snapshot', value: `EGP ${(paidTotal / 1000).toFixed(0)}K`, sub: 'Total paid amount' },
+          { label: 'Pending Collection', value: `EGP ${(pendingTotal / 1000).toFixed(0)}K`, sub: 'Remaining order amount' },
+          { label: 'Paid Orders', value: paidCount, sub: 'Orders fully paid' },
+          { label: 'Unpaid Orders', value: unpaidCount, sub: 'Need finance follow-up' },
         ]);
         setInvoices(enriched);
       } catch (err) {
@@ -455,15 +569,37 @@ export function AccountingPanel() {
       </div>
       <div className="table-responsive">
         <table className="orders-table">
-          <thead><tr><th>Invoice #</th><th>Order</th><th>Client</th><th>Total</th><th>Status</th><th>Action</th></tr></thead>
+          <thead>
+            <tr><th>Invoice #</th><th>Order</th><th>Client</th><th>Total</th><th>Status</th><th>Action</th></tr>
+          </thead>
           <tbody>
-            {invoices.map(inv => (
-              <tr key={inv.id}>
-                <td>{inv.id}</td><td>{inv.order}</td><td>{inv.client}</td>
-                <td>{inv.total}</td><td><StatusBadge status={inv.status} /></td>
-                <td><button className="btn" onClick={() => downloadText(`invoice-${inv.id}.txt`, [`INVOICE: ${inv.id}`, `Order:  ${inv.order}`, `Client: ${inv.client}`, `Total:  ${inv.total}`, `Status: ${inv.status}`])}>Download</button></td>
-              </tr>
-            ))}
+            {invoices.length === 0
+              ? <tr><td colSpan={6} className="no-results">No invoices found</td></tr>
+              : invoices.map(inv => (
+                <tr key={inv.id}>
+                  <td>{inv.id}</td>
+                  <td>{inv.order}</td>
+                  <td>{inv.client}</td>
+                  <td>{inv.total}</td>
+                  <td><StatusBadge status={inv.status} /></td>
+                  <td>
+                    <button
+                      className="btn"
+                      onClick={() =>
+                        downloadText(`invoice-${inv.id}.txt`, [
+                          `INVOICE: ${inv.id}`,
+                          `Order:  ${inv.order}`,
+                          `Client: ${inv.client}`,
+                          `Total:  ${inv.total}`,
+                          `Status: ${inv.status}`,
+                        ])
+                      }
+                    >
+                      Download
+                    </button>
+                  </td>
+                </tr>
+              ))}
           </tbody>
         </table>
       </div>
@@ -471,34 +607,153 @@ export function AccountingPanel() {
   );
 }
 
-// ─── Settings Panel ───────────────────────────────────────────────────────
+// ─── Settings Panel ───────────────────────────────────────────────────────────
 
-interface User { email: string; role: string; status: string; }
+// Maps backend UserProfile → local display row
+interface UserRow {
+  id: number;
+  email: string;
+  role: UserProfile['role'];
+  status: 'active' | 'inactive';
+}
+
+function toUserRow(u: UserProfile): UserRow {
+  return {
+    id: u.id,
+    email: u.email,
+    role: u.role,
+    status: u.is_active ? 'active' : 'inactive',
+  };
+}
 
 export function SettingsPanel() {
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
   const [pricing, setPricing] = useState({ owner: 'Senior Manager', threshold: '5000' });
-  const [whatsapp, setWhatsapp] = useState({ number: '+20 100 123 4455', template: 'Hello {{client_name}}, your order {{order_id}} is now {{status}}.' });
-  const [editEmail, setEditEmail] = useState<string | null>(null);
-  const [editRole, setEditRole] = useState('');
-  const [editStatus, setEditStatus] = useState('');
+  const [whatsapp, setWhatsapp] = useState({
+    number: '+20 100 123 4455',
+    template: 'Hello {{client_name}}, your order {{order_id}} is now {{status}}.',
+  });
+
+  // Edit state — keyed by numeric user id
+  const [editId, setEditId] = useState<number | null>(null);
+  const [editRole, setEditRole] = useState<UserProfile['role']>('staff');
+  const [editStatus, setEditStatus] = useState<'active' | 'inactive'>('active');
+  const [saving, setSaving] = useState(false);
+  const [savingPricingRoles, setSavingPricingRoles] = useState(false);
+  const [savingWhatsapp, setSavingWhatsapp] = useState(false);
   const [toast, setToast] = useState('');
 
-  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
-  const startEdit = (u: User) => { setEditEmail(u.email); setEditRole(u.role); setEditStatus(u.status); };
-  const saveEdit = () => {
-    setUsers(prev => prev.map(u => u.email === editEmail ? { ...u, role: editRole, status: editStatus } : u));
-    setEditEmail(null);
-    showToast('User updated.');
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(''), 3000);
+  };
+
+  const startEdit = (u: UserRow) => {
+    setEditId(u.id);
+    setEditRole(u.role);
+    setEditStatus(u.status);
+  };
+
+  const cancelEdit = () => setEditId(null);
+
+  // Calls PATCH /api/users/<id>/ — updates Supabase via backend
+  const saveEdit = async () => {
+    if (editId === null) return;
+    setSaving(true);
+    try {
+      await updateUser(editId, {
+        role: editRole,
+        is_active: editStatus === 'active',
+      });
+      // Only update local state after server confirms success
+      setUsers(prev =>
+        prev.map(u =>
+          u.id === editId ? { ...u, role: editRole, status: editStatus } : u
+        )
+      );
+      setEditId(null);
+      showToast('User updated successfully.');
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to save. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSavePricingRoles = async () => {
+    const threshold = Number(pricing.threshold);
+    if (!pricing.owner.trim() || Number.isNaN(threshold) || threshold < 0) {
+      showToast('Enter a valid pricing owner and threshold.');
+      return;
+    }
+
+    setSavingPricingRoles(true);
+    try {
+      const res = await updatePricingRolesSettings({
+        owner: pricing.owner.trim(),
+        approval_threshold: threshold,
+      });
+      setPricing({
+        owner: res.data.data.value.owner,
+        threshold: String(res.data.data.value.approval_threshold),
+      });
+      showToast('Pricing roles saved.');
+    } catch (err) {
+      console.error('Failed to save pricing roles:', err);
+      showToast('Could not save pricing roles.');
+    } finally {
+      setSavingPricingRoles(false);
+    }
+  };
+
+  const handleSaveWhatsapp = async () => {
+    if (!whatsapp.number.trim() || !whatsapp.template.trim()) {
+      showToast('Enter a WhatsApp number and template.');
+      return;
+    }
+
+    setSavingWhatsapp(true);
+    try {
+      const res = await updateWhatsappSettings({
+        number: whatsapp.number.trim(),
+        template: whatsapp.template.trim(),
+      });
+      setWhatsapp({
+        number: String(res.data.data.value.number ?? ''),
+        template: String(res.data.data.value.template ?? ''),
+      });
+      showToast('WhatsApp settings saved.');
+    } catch (err) {
+      console.error('Failed to save WhatsApp settings:', err);
+      showToast('Could not save WhatsApp settings.');
+    } finally {
+      setSavingWhatsapp(false);
+    }
   };
 
   useEffect(() => {
     (async () => {
       try {
-        const res = await getUsers();
-        setUsers(res.data.data); // getUsers returns ApiSuccess<UserProfile[]>, data is the array
+        const [usersRes, settingsRes] = await Promise.all([getUsers(), getSettings()]);
+        setUsers(usersRes.data.data.map(toUserRow));
+
+        const settings = settingsRes.data.data;
+        if (settings.pricing_roles) {
+          setPricing({
+            owner: settings.pricing_roles.owner ?? 'Senior Manager',
+            threshold: String(settings.pricing_roles.approval_threshold ?? 5000),
+          });
+        }
+        if (settings.whatsapp) {
+          setWhatsapp({
+            number: String(settings.whatsapp.number ?? '+20 100 123 4455'),
+            template: String(settings.whatsapp.template ?? 'Hello {{client_name}}, your order {{order_id}} is now {{status}}.'),
+          });
+        }
       } catch (err) {
         console.error(err);
         setError('Could not load users.');
@@ -513,93 +768,212 @@ export function SettingsPanel() {
       <article className="box">
         <h3>Pricing Roles</h3>
         <div className="form-grid-2">
-          <div className="field"><label>Pricing Owner</label><input className="input" type="text" value={pricing.owner} onChange={e => setPricing(p => ({ ...p, owner: e.target.value }))} /></div>
-          <div className="field"><label>Approval Threshold (EGP)</label><input className="input" type="number" value={pricing.threshold} onChange={e => setPricing(p => ({ ...p, threshold: e.target.value }))} /></div>
+          <div className="field">
+            <label>Pricing Owner</label>
+            <input
+              className="input"
+              type="text"
+              value={pricing.owner}
+              onChange={e => setPricing(p => ({ ...p, owner: e.target.value }))}
+            />
+          </div>
+          <div className="field">
+            <label>Approval Threshold (EGP)</label>
+            <input
+              className="input"
+              type="number"
+              value={pricing.threshold}
+              onChange={e => setPricing(p => ({ ...p, threshold: e.target.value }))}
+            />
+          </div>
         </div>
+        <button
+          className="btn primary"
+          style={{ marginTop: 12 }}
+          onClick={handleSavePricingRoles}
+          disabled={savingPricingRoles}
+        >
+          {savingPricingRoles ? 'Saving...' : 'Save Pricing Roles'}
+        </button>
       </article>
+
       <article className="box">
         <h3>Notification Format (WhatsApp)</h3>
-        <div className="field"><label>WhatsApp Business Number</label><input className="input" type="text" value={whatsapp.number} onChange={e => setWhatsapp(w => ({ ...w, number: e.target.value }))} /></div>
-        <div className="field"><label>Message Template</label><textarea className="textarea" value={whatsapp.template} onChange={e => setWhatsapp(w => ({ ...w, template: e.target.value }))} /></div>
+        <div className="field">
+          <label>WhatsApp Business Number</label>
+          <input
+            className="input"
+            type="text"
+            value={whatsapp.number}
+            onChange={e => setWhatsapp(w => ({ ...w, number: e.target.value }))}
+          />
+        </div>
+        <div className="field">
+          <label>Message Template</label>
+          <textarea
+            className="textarea"
+            value={whatsapp.template}
+            onChange={e => setWhatsapp(w => ({ ...w, template: e.target.value }))}
+          />
+        </div>
+        <button
+          className="btn primary"
+          style={{ marginTop: 12 }}
+          onClick={handleSaveWhatsapp}
+          disabled={savingWhatsapp}
+        >
+          {savingWhatsapp ? 'Saving...' : 'Save WhatsApp Settings'}
+        </button>
       </article>
+
       <article className="box">
         <h3>User Management</h3>
         {loading && <div className="loading-state">Loading users…</div>}
         {error && <div className="error-state">{error}</div>}
         {!loading && !error && (
           <table className="orders-table">
-            <thead><tr><th>User</th><th>Role</th><th>Status</th><th>Action</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
             <tbody>
-              {users.map(u => editEmail === u.email ? (
-                <tr key={u.email}>
-                  <td>{u.email}</td>
-                  <td><select className="select" value={editRole} onChange={e => setEditRole(e.target.value)}><option>Owner</option><option>Manager</option><option>Staff</option></select></td>
-                  <td><select className="select" value={editStatus} onChange={e => setEditStatus(e.target.value)}><option>Active</option><option>Inactive</option></select></td>
-                  <td style={{ display: 'flex', gap: 6 }}><button className="btn primary" onClick={saveEdit}>Save</button><button className="btn" onClick={() => setEditEmail(null)}>Cancel</button></td>
-                </tr>
-              ) : (
-                <tr key={u.email}>
-                  <td>{u.email}</td><td>{u.role}</td><td><StatusBadge status={u.status} /></td>
-                  <td><button className="btn" onClick={() => startEdit(u)}>Edit</button></td>
-                </tr>
-              ))}
+              {users.map(u =>
+                editId === u.id ? (
+                  <tr key={u.id}>
+                    <td>{u.email}</td>
+                    <td>
+                      <select
+                        className="select"
+                        value={editRole}
+                        onChange={e => setEditRole(e.target.value as UserProfile['role'])}
+                      >
+                        <option value="owner">Owner</option>
+                        <option value="staff">Staff</option>
+                        <option value="client">Client</option>
+                      </select>
+                    </td>
+                    <td>
+                      <select
+                        className="select"
+                        value={editStatus}
+                        onChange={e => setEditStatus(e.target.value as 'active' | 'inactive')}
+                      >
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                      </select>
+                    </td>
+                    <td style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        className="btn primary"
+                        onClick={saveEdit}
+                        disabled={saving}
+                      >
+                        {saving ? 'Saving…' : 'Save'}
+                      </button>
+                      <button
+                        className="btn"
+                        onClick={cancelEdit}
+                        disabled={saving}
+                      >
+                        Cancel
+                      </button>
+                    </td>
+                  </tr>
+                ) : (
+                  <tr key={u.id}>
+                    <td>{u.email}</td>
+                    <td>{u.role}</td>
+                    <td><StatusBadge status={u.status} /></td>
+                    <td>
+                      <button className="btn" onClick={() => startEdit(u)}>Edit</button>
+                    </td>
+                  </tr>
+                )
+              )}
+              {users.length === 0 && (
+                <tr><td colSpan={4}>No users found.</td></tr>
+              )}
             </tbody>
           </table>
         )}
       </article>
+
       {toast && <div className="success-toast">{toast}</div>}
     </div>
   );
 }
 
-// ─── Production Panel ─────────────────────────────────────────────────────
+// ─── Production Panel ─────────────────────────────────────────────────────────
 
 interface ProductionJob {
   id: string;
+  itemId: number;
+  orderId: number;
   client: string;
   product: string;
   qty: number;
+  completedQty: number;
   status: string;
   progress: number;
   dueDate: string;
   paper: string;
+  currentStep?: string;
 }
 
 export function ProductionPanel() {
   const [jobs, setJobs] = useState<ProductionJob[]>([]);
+  const [productionStats, setProductionStats] = useState({
+    active: 0,
+    inProgress: 0,
+    onHold: 0,
+    completed: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
 
   const pct = (j: ProductionJob) => j.qty > 0 ? Math.round((j.progress / j.qty) * 100) : 0;
-  const progressColor = (p: number): 'green' | 'orange' | undefined => p === 100 ? 'green' : p >= 50 ? 'orange' : undefined;
+  const progressColor = (p: number): 'green' | 'orange' | undefined =>
+    p === 100 ? 'green' : p >= 50 ? 'orange' : undefined;
 
   useEffect(() => {
     (async () => {
       try {
-        const [batchesRes, ordersRes, clientsRes] = await Promise.all([getBatches(), getOrders(), getClients()]);
-        const batchesData = batchesRes.data.data;
-        const ordersData = ordersRes.data.data;
-        const clientsData = clientsRes.data.data.results;
-        const ordersMap = new Map(ordersData.map(o => [o.id, o]));
-        const clientsMap = new Map(clientsData.map(c => [c.id, c.name]));
+        const [jobsRes, dashboardRes] = await Promise.all([
+          getProductionJobs(),
+          getDashboardStats(),
+        ]);
+        const dashboard = dashboardRes.data.data;
 
-        const productionJobs: ProductionJob[] = batchesData
-          .filter((b: any) => b.status !== 'completed')
-          .map((b: any) => {
-            const order = ordersMap.get(b.orderId);
+        const productionJobs: ProductionJob[] = (jobsRes.data.data || [])
+          .map((job: any) => {
+            const order: any = { specs: {} };
+            const b: any = { paper: '-' };
             return {
-              id: b.id,
-              client: order ? clientsMap.get(order.clientId) || 'Unknown' : 'Unknown',
-              product: b.product,
-              qty: b.qty,
-              status: b.status,
-              progress: b.progress,
-              dueDate: formatDate(b.deadline),
+              id: String(job.job_id || `JOB-${job.id}`),
+              itemId: Number(job.id),
+              orderId: Number(job.order_id),
+              client: job.client_name || 'Unknown',
+              product: job.product || 'Order Item',
+              qty: Number(job.quantity || 0),
+              completedQty: Number(job.completed_quantity || 0),
+              status: job.status || 'ready_for_production',
+              progress: Number(job.completed_quantity || 0),
+              dueDate: formatDate(job.due_date),
               paper: order?.specs?.paper || b.paper || '—',
             };
           });
         setJobs(productionJobs);
+        setProductionStats({
+          active: dashboard.production?.total_items ?? 0,
+          inProgress: dashboard.production?.items_in_printing ?? 0,
+          onHold: 0,
+          completed: dashboard.production?.items_ready ?? 0,
+        });
       } catch (err) {
         console.error(err);
         setError('Could not load production data.');
@@ -612,11 +986,6 @@ export function ProductionPanel() {
   if (loading) return <div className="loading-state">Loading jobs…</div>;
   if (error) return <div className="error-state">{error}</div>;
 
-  const active = jobs.filter(j => j.status !== 'completed').length;
-  const inProg = jobs.filter(j => j.status === 'in_progress').length;
-  const onHold = jobs.filter(j => j.status === 'on_hold').length;
-  const completed = jobs.filter(j => j.status === 'completed').length;
-
   const filtered = jobs.filter(j => {
     const q = query.toLowerCase();
     return !q || j.id.toLowerCase().includes(q) || j.client.toLowerCase().includes(q) || j.product.toLowerCase().includes(q);
@@ -625,24 +994,34 @@ export function ProductionPanel() {
   return (
     <div>
       <div className="grid-4" style={{ marginBottom: 14 }}>
-        <StatCard label="Active Jobs" value={active} sub="Currently in queue" />
-        <StatCard label="In Progress" value={inProg} sub="Being worked on" />
-        <StatCard label="On Hold" value={onHold} sub="Waiting on something" />
-        <StatCard label="Completed" value={completed} sub="Finished jobs" />
+        <StatCard label="Active Jobs" value={productionStats.active} sub="Order items in production" />
+        <StatCard label="In Progress" value={productionStats.inProgress} sub="Items in printing" />
+        <StatCard label="On Hold" value={productionStats.onHold} sub="No backend hold source yet" />
+        <StatCard label="Completed" value={productionStats.completed} sub="Items ready" />
       </div>
-      <input className="input" type="search" placeholder="Search by job ID, client or product…" value={query} onChange={e => setQuery(e.target.value)} style={{ marginBottom: 12 }} />
+      <input
+        className="input"
+        type="search"
+        placeholder="Search by job ID, client or product…"
+        value={query}
+        onChange={e => setQuery(e.target.value)}
+        style={{ marginBottom: 12 }}
+      />
       <div className="job-cards">
         {filtered.length === 0
-          ? <p className="muted">No matching jobs.</p>
+          ? <p className="muted">No production jobs found.</p>
           : filtered.map(j => (
             <article key={j.id} className="card" style={{ marginBottom: 10 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                <h4>{j.id}</h4><StatusBadge status={j.status} />
+                <h4>{j.id}</h4>
+                <StatusBadge status={j.status} />
               </div>
               <p><strong>Client:</strong> {j.client} | <strong>Product:</strong> {j.product} — {j.qty} pcs</p>
               <p style={{ marginBottom: 6 }}><strong>Due:</strong> {j.dueDate}</p>
               <ProgressBar percent={pct(j)} color={progressColor(pct(j))} />
-              <p style={{ fontSize: 11, marginTop: 4, color: 'var(--muted)' }}>{j.progress} / {j.qty} printed ({pct(j)}%)</p>
+              <p style={{ fontSize: 11, marginTop: 4, color: 'var(--muted)' }}>
+                {j.progress} / {j.qty} printed ({pct(j)}%)
+              </p>
             </article>
           ))}
       </div>
@@ -650,7 +1029,7 @@ export function ProductionPanel() {
   );
 }
 
-// ─── Completed Jobs Panel ─────────────────────────────────────────────────
+// ─── Completed Jobs Panel ─────────────────────────────────────────────────────
 
 export function CompletedJobsPanel() {
   const [jobs, setJobs] = useState<any[]>([]);
@@ -660,17 +1039,21 @@ export function CompletedJobsPanel() {
   useEffect(() => {
     (async () => {
       try {
-        const [batchesRes, ordersRes, clientsRes] = await Promise.all([getBatches(), getOrders(), getClients()]);
+        const [batchesRes, ordersRes, clientsRes] = await Promise.all([
+          getBatches(),
+          getOrders(),
+          getClients(),
+        ]);
         const batchesData = batchesRes.data.data;
         const ordersData = ordersRes.data.data;
         const clientsData = clientsRes.data.data.results;
-        const ordersMap = new Map(ordersData.map(o => [o.id, o]));
+        const ordersMap = new Map(ordersData.map(o => [String(o.id), o]));
         const clientsMap = new Map(clientsData.map(c => [c.id, c.name]));
 
         const completedBatches = batchesData.filter((b: any) => b.status === 'completed');
         const viewJobs = completedBatches.map((b: any) => {
-          const order = ordersMap.get(b.orderId);
-          const clientName = order ? clientsMap.get(order.clientId) || 'Unknown' : 'Unknown';
+          const order = ordersMap.get(String(b.orderId));
+          const clientName = order ? clientsMap.get(order.clientId ?? String(order.customer ?? '')) || 'Unknown' : 'Unknown';
           return {
             id: b.id,
             done: b.progress,
@@ -712,11 +1095,15 @@ export function CompletedJobsPanel() {
             <p><strong>{j.done} / {j.total}</strong> completed (100%)</p>
             <ProgressBar percent={100} style={{ margin: '8px 0 14px' }} />
             <table className="orders-table">
-              <thead><tr><th>Stage</th><th>Status</th><th>Updated At</th></tr></thead>
+              <thead>
+                <tr><th>Stage</th><th>Status</th><th>Updated At</th></tr>
+              </thead>
               <tbody>
                 {j.stages.map((s: any) => (
                   <tr key={s.stage}>
-                    <td>{s.stage}</td><td><StatusBadge status={s.status} /></td><td>{s.updated}</td>
+                    <td>{s.stage}</td>
+                    <td><StatusBadge status={s.status} /></td>
+                    <td>{s.updated}</td>
                   </tr>
                 ))}
               </tbody>

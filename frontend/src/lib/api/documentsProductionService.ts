@@ -23,12 +23,15 @@ import type {
  * The uploaded_by field is set automatically from the JWT on the server.
  */
 export const createUpload = (
-  payload: CreateUploadPayload,
+  payload: CreateUploadPayload | FormData,
   onProgress?: (percent: number) => void
 ): Promise<AxiosResponse<ApiSuccess<Upload>>> => {
-  const formData = new FormData()
-  formData.append('file', payload.file)
-  formData.append('file_type', payload.file_type)
+  const formData = payload instanceof FormData ? payload : new FormData()
+
+  if (!(payload instanceof FormData)) {
+    formData.append('file', payload.file)
+    formData.append('file_type', payload.file_type)
+  }
 
   return api.post('/api/uploads/', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },

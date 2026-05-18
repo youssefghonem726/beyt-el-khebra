@@ -80,7 +80,7 @@ export default function InvoiceDetail() {
           getClients(),
         ]);
 
-        const raw: BackendInvoice = invRes.data.data;
+        const raw = invRes.data.data as unknown as BackendInvoice;
         const clients = clientsRes.data.data.results;
 
         console.log('InvoiceDetail - raw invoice:', raw);

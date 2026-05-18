@@ -18,12 +18,14 @@ import type {
   CreateTicketPayload,
   AppSettings,
   PricingRule,
+  PricingRoleSettings,
   WhatsappSettings,
   UserProfile,
 } from './types'
 
+export type { Client } from './types'
+
 // ─── Deliveries ──────────────────────────────────────────────────────────────
-// @pending — not yet implemented in Django
 
 export const getDeliveries = (): Promise<AxiosResponse<ApiSuccess<Delivery[]>>> =>
   api.get('/api/deliveries/')
@@ -57,12 +59,10 @@ export const cancelDelivery = (
   api.post(`/api/deliveries/${deliveryId}/cancel/`, payload)
 
 // ─── Invoices ────────────────────────────────────────────────────────────────
-// ✅ Now connected to the real Django endpoint (GET /api/invoices/)
 
 export const getInvoices = (): Promise<AxiosResponse<ApiSuccess<Invoice[]>>> =>
   api.get('/api/invoices/')
 
-// Still pending: detail, pay, download
 export const getInvoiceById = (
   invoiceId: string
 ): Promise<AxiosResponse<ApiSuccess<Invoice>>> =>
@@ -80,7 +80,6 @@ export const downloadInvoice = (
   api.get(`/api/invoices/${invoiceId}/download/`, { responseType: 'blob' })
 
 // ─── Accounting ──────────────────────────────────────────────────────────────
-// @pending — not yet implemented in Django
 
 export const getAccountingOverview = (): Promise<AxiosResponse<ApiSuccess<AccountingOverview>>> =>
   api.get('/api/accounting/overview/')
@@ -92,17 +91,19 @@ export const getRevenue = (): Promise<AxiosResponse<ApiSuccess<Invoice[]>>> =>
   api.get('/api/accounting/revenue/')
 
 // ─── Clients ─────────────────────────────────────────────────────────────────
-// ✅ GET /api/users/clients/ — returns users with role=client (owner/staff only)
-// ✅ POST /api/users/clients/ — creates a new client profile
 
 export const getClients = async (
   params: GetClientsParams = {}
 ): Promise<AxiosResponse<ApiSuccess<PaginatedResponse<Client>>>> => {
   const { q } = params
   const query: Record<string, unknown> = {}
+
   if (q) query.q = q
 
-  const response = await api.get<ApiSuccess<UserProfile[]>>('/api/users/clients/', { params: query })
+  const response = await api.get<ApiSuccess<UserProfile[]>>('/api/users/clients/', {
+    params: query,
+  })
+
   const users = response.data.data
 
   const clients: Client[] = users.map((u) => ({
@@ -112,8 +113,11 @@ export const getClients = async (
     phone: u.phone ?? '',
     address: '',
     taxId: '',
-    since: (u as any).created_at || null,
-    stats: { totalOrders: 0, totalSpent: 0 },
+    since: u.created_at ?? null,
+    stats: {
+      totalOrders: 0,
+      totalSpent: 0,
+    },
   }))
 
   return {
@@ -138,7 +142,6 @@ export const createClientUser = (data: {
 }): Promise<AxiosResponse<ApiSuccess<UserProfile>>> =>
   api.post('/api/users/clients/', data)
 
-// Still pending: individual client detail endpoints
 export const getClientById = (
   clientId: string
 ): Promise<AxiosResponse<ApiSuccess<Client>>> =>
@@ -157,7 +160,6 @@ export const updateClient = (
   api.patch(`/api/clients/${clientId}/`, updates)
 
 // ─── Notifications ───────────────────────────────────────────────────────────
-// @pending — not yet implemented in Django
 
 export const getNotifications = (): Promise<AxiosResponse<ApiSuccess<Notification[]>>> =>
   api.get('/api/notifications/')
@@ -178,7 +180,6 @@ export const markAllNotificationsRead = (): Promise<
 > => api.patch('/api/notifications/read-all/')
 
 // ─── Support ─────────────────────────────────────────────────────────────────
-// @pending — not yet implemented in Django
 
 export const createSupportTicket = (
   ticketData: CreateTicketPayload
@@ -194,7 +195,6 @@ export const getSupportTicketById = (
   api.get(`/api/support/tickets/${ticketId}/`)
 
 // ─── Settings ────────────────────────────────────────────────────────────────
-// @pending — not yet implemented in Django
 
 export const getSettings = (): Promise<AxiosResponse<ApiSuccess<AppSettings>>> =>
   api.get('/api/settings/')
@@ -204,16 +204,26 @@ export const updatePricingSettings = (
 ): Promise<AxiosResponse<ApiSuccess<AppSettings>>> =>
   api.patch('/api/settings/pricing/', pricingData)
 
+export const updatePricingRolesSettings = (
+  pricingRolesData: PricingRoleSettings
+): Promise<AxiosResponse<ApiSuccess<{ key: string; value: PricingRoleSettings }>>> =>
+  api.patch('/api/settings/pricing-roles/', pricingRolesData)
+
 export const updateWhatsappSettings = (
   whatsappData: WhatsappSettings
-): Promise<AxiosResponse<ApiSuccess<WhatsappSettings>>> =>
+): Promise<AxiosResponse<ApiSuccess<{ key: string; value: WhatsappSettings }>>> =>
   api.patch('/api/settings/whatsapp/', whatsappData)
+
+// ─── Users Management ────────────────────────────────────────────────────────
+// Permanent backend endpoints:
+// GET   /api/users/
+// PATCH /api/users/<id>/
 
 export const getUsers = (): Promise<AxiosResponse<ApiSuccess<UserProfile[]>>> =>
   api.get('/api/users/')
 
 export const updateUser = (
-  email: string,
+  userId: number,
   updates: Partial<UserProfile>
 ): Promise<AxiosResponse<ApiSuccess<UserProfile>>> =>
-  api.patch(`/api/users/${email}/`, updates)
+  api.patch(`/api/users/${userId}/`, updates)

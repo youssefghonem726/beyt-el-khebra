@@ -12,7 +12,7 @@ export interface DeliveryResponse {
   phone: string;
   status: string;
   progress: number;
-  scheduledDate: string | null;
+  scheduledDate: string;
   created_at: string;
   updated_at: string;
 }

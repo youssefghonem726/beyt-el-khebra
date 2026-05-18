@@ -23,7 +23,7 @@ interface ClientDocument {
   type: string;
   sizeKB: number;
   uploadedDate: string;
-  reorderCount: number;
+  reorderCount?: number;
   ownerType: 'client' | 'template' | 'order';
   ownerId: string;
   url?: string;
@@ -36,6 +36,17 @@ const ITEM_TYPES: { id: ItemType; label: string; icon: string }[] = [
   { id: 'sticker', label: 'Sticker',       icon: '🏷️' },
   { id: 'poster',  label: 'Poster',        icon: '🖼️' },
 ];
+
+const getItemLabel = (type: string): string =>
+  ITEM_TYPES.find(t => t.id === type)?.label ?? type;
+
+const buildOrderItemNotes = (data: Record<string, any>, extraNotes = ''): string => {
+  const specs = Object.entries(data)
+    .filter(([, value]) => value !== undefined && value !== null && value !== '' && !(value instanceof File))
+    .map(([key, value]) => `${key}: ${String(value)}`);
+
+  return [...specs, extraNotes.trim()].filter(Boolean).join('\n');
+};
 
 function docTypeColor(type: string): string {
   switch (type.toUpperCase()) {
@@ -467,7 +478,7 @@ export default function PlaceNewOrder() {
                             <div className="doc-list__name">{doc.name}</div>
                             <div className="doc-list__meta">
                               {doc.fileName}&nbsp;·&nbsp;{fmtSize(doc.sizeKB)}
-                              {doc.reorderCount > 0 && <span className="doc-list__reorder">Ordered {doc.reorderCount}×</span>}
+                              {(doc.reorderCount ?? 0) > 0 && <span className="doc-list__reorder">Ordered {doc.reorderCount}×</span>}
                             </div>
                           </div>
                           {isSelected && <div className="doc-list__check">✓</div>}
@@ -548,7 +559,16 @@ export default function PlaceNewOrder() {
                   setError(null);
                   try {
                     const totalQty = items.reduce((sum, i) => sum + (Number(i.data.qty) || 1), 0);
-                    await createOrder({ status: 'UNPRICED_PENDING', quantity: totalQty || 1, total_price: 0 });
+                    await createOrder({
+                      status: 'UNPRICED_PENDING',
+                      quantity: totalQty || 1,
+                      total_price: 0,
+                      order_items: items.map(item => ({
+                        item_type: getItemLabel(item.type),
+                        quantity: Number(item.data.qty) || 1,
+                        notes: buildOrderItemNotes(item.data, notes),
+                      })),
+                    });
                     setSubmitted(true);
                   } catch {
                     setError('Failed to submit order. Please try again.');
@@ -590,7 +610,7 @@ export default function PlaceNewOrder() {
                             <div className="doc-list__name">{doc.name}</div>
                             <div className="doc-list__meta">
                               {doc.fileName}&nbsp;·&nbsp;{fmtSize(doc.sizeKB)}
-                              {doc.reorderCount > 0 && <span className="doc-list__reorder">Ordered {doc.reorderCount}×</span>}
+                              {(doc.reorderCount ?? 0) > 0 && <span className="doc-list__reorder">Ordered {doc.reorderCount}×</span>}
                             </div>
                           </div>
                           {isSelected && <div className="doc-list__check">✓</div>}
@@ -648,7 +668,7 @@ export default function PlaceNewOrder() {
                             type: (localCoverFile.name.split('.').pop() ?? 'PDF').toUpperCase(),
                             sizeKB: Math.round(localCoverFile.size / 1024),
                             uploadedDate: new Date().toLocaleDateString(),
-                            url: localCoverUrl!, ownerType: 'client', ownerId: 'client',  // FIXED: was clientId (undefined)
+                            url: localCoverUrl!, reorderCount: 0,
                           }} height={200} />
                         )}
                         <div className="form-grid-2 mt-1">
@@ -764,7 +784,18 @@ export default function PlaceNewOrder() {
                       await createUpload({ file: singleData.cover, file_type: 'cover' });
                     }
                     const qty = Number(singleData.qty) || 1;
-                    await createOrder({ status: 'UNPRICED_PENDING', quantity: qty, total_price: 0 });
+                    await createOrder({
+                      status: 'UNPRICED_PENDING',
+                      quantity: qty,
+                      total_price: 0,
+                      order_items: [
+                        {
+                          item_type: getItemLabel(singleType),
+                          quantity: qty,
+                          notes: buildOrderItemNotes(singleData, notes),
+                        },
+                      ],
+                    });
                     setSubmitted(true);
                   } catch {
                     setError('Failed to submit order. Please try again.');

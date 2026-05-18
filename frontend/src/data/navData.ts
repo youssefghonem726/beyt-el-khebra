@@ -49,6 +49,7 @@ export const PAGE_TO_PATH: Record<string, string> = Object.values(NAVS)
     // owner extras (used in buttons but not in sidebar)
     'owner-manager-orders': '/manager/orders',
     'owner-batch-lookup':   '/manager/batch-lookup',
+    'owner-unpriced-queue': '/owner/unpriced-queue',
     'client-detail':        '/owner/clients',
     // manager extras
     'delivery-view-more':   '/manager/deliveries',

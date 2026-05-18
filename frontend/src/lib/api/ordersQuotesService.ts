@@ -37,8 +37,19 @@ export const getOrdersPendingQuote = () => getOrders({ status: 'UNPRICED_PENDING
 export const getUnpricedQueue = () => getOrders({ status: 'UNPRICED_PENDING' })
 export const searchOrders = (q: string) => getOrders({ q })
 
+export const getProductionJobs = (
+  params: { q?: string; step?: string } = {}
+): Promise<AxiosResponse<ApiSuccess<any[]>>> =>
+  api.get('/api/orders/production/', { params })
+
+export const updateProductionJob = (
+  itemId: number | string,
+  updates: { current_step?: string; completed_quantity?: number }
+): Promise<AxiosResponse<ApiSuccess<any>>> =>
+  api.patch(`/api/orders/production-items/${itemId}/`, updates)
+
 export const getOrderById = (
-  orderId: number
+  orderId: number | string
 ): Promise<AxiosResponse<ApiSuccess<Order>>> =>
   api.get(`/api/orders/${orderId}/`)
 
@@ -48,24 +59,24 @@ export const createOrder = (
   api.post('/api/orders/', orderData)
 
 export const replaceOrder = (
-  orderId: number,
+  orderId: number | string,
   orderData: UpdateOrderPayload
 ): Promise<AxiosResponse<ApiSuccess<Order>>> =>
   api.put(`/api/orders/${orderId}/`, orderData)
 
 export const updateOrder = (
-  orderId: number,
+  orderId: number | string,
   updates: UpdateOrderPayload
 ): Promise<AxiosResponse<ApiSuccess<Order>>> =>
   api.patch(`/api/orders/${orderId}/`, updates)
 
 export const deleteOrder = (
-  orderId: number
+  orderId: number | string
 ): Promise<AxiosResponse<ApiSuccess<Record<string, never>>>> =>
   api.delete(`/api/orders/${orderId}/`)
 
 export const getOrderHistory = (
-  orderId: number
+  orderId: number | string
 ): Promise<AxiosResponse<ApiSuccess<OrderStatusHistory[]>>> =>
   api.get(`/api/orders/${orderId}/history/`)
 
@@ -112,7 +123,7 @@ export const requestQuoteChanges = (
   api.post(`/api/quotes/${quoteId}/request-changes/`, changeRequest)
 
 export const submitQuoteForOrder = (
-  orderId: number,
+  _orderId: number,
   quoteData: any
 ): Promise<AxiosResponse<ApiSuccess<Quote>>> =>
   api.post('/api/quotes/', quoteData)

@@ -2,12 +2,14 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from uploads.views import documents_list
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/users/", include("users.urls")),
     path("api/orders/", include("orders.urls")),
     path("api/uploads/", include("uploads.urls")),
+    path("api/documents/", documents_list, name="documents_list"),
     path("api/quotes/", include("quotes.urls")),
     path("api/dashboard/", include("dashboard.urls")),
     path("api/invoices/", include("invoices.urls")),
@@ -15,6 +17,7 @@ urlpatterns = [
     path("api/batches/", include("batches.urls")),
     path("api/deliveries/", include("deliveries.urls")),
     path("api/pricing/", include("pricing.urls")),
+    path("api/settings/", include("app_settings.urls")),
     path('api/support/tickets/', include('support.urls')),
 ]
 

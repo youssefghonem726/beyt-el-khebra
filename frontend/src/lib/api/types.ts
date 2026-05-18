@@ -23,17 +23,18 @@ export interface PaginatedResponse<T> {
 
 // ─── Auth / Users ─────────────────────────────────────────────────────────────
 
-export type UserRole = 'client' | 'manager' | 'owner' | 'production'
+export type UserRole = 'client' | 'staff' | 'owner'
 
 export interface UserProfile {
   id: number
-  supabase_uid: string
+  supabase_uid?: string | null
   first_name: string
   last_name: string
   email: string
-  phone: string | null
+  phone?: string | null
   role: UserRole
   is_active: boolean
+  created_at?: string | null
 }
 
 export interface ChangePasswordPayload {
@@ -65,7 +66,12 @@ export interface DashboardStats {
 
 export type OrderStatus =
   | 'UNPRICED_PENDING'
+  | 'PRICED_PENDING_CONFIRMATION'
   | 'CONFIRMED'
+  | 'IN_PROGRESS'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'CLOSED'
   | 'IN_PRODUCTION'
   | 'READY'
   | 'DELIVERED'
@@ -75,22 +81,59 @@ export interface Order {
   id: number
   status: OrderStatus
   quantity: number
-  total_price: string
+  total_price: number
   customer: number
+  customer_name?: string
+  customer_email?: string
+  customer_id?: number
+  clientId?: string
+  product_summary?: string
+  item_details?: Array<{
+    id: number
+    item_type: string
+    quantity: number
+    notes?: string | null
+    current_step?: string | null
+  }>
+  item_count?: number
   approved_by: number | null
+  upload?: { file_name?: string; url?: string }
+  created_at: string
+  updated_at: string | null
+  due_date: string | null
+  deliveryDate?: string | null
+  orderDate?: string | null
+  payment_method?: string | null
+  paid_amount: number | null
+  invoice_id?: string
+  notes?: string | null
+  product?: string
+  specs?: {
+    qty?: number
+    paper?: string
+    description?: string
+    [key: string]: unknown
+  }
+  Priority?: string
+  Notes?: string
 }
 
 export interface CreateOrderPayload {
-  status?: OrderStatus
+  status?: OrderStatus | string
   quantity: number
-  total_price: number
+  total_price: number | string
   customer_id?: number
+  order_items?: Array<{
+    item_type: string
+    quantity: number
+    notes?: string | null
+  }>
 }
 
 export interface UpdateOrderPayload {
-  status?: OrderStatus
+  status?: OrderStatus | string
   quantity?: number
-  total_price?: number
+  total_price?: number | string
 }
 
 export interface GetOrdersParams {
@@ -115,6 +158,7 @@ export type UploadFileType =
   | 'content'
   | 'preview'
   | 'package_image'
+  | string
 
 export interface Upload {
   id: number
@@ -125,7 +169,7 @@ export interface Upload {
 
 export interface CreateUploadPayload {
   file: File
-  file_type: UploadFileType
+  file_type: UploadFileType | string
 }
 
 // ─── Quotes ───────────────────────────────────────────────────────────────────
@@ -200,6 +244,7 @@ export interface Batch {
   status: BatchStatus
   stages: BatchStage[]
   notes: string
+  paper?: string
 }
 
 export interface GetBatchesParams {
@@ -264,14 +309,20 @@ export interface InvoiceItem {
 }
 
 export interface Invoice {
-  id: string
+  id: string | number
   orderId: string
   clientId: string
+  order_id?: number | null
+  client_id?: number | null
   issued: string
   due: string
+  due_date?: string
   paidDate: string | null
+  paid_date?: string | null
   amount: number
+  total_amount?: number | null
   status: InvoiceStatus
+  created_at?: string
   vatRate: number
   items: InvoiceItem[]
   notes: string
@@ -381,13 +432,22 @@ export interface PricingRule {
 }
 
 export interface WhatsappSettings {
+  number?: string
+  template?: string
   phoneNumberId?: string
   accessToken?: string
   webhookVerifyToken?: string
   [key: string]: unknown
 }
 
+export interface PricingRoleSettings {
+  owner: string
+  approval_threshold: number
+}
+
 export interface AppSettings {
-  pricing: PricingRule[]
-  users: UserProfile[]
+  pricing?: PricingRule[]
+  users?: UserProfile[]
+  pricing_roles?: Partial<PricingRoleSettings>
+  whatsapp?: WhatsappSettings
 }

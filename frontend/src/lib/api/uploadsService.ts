@@ -18,11 +18,15 @@ export interface UploadFile {
 export const getUploads = (): Promise<AxiosResponse<ApiSuccess<UploadFile[]>>> =>
   api.get('/api/uploads/');
 
-/** Upload a new file. Accepts a simple object, builds FormData internally. */
-export const createUpload = (data: { file: File; file_type: string }): Promise<AxiosResponse<ApiSuccess<UploadFile>>> => {
-  const formData = new FormData();
-  formData.append('file', data.file);
-  formData.append('file_type', data.file_type);
+/** Upload a new file. Accepts FormData or a simple object. */
+export const createUpload = (
+  data: FormData | { file: File; file_type: string }
+): Promise<AxiosResponse<ApiSuccess<UploadFile>>> => {
+  const formData = data instanceof FormData ? data : new FormData();
+  if (!(data instanceof FormData)) {
+    formData.append('file', data.file);
+    formData.append('file_type', data.file_type);
+  }
   return api.post('/api/uploads/', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });

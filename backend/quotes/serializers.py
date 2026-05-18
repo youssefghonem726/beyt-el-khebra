@@ -62,17 +62,15 @@ class QuoteCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         items_data = validated_data.pop('items', [])
         order_id = validated_data.pop('order_id')
-        customer = self.context.get('customer')
-
         try:
-            Order.objects.get(id=order_id)
+            order = Order.objects.get(id=order_id)
         except Order.DoesNotExist:
             raise serializers.ValidationError({
                 'order_id': 'Order not found.'
             })
 
         quote = Quote.objects.create(
-            customer=customer,
+            customer=order.customer,
             order_id=order_id,
             **validated_data
         )

@@ -3,7 +3,7 @@ from rest_framework import status
 
 from core.responses import success_response, error_response
 from users.models import User
-from orders.models import Order
+from orders.models import Order, OrderStatusHistory
 from quotes.models import Quote
 from quotes.serializers import QuoteSerializer, QuoteCreateSerializer
 
@@ -47,7 +47,10 @@ def quotes_list_create(request):
         return auth_error
 
     if request.method == "GET":
-        quotes = Quote.objects.filter(customer=user).order_by("-created_at")
+        if user.role in ("owner", "staff"):
+            quotes = Quote.objects.all().order_by("-created_at")
+        else:
+            quotes = Quote.objects.filter(customer=user).order_by("-created_at")
         serializer = QuoteSerializer(quotes, many=True)
 
         return success_response(
@@ -65,8 +68,31 @@ def quotes_list_create(request):
         if serializer.is_valid():
             quote = serializer.save()
 
-            # update order status so it leaves the unpriced queue
-            Order.objects.filter(id=quote.order_id).update(status="PRICED_PENDING_CONFIRMATION")
+            order = quote.order
+            old_status = order.status
+            order.status = "PRICED_PENDING_CONFIRMATION"
+            if quote.total_estimated_price is not None:
+                order.total_price = quote.total_estimated_price
+            order.save(update_fields=["status", "total_price"])
+
+            order_items = list(order.order_items.all().order_by("id"))
+            quote_items = list(quote.items.all().order_by("id"))
+            for index, quote_item in enumerate(quote_items):
+                if index >= len(order_items):
+                    break
+
+                order_item = order_items[index]
+                order_item.unit_price = quote_item.estimated_unit_price
+                order_item.total_price = quote_item.estimated_total_price
+                order_item.save(update_fields=["unit_price", "total_price"])
+
+            OrderStatusHistory.objects.create(
+                order=order,
+                updated_by=user,
+                old_status=old_status,
+                new_status=order.status,
+                notes="Quote created",
+            )
 
             response_serializer = QuoteSerializer(quote)
 
@@ -91,7 +117,10 @@ def quote_detail(request, quote_id):
         return auth_error
 
     try:
-        quote = Quote.objects.get(id=quote_id, customer=user)
+        if user.role in ("owner", "staff"):
+            quote = Quote.objects.get(id=quote_id)
+        else:
+            quote = Quote.objects.get(id=quote_id, customer=user)
     except Quote.DoesNotExist:
         return error_response(
             message="Quote not found",

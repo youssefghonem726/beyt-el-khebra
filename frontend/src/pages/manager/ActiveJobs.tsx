@@ -140,7 +140,7 @@ export default function ActiveJobs() {
             qty: batch.qty,
             status: normalizeStatus(batch.status),
             progress: batch.progress,
-            dueDate: formatDate(batch.deadline),
+            dueDate: formatDate(batch.deadline ?? null),
             paper,
             batchCode: String(batch.id),
             priority: batch.priority,

@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     "batches",
     "deliveries",
     "support",
+    "app_settings",
 ]
 
 MIDDLEWARE = [
