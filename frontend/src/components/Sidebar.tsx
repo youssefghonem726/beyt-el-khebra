@@ -1,6 +1,7 @@
 import { NAVS } from '../data/navData';
 import type { Role } from '../data/navData';
 import { useNavigation } from '../context/NavigationContext';
+import LanguageToggle from './LanguageToggle';
 
 interface Props {
   role: Role;
@@ -37,6 +38,7 @@ export default function Sidebar({ role, activePage }: Props) {
         ))}
       </nav>
       <div className="sidebar-footer">
+        <LanguageToggle />
         <a className="logout-link" href="#" onClick={(e) => { e.preventDefault(); navigateTopLevel('login'); }}>
           Log Out
         </a>

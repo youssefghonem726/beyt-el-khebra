@@ -1,0 +1,56 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "myOrders": "My Orders",
+    "placeNewOrder": "Place New Order",
+    "quotes": "Quotes",
+    "documents": "Documents",
+    "invoices": "Invoices",
+    "notifications": "Notifications",
+    "profileSettings": "Profile Settings",
+    "support": "Support",
+    "production": "Production",
+    "clientManagement": "Client Management",
+    "deliveryTracking": "Delivery Tracking",
+    "accounting": "Accounting",
+    "settings": "Settings",
+    "unpricedQueue": "Unpriced Queue",
+    "activeJobs": "Dashboard",
+    "orders": "Orders",
+    "completedJobs": "Completed Jobs",
+    "workView": "Work View",
+    "batchLookup": "Batch Lookup",
+    "delivery": "Delivery"
+  },
+  "actions": {
+    "logout": "Log Out",
+    "login": "Login",
+    "save": "Save",
+    "cancel": "Cancel",
+    "apply": "Apply",
+    "view": "View",
+    "back": "Back",
+    "edit": "Edit",
+    "delete": "Delete",
+    "download": "Download",
+    "search": "Search"
+  },
+  "brand": {
+    "name": "Bayt El Khebra",
+    "ownerDashboard": "Owner Dashboard",
+    "managerDashboard": "Manager Dashboard",
+    "clientDashboard": "Client Dashboard"
+  },
+  "status": {
+    "UNPRICED_PENDING": "Unpriced",
+    "PRICED_PENDING_CONFIRMATION": "Pending Confirmation",
+    "IN_PROGRESS": "In Progress",
+    "COMPLETED": "Completed",
+    "CANCELED": "Canceled"
+  },
+  "common": {
+    "loading": "Loading...",
+    "noResults": "No matching results",
+    "error": "Something went wrong"
+  }
+}
