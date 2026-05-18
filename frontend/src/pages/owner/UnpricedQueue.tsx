@@ -1,25 +1,40 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatCard from '../../components/StatCard';
-import { getUnpricedQueue, submitQuoteForOrder } from '../../lib/api/ordersQuotesService';
+import { getUnpricedQueue, submitQuoteForOrder, updateOrder } from '../../lib/api/ordersQuotesService';
 import { getClients } from '../../lib/api/invoicesClientsSettingsService';
 
+interface UnpricedItem {
+  id: number | string;
+  item_type: string;
+  quantity: number;
+  notes?: string | null;
+  due_date?: string | null;
+  page_count?: number | string | null;
+  pages?: number | string | null;
+  size?: string | null;
+  paper?: string | null;
+  material?: string | null;
+  color_mode?: string | null;
+  cover?: string | null;
+  binding?: string | null;
+  coil?: string | null;
+}
+
 interface UnpricedJob {
-  id: string;          
-  displayId: string;   
+  id: string;
+  displayId: string;
   client: string;
+  clientEmail: string;
   product: string;
-  items: Array<{
-    id: number | string;
-    item_type: string;
-    quantity: number;
-    notes?: string | null;
-  }>;
+  items: UnpricedItem[];
   qty: number;
-  deadline: string;    
+  deadline: string;
   dueDate: string | null;
   createdAt: string | null;
+  notes?: string | null;
+  uploadLabel?: string | null;
 }
 
 interface PricingState {
@@ -28,21 +43,33 @@ interface PricingState {
   notes: string;
 }
 
-// Helpers
 function formatDate(isoDate: string | null): string {
-  if (!isoDate) return '—';
+  if (!isoDate) return 'Not provided';
   const d = new Date(isoDate);
-  if (isNaN(d.getTime())) return '—';
+  if (Number.isNaN(d.getTime())) return 'Not provided';
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 function getShortOrderId(id: number | string): string {
   const num = typeof id === 'number' ? id : parseInt(id, 10);
-  return isNaN(num) ? `#${id}` : `#${num}`;
+  return Number.isNaN(num) ? `#${id}` : `#${num}`;
 }
 
 function getProductFallback(order: any): string {
   return order.product_summary || order.upload?.file_name || `Order #${order.id}`;
+}
+
+function showValue(value: unknown): string {
+  if (value === null || value === undefined || value === '') return 'Not provided';
+  return String(value);
+}
+
+function getUploadedFileLabel(order: any): string | null {
+  if (order.upload?.file_name) return order.upload.file_name;
+  if (order.upload?.name) return order.upload.name;
+  if (order.file?.file_name) return order.file.file_name;
+  if (order.upload) return `Upload #${order.upload}`;
+  return null;
 }
 
 export default function UnpricedQueue() {
@@ -52,6 +79,7 @@ export default function UnpricedQueue() {
   const [pricingId, setPricingId] = useState<string | null>(null);
   const [pricing, setPricing] = useState<PricingState>({ unitPrice: '', vatRate: '14', notes: '' });
   const [submittingId, setSubmittingId] = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   const fetchData = async () => {
     try {
@@ -64,10 +92,9 @@ export default function UnpricedQueue() {
 
       const orders = ordersRes.data.data;
       const clients = clientsRes.data.data.results;
-
       const clientsMap = new Map(clients.map((c: any) => {
         const name = `${c.first_name ?? ''} ${c.last_name ?? ''}`.trim() || c.name || c.email;
-        return [String(c.id), name];
+        return [String(c.id), { name, email: c.email ?? '' }];
       }));
 
       const jobList: UnpricedJob[] = orders.map((order: any) => {
@@ -76,28 +103,41 @@ export default function UnpricedQueue() {
           ? items.reduce((sum: number, item: any) => sum + (Number(item.quantity) || 1), 0)
           : order.quantity ?? order.item_count ?? 0;
         const deadlineIso = order.due_date ?? null;
+        const mappedClient = clientsMap.get(String(order.customer));
         const clientName =
           order.customer_name ||
+          mappedClient?.name ||
           order.customer_email ||
-          clientsMap.get(String(order.customer)) ||
           'Unknown';
-        const productName = getProductFallback(order);
 
         return {
           id: String(order.id),
           displayId: getShortOrderId(order.id),
           client: clientName,
-          product: productName,
+          clientEmail: order.customer_email || mappedClient?.email || 'Not provided',
+          product: getProductFallback(order),
           items: items.map((item: any) => ({
             id: item.id,
             item_type: item.item_type || 'Item',
             quantity: Number(item.quantity) || 1,
             notes: item.notes ?? null,
+            due_date: item.due_date ?? null,
+            page_count: item.page_count ?? null,
+            pages: item.pages ?? null,
+            size: item.size ?? null,
+            paper: item.paper ?? null,
+            material: item.material ?? null,
+            color_mode: item.color_mode ?? null,
+            cover: item.cover ?? null,
+            binding: item.binding ?? null,
+            coil: item.coil ?? null,
           })),
           qty,
           deadline: formatDate(deadlineIso),
           dueDate: deadlineIso,
           createdAt: order.created_at ?? null,
+          notes: order.notes ?? null,
+          uploadLabel: getUploadedFileLabel(order),
         };
       });
 
@@ -119,19 +159,43 @@ export default function UnpricedQueue() {
     setPricing({ unitPrice: '', vatRate: '14', notes: '' });
   };
 
+  const cancelOrder = async (job: UnpricedJob) => {
+    const confirmed = window.confirm(`Cancel order ${job.displayId}? It will be removed from the unpriced queue.`);
+    if (!confirmed) return;
+
+    setCancellingId(job.id);
+    setError(null);
+    try {
+      await updateOrder(Number(job.id), { status: 'CANCELLED' });
+      if (pricingId === job.id) setPricingId(null);
+      await fetchData();
+    } catch (err) {
+      console.error('Failed to cancel order:', err);
+      setError('Could not cancel this order. Please try again.');
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
+  const unitPrice = parseFloat(pricing.unitPrice) || 0;
+  const vatRate = parseFloat(pricing.vatRate) / 100 || 0;
+
+  const getSubtotal = (qty: number) => unitPrice * qty;
+  const getVat = (qty: number) => getSubtotal(qty) * vatRate;
+  const getTotal = (qty: number) => getSubtotal(qty) + getVat(qty);
+
   const submitPrice = async (job: UnpricedJob) => {
-    if (!pricing.unitPrice || parseFloat(pricing.unitPrice) <= 0) return;
+    if (!pricing.unitPrice || unitPrice <= 0) return;
 
     const total = getTotal(job.qty || 1);
     const quoteItems = job.items.length
-      ? job.items.map(item => {
+      ? job.items.map((item) => {
           const itemQuantity = item.quantity || 1;
-          const itemTotal = getTotal(itemQuantity);
           return {
             item_type: item.item_type,
             quantity: itemQuantity,
             estimated_unit_price: unitPrice,
-            estimated_total_price: itemTotal,
+            estimated_total_price: getTotal(itemQuantity),
             notes: pricing.notes || item.notes || '',
           };
         })
@@ -144,9 +208,9 @@ export default function UnpricedQueue() {
             notes: pricing.notes,
           },
         ];
+
     setSubmittingId(job.id);
     setError(null);
-
     try {
       await submitQuoteForOrder(Number(job.id), {
         order_id: Number(job.id),
@@ -167,13 +231,6 @@ export default function UnpricedQueue() {
     }
   };
 
-  const unitPrice = parseFloat(pricing.unitPrice) || 0;
-  const vatRate = parseFloat(pricing.vatRate) / 100 || 0;
-
-  const getSubtotal = (qty: number) => unitPrice * qty;
-  const getVat = (qty: number) => getSubtotal(qty) * vatRate;
-  const getTotal = (qty: number) => getSubtotal(qty) + getVat(qty);
-
   const fmt = (n: number) =>
     n.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -192,12 +249,12 @@ export default function UnpricedQueue() {
     ? jobs.reduce((sum, job) => {
         if (!job.createdAt) return sum;
         const createdAt = new Date(job.createdAt);
-        if (isNaN(createdAt.getTime())) return sum;
+        if (Number.isNaN(createdAt.getTime())) return sum;
         return sum + Math.max(0, (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
       }, 0) / jobs.length
     : 0;
 
-  const shell = (children: React.ReactNode) => (
+  const shell = (children: ReactNode) => (
     <AppShell role="owner" activePage="unpriced-queue">
       <Topbar title="Unpriced Queue" />
       <section className="grid-4" style={{ marginBottom: 14 }}>
@@ -251,7 +308,7 @@ export default function UnpricedQueue() {
                 <div style={{ marginBottom: 8 }}>
                   <p style={{ marginBottom: 4 }}><strong>Products:</strong></p>
                   <ul style={{ margin: '0 0 0 18px', padding: 0 }}>
-                    {j.items.map(item => (
+                    {j.items.map((item) => (
                       <li key={item.id}>
                         {item.item_type} - {item.quantity} pcs
                       </li>
@@ -263,11 +320,11 @@ export default function UnpricedQueue() {
               <p style={{ marginBottom: 10 }}><strong>Deadline:</strong> {j.deadline}</p>
 
               <div className="card-actions">
-                <button
-                  className={`btn${isOpen ? ' primary' : ''}`}
-                  onClick={() => openPricing(j.id)}
-                >
-                  {isOpen ? 'Cancel' : 'Price This Job'}
+                <button className={`btn${isOpen ? ' primary' : ''}`} onClick={() => openPricing(j.id)}>
+                  {isOpen ? 'Close Pricing' : 'Price This Job'}
+                </button>
+                <button className="btn danger" onClick={() => cancelOrder(j)} disabled={cancellingId === j.id || submittingId === j.id}>
+                  {cancellingId === j.id ? 'Cancelling...' : 'Cancel Order'}
                 </button>
               </div>
 
@@ -279,10 +336,59 @@ export default function UnpricedQueue() {
                   borderRadius: 8,
                   border: '1px solid var(--border)',
                 }}>
+                  <h4 style={{ marginBottom: 14, fontSize: 14 }}>Order Details for {j.displayId}</h4>
+
+                  <div className="table-responsive" style={{ marginBottom: 14 }}>
+                    <table className="orders-table">
+                      <tbody>
+                        <tr><th>Order ID</th><td>{j.displayId}</td><th>Client</th><td>{j.client}</td></tr>
+                        <tr><th>Email</th><td>{j.clientEmail}</td><th>Due Date</th><td>{j.deadline}</td></tr>
+                        <tr><th>Uploaded Files</th><td>{showValue(j.uploadLabel)}</td><th>Order Notes</th><td>{showValue(j.notes)}</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <h4 style={{ marginBottom: 10, fontSize: 14 }}>Items to Price</h4>
+                  <div className="table-responsive" style={{ marginBottom: 16 }}>
+                    <table className="orders-table">
+                      <thead>
+                        <tr>
+                          <th>Product</th>
+                          <th>Qty</th>
+                          <th>Pages</th>
+                          <th>Size</th>
+                          <th>Paper / Material</th>
+                          <th>Color</th>
+                          <th>Cover</th>
+                          <th>Binding / Coil</th>
+                          <th>Notes</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {j.items.length ? j.items.map((item) => (
+                          <tr key={item.id}>
+                            <td>{item.item_type}</td>
+                            <td>{item.quantity}</td>
+                            <td>{showValue(item.page_count ?? item.pages)}</td>
+                            <td>{showValue(item.size)}</td>
+                            <td>{showValue(item.paper ?? item.material)}</td>
+                            <td>{showValue(item.color_mode)}</td>
+                            <td>{showValue(item.cover)}</td>
+                            <td>{showValue(item.binding ?? item.coil)}</td>
+                            <td>{showValue(item.notes)}</td>
+                          </tr>
+                        )) : (
+                          <tr>
+                            <td>{j.product}</td>
+                            <td>{j.qty || 1}</td>
+                            <td colSpan={7}>Not provided</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
                   <h4 style={{ marginBottom: 14, fontSize: 14 }}>Set Price for {j.displayId}</h4>
-
-                  {/* Price list removed – settings endpoint pending */}
-
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
                     <div className="field" style={{ margin: 0 }}>
                       <label>Unit Price (EGP)</label>
@@ -320,7 +426,7 @@ export default function UnpricedQueue() {
                       fontSize: 13,
                     }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                        <span className="muted">Subtotal ({j.qty} × EGP {fmt(unitPrice)})</span>
+                        <span className="muted">Subtotal ({j.qty} x EGP {fmt(unitPrice)})</span>
                         <span>EGP {fmt(getSubtotal(j.qty))}</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -335,11 +441,11 @@ export default function UnpricedQueue() {
                   )}
 
                   <div className="field" style={{ margin: '0 0 14px' }}>
-                    <label>Notes (optional)</label>
+                    <label>Quote Notes (optional)</label>
                     <textarea
                       className="input"
                       style={{ minHeight: 72, resize: 'vertical' }}
-                      placeholder="Any special pricing notes or conditions…"
+                      placeholder="Any special pricing notes or conditions..."
                       value={pricing.notes}
                       onChange={(e) => setPricing((p) => ({ ...p, notes: e.target.value }))}
                     />
@@ -348,12 +454,14 @@ export default function UnpricedQueue() {
                   <div style={{ display: 'flex', gap: 10 }}>
                     <button
                       className="btn primary"
-                      disabled={!pricing.unitPrice || unitPrice <= 0 || submittingId === j.id}
+                      disabled={!pricing.unitPrice || unitPrice <= 0 || submittingId === j.id || cancellingId === j.id}
                       onClick={() => submitPrice(j)}
                     >
                       {submittingId === j.id ? 'Submitting...' : 'Submit Quote'}
                     </button>
-                    <button className="btn" onClick={() => setPricingId(null)} disabled={submittingId === j.id}>Cancel</button>
+                    <button className="btn" onClick={() => setPricingId(null)} disabled={submittingId === j.id}>
+                      Close
+                    </button>
                   </div>
                 </div>
               )}

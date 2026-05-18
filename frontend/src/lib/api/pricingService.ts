@@ -30,6 +30,12 @@ export interface PricingRow {
 export const getPricingByUser = (userId: number): Promise<AxiosResponse<ApiSuccess<PricingRow | null>>> =>
   api.get(`/api/pricing/by-user/${userId}/`);
 
+export const getDefaultPricing = (): Promise<AxiosResponse<ApiSuccess<PricingRow | null>>> =>
+  api.get('/api/pricing/default/');
+
+export const updateDefaultPricing = (data: Partial<PricingRow>): Promise<AxiosResponse<ApiSuccess<PricingRow>>> =>
+  api.patch('/api/pricing/default/', data);
+
 export const updatePricing = (pricingId: number, data: Partial<PricingRow>): Promise<AxiosResponse<ApiSuccess<PricingRow>>> =>
   api.patch(`/api/pricing/${pricingId}/`, data);
 
