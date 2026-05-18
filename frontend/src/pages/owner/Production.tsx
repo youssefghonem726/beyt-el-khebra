@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatCard from '../../components/StatCard';
@@ -28,14 +29,6 @@ interface Job {
 }
 
 const STEP_ORDER = ['pending', 'design', 'printing', 'cutting', 'packaging', 'ready'];
-const STEP_LABELS: Record<string, string> = {
-  pending: 'Ready for production',
-  design: 'Design',
-  printing: 'Printing',
-  cutting: 'Cutting',
-  packaging: 'Packaging',
-  ready: 'Ready',
-};
 
 function formatDate(isoDate: string | null): string {
   if (!isoDate) return '-';
@@ -58,7 +51,7 @@ function progressColor(progress: number): 'green' | 'orange' | undefined {
 function buildStages(currentStep: string, status: string): Stage[] {
   const currentIndex = Math.max(STEP_ORDER.indexOf(currentStep), 0);
   return STEP_ORDER.map((step, index) => ({
-    stage: STEP_LABELS[step],
+    stage: step,
     status: index < currentIndex ? 'completed' : index === currentIndex ? status : 'pending',
   }));
 }
@@ -86,6 +79,16 @@ function mapJob(job: any): Job {
 }
 
 export default function Production() {
+  return (
+    <Suspense fallback={null}>
+      <ProductionInner />
+    </Suspense>
+  );
+}
+
+function ProductionInner() {
+  const { t } = useTranslation(['common', 'production']);
+
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -110,7 +113,7 @@ export default function Production() {
       });
     } catch (err) {
       console.error('Failed to load production data:', err);
-      setError('Could not load production data. Please try again later.');
+      setError(t('production:error'));
     } finally {
       setLoading(false);
     }
@@ -127,7 +130,7 @@ export default function Production() {
       await fetchData();
     } catch (err) {
       console.error('Failed to update production job:', err);
-      setError('Could not update production job.');
+      setError(t('production:updateError'));
     } finally {
       setSavingJobId(null);
     }
@@ -152,35 +155,35 @@ export default function Production() {
   if (loading) {
     return (
       <AppShell role="owner" activePage="owner-production">
-        <Topbar title="Production Dashboard" />
-        <div className="loading-state">Loading production data...</div>
+        <Topbar title={t('production:title')} />
+        <div className="loading-state">{t('production:loading')}</div>
       </AppShell>
     );
   }
 
   return (
     <AppShell role="owner" activePage="owner-production">
-      <Topbar title="Production Dashboard" />
+      <Topbar title={t('production:title')} />
 
       {error && <div className="error-state" style={{ marginBottom: 12 }}>{error}</div>}
 
       <section className="grid-4" style={{ marginBottom: 14 }}>
-        <StatCard label="Active Jobs" value={activeJobs} sub="Confirmed/in-progress items" />
-        <StatCard label="Ready" value={ready} sub="Not started yet" />
-        <StatCard label="In Progress" value={inProgress} sub="Being worked on" />
-        <StatCard label="Completed" value={completed} sub="Ready items still in active orders" />
+        <StatCard label={t('production:stats.activeJobs')} value={activeJobs} sub={t('production:stats.activeSub')} />
+        <StatCard label={t('production:stats.ready')} value={ready} sub={t('production:stats.readySub')} />
+        <StatCard label={t('production:stats.inProgress')} value={inProgress} sub={t('production:stats.inProgressSub')} />
+        <StatCard label={t('production:stats.completed')} value={completed} sub={t('production:stats.completedSub')} />
       </section>
 
       <section className="production-layout">
         <div className="stack">
           <article className="table-wrap">
             <div className="table-head">
-              <h3>All Jobs</h3>
+              <h3>{t('production:table.title')}</h3>
               <div className="search-container">
                 <input
                   className="input"
                   type="search"
-                  placeholder="Search by job ID, order, client or product..."
+                  placeholder={t('production:table.searchPlaceholder')}
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                 />
@@ -188,18 +191,18 @@ export default function Production() {
                 {dropdownOpen && (
                   <div className="filter-dropdown show">
                     <div className="field">
-                      <label>Status</label>
+                      <label>{t('production:table.filter.label')}</label>
                       <select className="select" value={filterStatus} onChange={(event) => setFilterStatus(event.target.value)}>
-                        <option value="">All</option>
-                        <option value="ready_for_production">Ready</option>
-                        <option value="design">Design</option>
-                        <option value="printing">Printing</option>
-                        <option value="cutting">Cutting</option>
-                        <option value="packaging">Packaging</option>
-                        <option value="completed">Completed</option>
+                        <option value="">{t('production:table.filter.all')}</option>
+                        <option value="ready_for_production">{t('production:steps.pending')}</option>
+                        <option value="design">{t('production:steps.design')}</option>
+                        <option value="printing">{t('production:steps.printing')}</option>
+                        <option value="cutting">{t('production:steps.cutting')}</option>
+                        <option value="packaging">{t('production:steps.packaging')}</option>
+                        <option value="completed">{t('production:steps.ready')}</option>
                       </select>
                     </div>
-                    <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>Apply</button>
+                    <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>{t('production:table.filter.apply')}</button>
                   </div>
                 )}
               </div>
@@ -207,7 +210,7 @@ export default function Production() {
 
             <div className="job-cards">
               {filtered.length === 0 ? (
-                <p className="muted" style={{ padding: '12px 0' }}>No production jobs found.</p>
+                <p className="muted" style={{ padding: '12px 0' }}>{t('production:table.empty')}</p>
               ) : filtered.map((job) => {
                 const progress = getProgress(job);
                 return (
@@ -221,13 +224,17 @@ export default function Production() {
                       <h4>{job.id}</h4>
                       <StatusBadge status={job.status} />
                     </div>
-                    <p style={{ marginBottom: 2 }}><strong>Order:</strong> #{job.orderId}</p>
-                    <p style={{ marginBottom: 2 }}><strong>Client:</strong> {job.client}</p>
-                    <p style={{ marginBottom: 2 }}><strong>Product:</strong> {job.product} - {job.qty} pcs</p>
-                    <p style={{ marginBottom: 6 }}><strong>Step:</strong> {STEP_LABELS[job.currentStep] || job.currentStep}</p>
+                    <p style={{ marginBottom: 2 }}><strong>{t('production:card.order')}:</strong> #{job.orderId}</p>
+                    <p style={{ marginBottom: 2 }}><strong>{t('production:card.client')}:</strong> {job.client}</p>
+                    <p style={{ marginBottom: 2 }}>
+                      <strong>{t('production:card.product')}:</strong> {job.product} - {t('production:card.pcs', { count: job.qty })}
+                    </p>
+                    <p style={{ marginBottom: 6 }}>
+                      <strong>{t('production:card.step')}:</strong> {t(`production:steps.${job.currentStep}`)}
+                    </p>
                     <ProgressBar percent={progress} color={progressColor(progress)} />
                     <p style={{ fontSize: 11, marginTop: 4, color: 'var(--muted)' }}>
-                      {job.completedQty} / {job.qty} completed ({progress}%)
+                      {t('production:card.completedOf', { completed: job.completedQty, total: job.qty, percent: progress })}
                     </p>
                     <div className="card-actions">
                       <button
@@ -238,7 +245,7 @@ export default function Production() {
                           setShowWorkView(true);
                         }}
                       >
-                        Open Work View
+                        {t('production:card.openWorkView')}
                       </button>
                     </div>
                   </article>
@@ -260,25 +267,25 @@ export default function Production() {
 
             <div className="line" />
 
-            <h4 style={{ margin: '12px 0 8px' }}>Job Details</h4>
+            <h4 style={{ margin: '12px 0 8px' }}>{t('production:detail.jobDetails')}</h4>
             <ul style={{ listStyle: 'none', display: 'grid', gap: 6, fontSize: 13 }}>
-              <li><strong>Product:</strong> {selectedJob.product}</li>
-              <li><strong>Quantity:</strong> {selectedJob.qty} pcs</li>
-              <li><strong>Order Status:</strong> {selectedJob.orderStatus}</li>
-              <li><strong>Due Date:</strong> {selectedJob.dueDate}</li>
+              <li><strong>{t('production:detail.product')}:</strong> {selectedJob.product}</li>
+              <li><strong>{t('production:detail.quantity')}:</strong> {t('production:card.pcs', { count: selectedJob.qty })}</li>
+              <li><strong>{t('production:detail.orderStatus')}:</strong> {selectedJob.orderStatus}</li>
+              <li><strong>{t('production:detail.dueDate')}:</strong> {selectedJob.dueDate}</li>
             </ul>
 
             <div className="line" />
 
-            <h4 style={{ margin: '12px 0 8px' }}>Progress</h4>
+            <h4 style={{ margin: '12px 0 8px' }}>{t('production:detail.progress')}</h4>
             <ProgressBar percent={getProgress(selectedJob)} color={progressColor(getProgress(selectedJob))} />
             <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
-              {selectedJob.completedQty} / {selectedJob.qty} ({getProgress(selectedJob)}%) complete
+              {t('production:detail.completedOf', { completed: selectedJob.completedQty, total: selectedJob.qty, percent: getProgress(selectedJob) })}
             </p>
 
             <div className="line" />
 
-            <h4 style={{ margin: '12px 0 8px' }}>Update Step</h4>
+            <h4 style={{ margin: '12px 0 8px' }}>{t('production:detail.updateStep')}</h4>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {STEP_ORDER.slice(1).map((step) => (
                 <button
@@ -287,7 +294,7 @@ export default function Production() {
                   disabled={savingJobId === selectedJob.itemId}
                   onClick={() => handleStepUpdate(selectedJob, step)}
                 >
-                  {STEP_LABELS[step]}
+                  {t(`production:steps.${step}`)}
                 </button>
               ))}
             </div>
@@ -295,7 +302,7 @@ export default function Production() {
             <div className="line" />
 
             <button className="btn primary block" style={{ marginTop: 4 }} onClick={() => setShowWorkView(true)}>
-              Open Work View
+              {t('production:detail.openWorkView')}
             </button>
           </aside>
         )}
@@ -337,38 +344,43 @@ export default function Production() {
               background: 'var(--surface, #fff)',
               zIndex: 1,
             }}>
-              <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>Work View - {selectedJob.id}</h2>
-              <button className="btn" onClick={() => setShowWorkView(false)}>Close</button>
+              <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>
+                {t('production:workView.title', { id: selectedJob.id })}
+              </h2>
+              <button className="btn" onClick={() => setShowWorkView(false)}>{t('production:workView.close')}</button>
             </div>
             <div style={{ padding: 20 }}>
-              <h3 style={{ marginBottom: 8 }}>Work Progress - {selectedJob.id}</h3>
+              <h3 style={{ marginBottom: 8 }}>{t('production:workView.progressTitle', { id: selectedJob.id })}</h3>
               <ProgressBar percent={getProgress(selectedJob)} color={progressColor(getProgress(selectedJob))} />
               <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 6, marginBottom: 16 }}>
-                {selectedJob.completedQty} / {selectedJob.qty} completed ({getProgress(selectedJob)}%)
+                {t('production:workView.completedOf', { completed: selectedJob.completedQty, total: selectedJob.qty, percent: getProgress(selectedJob) })}
               </p>
               <table className="orders-table" style={{ marginBottom: 24 }}>
                 <thead>
-                  <tr><th>Stage</th><th>Status</th></tr>
+                  <tr>
+                    <th>{t('production:workView.stageCol')}</th>
+                    <th>{t('production:workView.statusCol')}</th>
+                  </tr>
                 </thead>
                 <tbody>
                   {selectedJob.stages.map((stage) => (
                     <tr key={stage.stage}>
-                      <td>{stage.stage}</td>
+                      <td>{t(`production:steps.${stage.stage}`)}</td>
                       <td><StatusBadge status={stage.status} /></td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              <h3 style={{ marginBottom: 12 }}>Job Info</h3>
+              <h3 style={{ marginBottom: 12 }}>{t('production:workView.jobInfo')}</h3>
               <div className="form-grid-2" style={{ fontSize: 14, gap: 8 }}>
-                <p><strong>Client:</strong> {selectedJob.client}</p>
-                <p><strong>Order:</strong> #{selectedJob.orderId}</p>
-                <p><strong>Product:</strong> {selectedJob.product}</p>
-                <p><strong>Quantity:</strong> {selectedJob.qty}</p>
-                <p><strong>Status:</strong> <StatusBadge status={selectedJob.status} /></p>
-                <p><strong>Current Step:</strong> {STEP_LABELS[selectedJob.currentStep] || selectedJob.currentStep}</p>
-                <p><strong>Deadline:</strong> {selectedJob.dueDate}</p>
-                <p style={{ gridColumn: '1 / -1' }}><strong>Notes:</strong> {selectedJob.notes}</p>
+                <p><strong>{t('production:workView.client')}:</strong> {selectedJob.client}</p>
+                <p><strong>{t('production:workView.order')}:</strong> #{selectedJob.orderId}</p>
+                <p><strong>{t('production:workView.product')}:</strong> {selectedJob.product}</p>
+                <p><strong>{t('production:workView.quantity')}:</strong> {selectedJob.qty}</p>
+                <p><strong>{t('production:workView.status')}:</strong> <StatusBadge status={selectedJob.status} /></p>
+                <p><strong>{t('production:workView.currentStep')}:</strong> {t(`production:steps.${selectedJob.currentStep}`)}</p>
+                <p><strong>{t('production:workView.deadline')}:</strong> {selectedJob.dueDate}</p>
+                <p style={{ gridColumn: '1 / -1' }}><strong>{t('production:workView.notes')}:</strong> {selectedJob.notes}</p>
               </div>
             </div>
           </div>
