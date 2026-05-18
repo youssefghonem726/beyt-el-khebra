@@ -1,15 +1,22 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useTranslation } from 'react-i18next';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
 import { useNavigation } from '../../context/NavigationContext';
-// Direct service imports – bypasses VITE_USE_MOCK
 import { getOrders } from '../../lib/api/ordersQuotesService';
 import { getBatches } from '../../lib/api/batchesService';
 import { getDeliveries } from '../../lib/api/deliveriesService';
 
-// ─── Backend shapes ─────────────────────────────────────────────────
+const STATUS_FILTER_VALUES = [
+  'UNPRICED_PENDING',
+  'PRICED_PENDING_CONFIRMATION',
+  'IN_PROGRESS',
+  'COMPLETED',
+  'CANCELED',
+] as const;
+
 interface BackendOrder {
   id: number;
   status: string;
@@ -27,7 +34,6 @@ interface BackendBatch {
   progress: number;
   status: string;
   deadline?: string | null;
-  // ... other fields not needed here
 }
 
 interface BackendDelivery {
@@ -36,10 +42,8 @@ interface BackendDelivery {
   status: string;
   progress: number;
   scheduledDate: string;
-  // ...
 }
 
-// ─── Display shape ─────────────────────────────────────────────────
 interface DisplayOrder {
   id: string;
   shortId: string;
@@ -55,7 +59,6 @@ interface DisplayOrder {
   paid: string;
 }
 
-// ─── Helpers ───────────────────────────────────────────────────────
 function formatDate(isoDate: string | null): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
@@ -71,15 +74,19 @@ function formatAmount(amount: number | null): string {
 function getProgressColor(progress: number, orderStatus: string): 'green' | 'orange' | 'red' {
   if (orderStatus === 'CANCELED') return 'red';
   if (progress >= 100) return 'green';
-  if (progress > 0) return 'orange';
   return 'orange';
 }
 
-function getShortId(id: number): string {
-  return `#${id}`;
+export default function MyOrders() {
+  return (
+    <Suspense fallback={null}>
+      <MyOrdersInner />
+    </Suspense>
+  );
 }
 
-export default function MyOrders() {
+function MyOrdersInner() {
+  const { t } = useTranslation(['common', 'myOrders']);
   const { navigateTopLevel } = useNavigation();
   const [orders, setOrders] = useState<DisplayOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,7 +98,6 @@ export default function MyOrders() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch orders, batches, and deliveries in parallel
         const [ordersRes, batchesRes, deliveriesRes] = await Promise.all([
           getOrders(),
           getBatches(),
@@ -102,38 +108,28 @@ export default function MyOrders() {
         const batches: BackendBatch[] = batchesRes.data.data;
         const deliveries: BackendDelivery[] = deliveriesRes.data.data;
 
-        console.log('MyOrders - orders:', backendOrders);
-        console.log('MyOrders - batches:', batches);
-        console.log('MyOrders - deliveries:', deliveries);
-
-        // Build maps for quick lookup
-        const batchMap = new Map(batches.map(b => [b.orderId, b]));
-        const deliveryMap = new Map(deliveries.map(d => [d.orderId, d]));
+        const batchMap = new Map(batches.map((b) => [b.orderId, b]));
+        const deliveryMap = new Map(deliveries.map((d) => [d.orderId, d]));
 
         const displayOrders: DisplayOrder[] = backendOrders.map((o) => {
           const batch = batchMap.get(o.id);
           const delivery = deliveryMap.get(o.id);
 
-          // Progress: from batch if available, else derived from order status
           let progress = batch ? batch.progress : 0;
           if (o.status === 'COMPLETED') progress = 100;
           if (o.status === 'CANCELED') progress = 0;
 
-          // Delivery status
           let deliveryStatus = delivery ? delivery.status : '—';
           if (!delivery) {
             if (o.status === 'COMPLETED') deliveryStatus = 'delivered';
             else if (o.status === 'CANCELED') deliveryStatus = 'canceled';
           }
 
-          // Product name from upload file name, fallback to "Order #id"
-          const productName = o.upload?.file_name || `Order #${o.id}`;
-
           return {
             id: String(o.id),
-            shortId: getShortId(o.id),
-            batch: batch ? `BATCH-${batch.id}` : '—',   // or just batch.id
-            product: productName,
+            shortId: `#${o.id}`,
+            batch: batch ? `BATCH-${batch.id}` : '—',
+            product: o.upload?.file_name || `Order #${o.id}`,
             status: o.status,
             delivery: deliveryStatus,
             progress,
@@ -148,7 +144,7 @@ export default function MyOrders() {
         setOrders(displayOrders);
       } catch (err) {
         console.error('Failed to load orders:', err);
-        setError('Could not load your orders. Please try again later.');
+        setError(t('myOrders:error'));
       } finally {
         setLoading(false);
       }
@@ -172,8 +168,8 @@ export default function MyOrders() {
   if (loading) {
     return (
       <AppShell role="client" activePage="my-orders">
-        <Topbar title="My Orders" />
-        <div className="loading-state">Loading orders...</div>
+        <Topbar title={t('myOrders:title')} />
+        <div className="loading-state">{t('myOrders:loading')}</div>
       </AppShell>
     );
   }
@@ -181,7 +177,7 @@ export default function MyOrders() {
   if (error) {
     return (
       <AppShell role="client" activePage="my-orders">
-        <Topbar title="My Orders" />
+        <Topbar title={t('myOrders:title')} />
         <div className="error-state">{error}</div>
       </AppShell>
     );
@@ -189,16 +185,16 @@ export default function MyOrders() {
 
   return (
     <AppShell role="client" activePage="my-orders">
-      <Topbar title="My Orders" />
+      <Topbar title={t('myOrders:title')} />
       <section className="table-wrap">
         <div className="table-head">
-          <h3>All Orders</h3>
+          <h3>{t('myOrders:allOrders')}</h3>
           <div className="actions-inline">
             <div className="search-container">
               <input
                 className="input"
                 type="search"
-                placeholder="Batch lookup by code, order ID, or product..."
+                placeholder={t('myOrders:searchPlaceholder')}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
@@ -208,51 +204,49 @@ export default function MyOrders() {
               {dropdownOpen && (
                 <div className="filter-dropdown show">
                   <div className="field">
-                    <label>Status</label>
+                    <label>{t('common:filter.status')}</label>
                     <select
                       className="select"
                       value={filterStatus}
                       onChange={(e) => setFilterStatus(e.target.value)}
                     >
-                      <option value="">All Status</option>
-                      <option value="UNPRICED_PENDING">Unpriced Pending</option>
-                      <option value="PRICED_PENDING_CONFIRMATION">Priced Pending Confirmation</option>
-                      <option value="IN_PROGRESS">In Progress</option>
-                      <option value="COMPLETED">Completed</option>
-                      <option value="CANCELED">Canceled</option>
+                      <option value="">{t('common:filter.allStatus')}</option>
+                      {STATUS_FILTER_VALUES.map((v) => (
+                        <option key={v} value={v}>{t(`common:status.${v}`)}</option>
+                      ))}
                     </select>
                   </div>
                   <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>
-                    Apply
+                    {t('common:filter.apply')}
                   </button>
                 </div>
               )}
             </div>
             <button className="btn primary" onClick={() => navigateTopLevel('place-new-order')}>
-              New Order
+              {t('myOrders:newOrder')}
             </button>
           </div>
         </div>
         <table className="orders-table">
           <thead>
             <tr>
-              <th>Order</th>
-              <th>Batch Code</th>
-              <th>Product</th>
-              <th>Status</th>
-              <th>Delivery Progress</th>
-              <th>Date</th>
-              <th>Total</th>
-              <th>Payment Method</th>
-              <th>Paid Amount</th>
-              <th>Action</th>
+              <th>{t('myOrders:table.order')}</th>
+              <th>{t('myOrders:table.batchCode')}</th>
+              <th>{t('myOrders:table.product')}</th>
+              <th>{t('myOrders:table.status')}</th>
+              <th>{t('myOrders:table.deliveryProgress')}</th>
+              <th>{t('myOrders:table.date')}</th>
+              <th>{t('myOrders:table.total')}</th>
+              <th>{t('myOrders:table.paymentMethod')}</th>
+              <th>{t('myOrders:table.paidAmount')}</th>
+              <th>{t('myOrders:table.action')}</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr>
                 <td colSpan={10} className="no-results">
-                  No matching results
+                  {t('myOrders:noResults')}
                 </td>
               </tr>
             ) : (
@@ -274,7 +268,7 @@ export default function MyOrders() {
                   <td>{o.paid}</td>
                   <td>
                     <button className="btn" onClick={() => navigateTopLevel(`/client/orders/${o.id}`)}>
-                      View
+                      {t('myOrders:table.view')}
                     </button>
                   </td>
                 </tr>
