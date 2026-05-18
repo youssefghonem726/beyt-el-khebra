@@ -1,13 +1,14 @@
 from django.db import models
 
 class Invoice(models.Model):
-    class Status(models.TextChoices):   # matches your order_status_enum
+    class Status(models.TextChoices):
         UNPRICED_PENDING = 'UNPRICED_PENDING', 'Unpriced Pending'
         PRICED_PENDING_CONFIRMATION = 'PRICED_PENDING_CONFIRMATION', 'Priced Pending Confirmation'
+        CONFIRMED = 'CONFIRMED', 'Confirmed'
         IN_PROGRESS = 'IN_PROGRESS', 'In Progress'
         COMPLETED = 'COMPLETED', 'Completed'
-        CANCELED = 'CANCELED', 'Canceled'
-        # Add any other status values your enum supports
+        CANCELLED = 'CANCELLED', 'Cancelled'
+        CLOSED = 'CLOSED', 'Closed'
 
     id = models.BigAutoField(primary_key=True)
     created_at = models.DateTimeField(auto_now_add=True)

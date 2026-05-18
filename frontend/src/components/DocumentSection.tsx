@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 // Direct import from the real service – bypasses VITE_USE_MOCK
 import { getDocuments } from '../lib/api/documentsService';
-import type { Document } from '../../lib/api/types';
 
 // ── Local display type (unchanged) ──────────────────────────────────────────
 export interface ClientDocument {

@@ -2,18 +2,24 @@ import { useState, useEffect } from 'react';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatCard from '../../components/StatCard';
-import { useNavigation } from '../../context/NavigationContext';
-// Direct service imports – bypasses VITE_USE_MOCK
-import { getOrders } from '../../lib/api/ordersQuotesService';
+import { getUnpricedQueue, submitQuoteForOrder } from '../../lib/api/ordersQuotesService';
 import { getClients } from '../../lib/api/invoicesClientsSettingsService';
 
 interface UnpricedJob {
-  id: string;          // order ID (numeric from backend)
-  displayId: string;   // short ID for display (e.g., "#1033")
+  id: string;          
+  displayId: string;   
   client: string;
   product: string;
+  items: Array<{
+    id: number | string;
+    item_type: string;
+    quantity: number;
+    notes?: string | null;
+  }>;
   qty: number;
-  deadline: string;    // formatted date string
+  deadline: string;    
+  dueDate: string | null;
+  createdAt: string | null;
 }
 
 interface PricingState {
@@ -35,64 +41,76 @@ function getShortOrderId(id: number | string): string {
   return isNaN(num) ? `#${id}` : `#${num}`;
 }
 
+function getProductFallback(order: any): string {
+  return order.product_summary || order.upload?.file_name || `Order #${order.id}`;
+}
+
 export default function UnpricedQueue() {
-  const { navigateTopLevel } = useNavigation();
   const [jobs, setJobs] = useState<UnpricedJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pricingId, setPricingId] = useState<string | null>(null);
   const [pricing, setPricing] = useState<PricingState>({ unitPrice: '', vatRate: '14', notes: '' });
-  const [priced, setPriced] = useState<Set<string>>(new Set());
+  const [submittingId, setSubmittingId] = useState<string | null>(null);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const [ordersRes, clientsRes] = await Promise.all([
+        getUnpricedQueue(),
+        getClients(),
+      ]);
+
+      const orders = ordersRes.data.data;
+      const clients = clientsRes.data.data.results;
+
+      const clientsMap = new Map(clients.map((c: any) => {
+        const name = `${c.first_name ?? ''} ${c.last_name ?? ''}`.trim() || c.name || c.email;
+        return [String(c.id), name];
+      }));
+
+      const jobList: UnpricedJob[] = orders.map((order: any) => {
+        const items = Array.isArray(order.item_details) ? order.item_details : [];
+        const qty = items.length
+          ? items.reduce((sum: number, item: any) => sum + (Number(item.quantity) || 1), 0)
+          : order.quantity ?? order.item_count ?? 0;
+        const deadlineIso = order.due_date ?? null;
+        const clientName =
+          order.customer_name ||
+          order.customer_email ||
+          clientsMap.get(String(order.customer)) ||
+          'Unknown';
+        const productName = getProductFallback(order);
+
+        return {
+          id: String(order.id),
+          displayId: getShortOrderId(order.id),
+          client: clientName,
+          product: productName,
+          items: items.map((item: any) => ({
+            id: item.id,
+            item_type: item.item_type || 'Item',
+            quantity: Number(item.quantity) || 1,
+            notes: item.notes ?? null,
+          })),
+          qty,
+          deadline: formatDate(deadlineIso),
+          dueDate: deadlineIso,
+          createdAt: order.created_at ?? null,
+        };
+      });
+
+      setJobs(jobList);
+    } catch (err) {
+      console.error('Failed to load unpriced queue:', err);
+      setError('Could not load unpriced jobs. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [ordersRes, clientsRes] = await Promise.all([
-          getOrders(),
-          getClients(),
-        ]);
-
-        const orders = ordersRes.data.data;              // array of orders
-        const clients = clientsRes.data.data.results;    // array of { id, name, ... }
-
-        console.log('UnpricedQueue - raw orders:', orders);
-        console.log('UnpricedQueue - clients:', clients);
-
-        // Build client lookup map
-        const clientsMap = new Map(clients.map((c: any) => [c.id, c.name]));
-
-        // Filter unpriced orders (backend status is uppercase)
-        const unpricedOrders = orders.filter(
-          (o: any) => o.status === 'UNPRICED_PENDING'
-        );
-
-        const jobList: UnpricedJob[] = unpricedOrders.map((order: any) => {
-          // Quantity – confirmed as order.quantity
-          const qty = order.quantity ?? 0;
-          // Deadline – confirmed as order.due_date
-          const deadlineIso = order.due_date ?? null;
-          // Product – use upload file name if present, else fallback
-          const productName = order.upload?.file_name || `Order #${order.id}`;
-
-          return {
-            id: String(order.id),
-            displayId: getShortOrderId(order.id),
-            client: clientsMap.get(order.customer) || 'Unknown',
-            product: productName,
-            qty,
-            deadline: formatDate(deadlineIso),
-          };
-        });
-
-        setJobs(jobList);
-      } catch (err) {
-        console.error('Failed to load unpriced queue:', err);
-        setError('Could not load unpriced jobs. Please try again later.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchData();
   }, []);
 
@@ -101,12 +119,52 @@ export default function UnpricedQueue() {
     setPricing({ unitPrice: '', vatRate: '14', notes: '' });
   };
 
-  const submitPrice = (job: UnpricedJob) => {
-    // Stubbed – no backend quote endpoint yet
+  const submitPrice = async (job: UnpricedJob) => {
     if (!pricing.unitPrice || parseFloat(pricing.unitPrice) <= 0) return;
-    // Just mark as priced locally
-    setPriced((s) => { const n = new Set(s); n.add(job.id); return n; });
-    setPricingId(null);
+
+    const total = getTotal(job.qty || 1);
+    const quoteItems = job.items.length
+      ? job.items.map(item => {
+          const itemQuantity = item.quantity || 1;
+          const itemTotal = getTotal(itemQuantity);
+          return {
+            item_type: item.item_type,
+            quantity: itemQuantity,
+            estimated_unit_price: unitPrice,
+            estimated_total_price: itemTotal,
+            notes: pricing.notes || item.notes || '',
+          };
+        })
+      : [
+          {
+            item_type: job.product,
+            quantity: job.qty || 1,
+            estimated_unit_price: unitPrice,
+            estimated_total_price: total,
+            notes: pricing.notes,
+          },
+        ];
+    setSubmittingId(job.id);
+    setError(null);
+
+    try {
+      await submitQuoteForOrder(Number(job.id), {
+        order_id: Number(job.id),
+        status: 'pending',
+        total_estimated_price: total,
+        notes: pricing.notes,
+        items: quoteItems,
+      });
+
+      setPricingId(null);
+      setPricing({ unitPrice: '', vatRate: '14', notes: '' });
+      await fetchData();
+    } catch (err) {
+      console.error('Failed to submit quote:', err);
+      setError('Could not submit quote. Please check the price and try again.');
+    } finally {
+      setSubmittingId(null);
+    }
   };
 
   const unitPrice = parseFloat(pricing.unitPrice) || 0;
@@ -119,14 +177,34 @@ export default function UnpricedQueue() {
   const fmt = (n: number) =>
     n.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+  const now = new Date();
+  const dueSoon = jobs.filter((job) => {
+    if (!job.dueDate) return false;
+    const dueDate = new Date(job.dueDate);
+    const diffDays = (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+    return diffDays >= 0 && diffDays <= 3;
+  }).length;
+  const overdue = jobs.filter((job) => {
+    if (!job.dueDate) return false;
+    return new Date(job.dueDate).getTime() < now.getTime();
+  }).length;
+  const averageProcessingDays = jobs.length
+    ? jobs.reduce((sum, job) => {
+        if (!job.createdAt) return sum;
+        const createdAt = new Date(job.createdAt);
+        if (isNaN(createdAt.getTime())) return sum;
+        return sum + Math.max(0, (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
+      }, 0) / jobs.length
+    : 0;
+
   const shell = (children: React.ReactNode) => (
     <AppShell role="owner" activePage="unpriced-queue">
       <Topbar title="Unpriced Queue" />
       <section className="grid-4" style={{ marginBottom: 14 }}>
         <StatCard label="Total Unpriced" value={jobs.length} sub="Jobs waiting for pricing" />
-        <StatCard label="Due Soon" value={2} sub="Due within 3 days" />
-        <StatCard label="Overdue" value={0} sub="No overdue jobs" />
-        <StatCard label="Average Processing" value="1.3d" sub="Average queue time" />
+        <StatCard label="Due Soon" value={dueSoon} sub="Due within 3 days" />
+        <StatCard label="Overdue" value={overdue} sub={overdue === 0 ? 'No overdue jobs' : 'Past due date'} />
+        <StatCard label="Average Processing" value={`${averageProcessingDays.toFixed(1)}d`} sub="Average queue age" />
       </section>
       {children}
     </AppShell>
@@ -135,25 +213,18 @@ export default function UnpricedQueue() {
   if (loading) return shell(<div className="loading-state">Loading jobs...</div>);
   if (error) return shell(<div className="error-state">{error}</div>);
 
-  const pending = jobs.filter((j) => !priced.has(j.id));
-
   return shell(
     <section className="table-wrap">
       <div className="table-head">
         <h3>Unpriced Jobs</h3>
-        {priced.size > 0 && (
-          <span className="muted" style={{ fontSize: 13 }}>
-            {priced.size} job{priced.size > 1 ? 's' : ''} priced this session
-          </span>
-        )}
       </div>
 
-      {pending.length === 0 && (
+      {jobs.length === 0 && (
         <p className="muted" style={{ padding: '20px 0' }}>All jobs have been priced.</p>
       )}
 
       <div className="stack">
-        {pending.map((j) => {
+        {jobs.map((j) => {
           const isOpen = pricingId === j.id;
           return (
             <article key={j.id} className="card">
@@ -171,7 +242,23 @@ export default function UnpricedQueue() {
                 </span>
               </div>
               <p style={{ marginBottom: 2 }}><strong>Client:</strong> {j.client}</p>
-              <p style={{ marginBottom: 2 }}><strong>Product:</strong> {j.product}</p>
+              {j.items.length <= 1 ? (
+                <p style={{ marginBottom: 2 }}>
+                  <strong>Product:</strong>{' '}
+                  {j.items[0] ? `${j.items[0].item_type} (${j.items[0].quantity} pcs)` : j.product}
+                </p>
+              ) : (
+                <div style={{ marginBottom: 8 }}>
+                  <p style={{ marginBottom: 4 }}><strong>Products:</strong></p>
+                  <ul style={{ margin: '0 0 0 18px', padding: 0 }}>
+                    {j.items.map(item => (
+                      <li key={item.id}>
+                        {item.item_type} - {item.quantity} pcs
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               <p style={{ marginBottom: 2 }}><strong>Quantity:</strong> {j.qty} pcs</p>
               <p style={{ marginBottom: 10 }}><strong>Deadline:</strong> {j.deadline}</p>
 
@@ -261,12 +348,12 @@ export default function UnpricedQueue() {
                   <div style={{ display: 'flex', gap: 10 }}>
                     <button
                       className="btn primary"
-                      disabled={!pricing.unitPrice || unitPrice <= 0}
+                      disabled={!pricing.unitPrice || unitPrice <= 0 || submittingId === j.id}
                       onClick={() => submitPrice(j)}
                     >
-                      Submit Quote (local only)
+                      {submittingId === j.id ? 'Submitting...' : 'Submit Quote'}
                     </button>
-                    <button className="btn" onClick={() => setPricingId(null)}>Cancel</button>
+                    <button className="btn" onClick={() => setPricingId(null)} disabled={submittingId === j.id}>Cancel</button>
                   </div>
                 </div>
               )}

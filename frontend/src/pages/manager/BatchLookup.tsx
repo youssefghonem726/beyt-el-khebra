@@ -111,7 +111,7 @@ export default function BatchLookup({ role = 'manager' }: Props) {
             progress: b.progress,
             priority: b.priority,
             assignedTo: b.assignedTo || 'Unassigned',
-            deadline: formatDateShort(b.deadline),
+            deadline: formatDateShort(b.deadline ?? null),
             notes: b.notes,
             stages: (b.stages || []).map(s => ({
               ...s,

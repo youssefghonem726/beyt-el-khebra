@@ -5,25 +5,26 @@ import type { ApiSuccess } from './types';
 export interface PricingRow {
   id: number;
   created_at: string;
-  Front: number | null;
-  Front_and_back: number | null;
-  Digital_Cover_300g: number | null;
-  Digital_Cover_200g: number | null;
-  Offset_Cover_200g: number | null;
-  Offset_Cover_300g: number | null;
-  Coil_size_10: number | null;
-  Coil_size_12: number | null;
-  Coil_size_14: number | null;
-  Coil_size_16: number | null;
-  Coil_size_18: number | null;
-  Coil_size_20: number | null;
-  Coil_size_22: number | null;
-  Coil_size_25: number | null;
-  Coil_size_28: number | null;
-  Coil_size_30: number | null;
-  Coil_size_32: number | null;
-  Coil_size_35: number | null;
+  front: number | null;
+  front_and_back: number | null;
+  digital_cover_300g: number | null;
+  digital_cover_200g: number | null;
+  offset_cover_200g: number | null;
+  offset_cover_300g: number | null;
+  coil_size_10: number | null;
+  coil_size_12: number | null;
+  coil_size_14: number | null;
+  coil_size_16: number | null;
+  coil_size_18: number | null;
+  coil_size_20: number | null;
+  coil_size_22: number | null;
+  coil_size_25: number | null;
+  coil_size_28: number | null;
+  coil_size_30: number | null;
+  coil_size_32: number | null;
+  coil_size_35: number | null;
   user: number | null;
+  source?: 'default' | 'custom';
 }
 
 export const getPricingByUser = (userId: number): Promise<AxiosResponse<ApiSuccess<PricingRow | null>>> =>
@@ -31,3 +32,9 @@ export const getPricingByUser = (userId: number): Promise<AxiosResponse<ApiSucce
 
 export const updatePricing = (pricingId: number, data: Partial<PricingRow>): Promise<AxiosResponse<ApiSuccess<PricingRow>>> =>
   api.patch(`/api/pricing/${pricingId}/`, data);
+
+export const updatePricingByUser = (
+  userId: number,
+  data: Partial<PricingRow>
+): Promise<AxiosResponse<ApiSuccess<PricingRow>>> =>
+  api.patch(`/api/pricing/by-user/${userId}/`, data);

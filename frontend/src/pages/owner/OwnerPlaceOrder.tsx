@@ -51,6 +51,17 @@ const ITEM_TYPES: { id: ItemType; label: string; icon: string }[] = [
   { id: 'poster',  label: 'Poster',        icon: '🖼️' },
 ];
 
+const getItemLabel = (type: string): string =>
+  ITEM_TYPES.find(t => t.id === type)?.label ?? type;
+
+const buildOrderItemNotes = (data: Record<string, any>, extraNotes = ''): string => {
+  const specs = Object.entries(data)
+    .filter(([, value]) => value !== undefined && value !== null && value !== '' && !(value instanceof File))
+    .map(([key, value]) => `${key}: ${String(value)}`);
+
+  return [...specs, extraNotes.trim()].filter(Boolean).join('\n');
+};
+
 import { DocLibrary } from '../../components/DocLibrary';
 import { ItemEditor } from '../../components/ItemEditor';
 import { FileField, SelectField } from '../../components/fields';
@@ -136,7 +147,10 @@ export default function OwnerPlaceOrder() {
     (async () => {
       try {
         const res = await getDocuments();
-        setAllDocs(res.data.data);
+        setAllDocs(res.data.data.map(doc => ({
+          ...doc,
+          ownerId: doc.ownerId ?? '',
+        })));
       } catch (err) {
         console.error('Failed to load documents:', err);
       }
@@ -258,6 +272,11 @@ export default function OwnerPlaceOrder() {
         quantity: totalQty || 1,
         total_price: 0,
         customer_id: Number(selectedClientId),
+        order_items: pkgItems.map(item => ({
+          item_type: getItemLabel(item.type),
+          quantity: Number(item.data.qty) || 1,
+          notes: buildOrderItemNotes(item.data, notes),
+        })),
       });
       setSubmitted(true);
     } catch (err) {
@@ -291,6 +310,13 @@ export default function OwnerPlaceOrder() {
         quantity: qty,
         total_price: 0,
         customer_id: Number(selectedClientId),
+        order_items: [
+          {
+            item_type: getItemLabel(_itemType),
+            quantity: qty,
+            notes: buildOrderItemNotes(data, notes),
+          },
+        ],
       });
       setSubmitted(true);
     } catch (err) {

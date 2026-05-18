@@ -34,6 +34,8 @@ export const {
   getOrdersInProduction,
   getOrdersPendingQuote,
   getUnpricedQueue,
+  getProductionJobs,
+  updateProductionJob,
   searchOrders,
   getOrderById,
   getOrderHistory,
@@ -133,6 +135,7 @@ export const {
 // ─── Settings ────────────────────────────────────────────────────────────────
 export const {
   getSettings,
+  updatePricingRolesSettings,
   updatePricingSettings,
   updateWhatsappSettings,
   getUsers,

@@ -20,6 +20,7 @@ import type {
   CreateTicketPayload,
   AppSettings,
   PricingRule,
+  PricingRoleSettings,
   WhatsappSettings,
   UserProfile,
 } from '../types'
@@ -102,7 +103,7 @@ export const getInvoiceById = async (
 ): Promise<AxiosResponse<ApiSuccess<Invoice>>> => {
   await delay()
   const data = await load<Invoice[]>('invoices')
-  const item = data.find((i) => i.id === invoiceId)
+  const item = data.find((i) => String(i.id) === invoiceId)
   if (!item) throw { response: { status: 404, data: { success: false, message: 'Invoice not found' } } }
   return wrap(item, 'Invoice fetched successfully')
 }
@@ -268,7 +269,18 @@ export const getSettings = async (): Promise<AxiosResponse<ApiSuccess<AppSetting
     load<PricingRule[]>('pricing'),
     load<UserProfile[]>('users'),
   ])
-  return wrap({ pricing, users })
+  return wrap({
+    pricing,
+    users,
+    pricing_roles: {
+      owner: 'Senior Manager',
+      approval_threshold: 5000,
+    },
+    whatsapp: {
+      number: '+20 100 123 4455',
+      template: 'Hello {{client_name}}, your order {{order_id}} is now {{status}}.',
+    },
+  })
 }
 
 export const updatePricingSettings = async (
@@ -279,12 +291,20 @@ export const updatePricingSettings = async (
   return wrap(payload as unknown as AppSettings)
 }
 
+export const updatePricingRolesSettings = async (
+  payload: PricingRoleSettings
+): Promise<AxiosResponse<ApiSuccess<{ key: string; value: PricingRoleSettings }>>> => {
+  await delay(400)
+  console.log('[MOCK] updatePricingRolesSettings', payload)
+  return wrap({ key: 'pricing_roles', value: payload })
+}
+
 export const updateWhatsappSettings = async (
   payload: WhatsappSettings
-): Promise<AxiosResponse<ApiSuccess<WhatsappSettings>>> => {
+): Promise<AxiosResponse<ApiSuccess<{ key: string; value: WhatsappSettings }>>> => {
   await delay(400)
   console.log('[MOCK] updateWhatsappSettings', payload)
-  return wrap(payload)
+  return wrap({ key: 'whatsapp', value: payload })
 }
 
 export const getUsers = async (): Promise<AxiosResponse<ApiSuccess<UserProfile[]>>> => {
@@ -293,10 +313,10 @@ export const getUsers = async (): Promise<AxiosResponse<ApiSuccess<UserProfile[]
 }
 
 export const updateUser = async (
-  email: string,
+  userId: number,
   updates: Partial<UserProfile>
 ): Promise<AxiosResponse<ApiSuccess<UserProfile>>> => {
   await delay(400)
-  console.log('[MOCK] updateUser', email, updates)
-  return wrap({ email, ...updates } as unknown as UserProfile)
+  console.log('[MOCK] updateUser', userId, updates)
+  return wrap({ id: userId, ...updates } as unknown as UserProfile)
 }

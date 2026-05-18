@@ -6,7 +6,33 @@ from .serializers import PricingSerializer
 from users.views import get_authenticated_user
 
 
-@api_view(["GET"])
+PRICING_FIELDS = [
+    "front",
+    "front_and_back",
+    "digital_cover_300g",
+    "digital_cover_200g",
+    "offset_cover_200g",
+    "offset_cover_300g",
+    "coil_size_10",
+    "coil_size_12",
+    "coil_size_14",
+    "coil_size_16",
+    "coil_size_18",
+    "coil_size_20",
+    "coil_size_22",
+    "coil_size_25",
+    "coil_size_28",
+    "coil_size_30",
+    "coil_size_32",
+    "coil_size_35",
+]
+
+
+def default_pricing_row():
+    return Pricing.objects.filter(user__isnull=True).first()
+
+
+@api_view(["GET", "PATCH"])
 def pricing_by_user(request, user_id):
     # Authentication
     user, auth_error = get_authenticated_user(request)
@@ -17,18 +43,40 @@ def pricing_by_user(request, user_id):
     if user.role not in ("owner", "staff"):
         return error_response("Forbidden", status_code=403)
 
+    if request.method == "GET":
+        try:
+            pricing = Pricing.objects.get(user_id=user_id)
+            serializer = PricingSerializer(pricing)
+            data = serializer.data
+            data["source"] = "custom"
+            return success_response("Pricing fetched", data=data)
+        except Pricing.DoesNotExist:
+            default = default_pricing_row()
+            if default:
+                serializer = PricingSerializer(default)
+                data = serializer.data
+                data["source"] = "default"
+                return success_response("Default pricing", data=data)
+            return success_response("No pricing found", data=None)
+
     try:
         pricing = Pricing.objects.get(user_id=user_id)
     except Pricing.DoesNotExist:
-        # Return a default pricing row (if exists) or an empty object
-        default = Pricing.objects.filter(user__isnull=True).first()
+        default = default_pricing_row()
+        defaults = {}
         if default:
-            serializer = PricingSerializer(default)
-            return success_response("Default pricing", data=serializer.data)
-        return success_response("No pricing found", data=None)
+            defaults = {field: getattr(default, field) for field in PRICING_FIELDS}
 
-    serializer = PricingSerializer(pricing)
-    return success_response("Pricing fetched", data=serializer.data)
+        pricing = Pricing.objects.create(user_id=user_id, **defaults)
+
+    serializer = PricingSerializer(pricing, data=request.data, partial=True)
+    if serializer.is_valid():
+        serializer.save(user_id=user_id)
+        data = serializer.data
+        data["source"] = "custom"
+        return success_response("Custom pricing updated", data=data)
+
+    return error_response("Validation error", errors=serializer.errors, status_code=400)
 
 
 @api_view(["PUT", "PATCH"])

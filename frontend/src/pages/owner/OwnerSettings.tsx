@@ -4,12 +4,30 @@ import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import { useNavigation } from '../../context/NavigationContext';
 // ─── API imports ──────────────────────────────────────────────────────────
-import { getUsers, getSettings, updatePricingSettings } from '../../lib/api';
+import {
+  getUsers,
+  getSettings,
+  updatePricingSettings,
+  updatePricingRolesSettings,
+  updateUser,
+  updateWhatsappSettings,
+} from '../../lib/api';
+import type { UserProfile } from '../../lib/api';
 
 interface User {
+  id: number;
   email: string;
-  role: string;
-  status: string;
+  role: UserProfile['role'];
+  status: 'active' | 'inactive';
+}
+
+function toUserRow(user: UserProfile): User {
+  return {
+    id: user.id,
+    email: user.email,
+    role: user.role,
+    status: user.is_active ? 'active' : 'inactive',
+  };
 }
 
 // ─── Pricing row interface (matches AppSettings.pricing) ──────────────────
@@ -37,8 +55,11 @@ export default function OwnerSettings() {
   const [pricing, setPricing] = useState({ owner: 'Senior Manager', threshold: '5000' });
   const [whatsapp, setWhatsapp] = useState({ number: '+20 100 123 4455', template: 'Hello {{client_name}}, your order {{order_id}} is now {{status}}.' });
   const [editEmail, setEditEmail] = useState<string | null>(null);
-  const [editRole, setEditRole] = useState('');
-  const [editStatus, setEditStatus] = useState('');
+  const [editRole, setEditRole] = useState<UserProfile['role']>('staff');
+  const [editStatus, setEditStatus] = useState<'active' | 'inactive'>('active');
+  const [savingUserId, setSavingUserId] = useState<number | null>(null);
+  const [savingPricingRoles, setSavingPricingRoles] = useState(false);
+  const [savingWhatsapp, setSavingWhatsapp] = useState(false);
   const [toast, setToast] = useState('');
 
   // ── New state for default pricing table ──────────────────────────────────
@@ -58,8 +79,23 @@ export default function OwnerSettings() {
           getUsers(),
           getSettings(),
         ]);
-        setUsers(usersRes.data.data);
-        setDefaultPricing(settingsRes.data.data.pricing);
+        setUsers(usersRes.data.data.map(toUserRow));
+        const settings = settingsRes.data.data;
+        setDefaultPricing(settings.pricing ?? []);
+
+        if (settings.pricing_roles) {
+          setPricing({
+            owner: settings.pricing_roles.owner ?? 'Senior Manager',
+            threshold: String(settings.pricing_roles.approval_threshold ?? 5000),
+          });
+        }
+
+        if (settings.whatsapp) {
+          setWhatsapp({
+            number: String(settings.whatsapp.number ?? '+20 100 123 4455'),
+            template: String(settings.whatsapp.template ?? 'Hello {{client_name}}, your order {{order_id}} is now {{status}}.'),
+          });
+        }
       } catch (err) {
         console.error('Failed to load settings:', err);
         setError('Could not load settings. Please try again later.');
@@ -78,24 +114,77 @@ export default function OwnerSettings() {
     setEditStatus(u.status);
   };
 
-  const saveEdit = () => {
-    if (!editEmail) return;
-    setUsers((prev) =>
-      prev.map((u) => (u.email === editEmail ? { ...u, role: editRole, status: editStatus } : u))
-    );
-    setEditEmail(null);
-    showToast('User updated.');
-    console.log('[MOCK] Updating user:', { email: editEmail, role: editRole, status: editStatus });
+  const saveEdit = async () => {
+    const user = users.find((u) => u.email === editEmail);
+    if (!user) return;
+
+    setSavingUserId(user.id);
+    try {
+      const res = await updateUser(user.id, {
+        role: editRole,
+        is_active: editStatus === 'active',
+      });
+      const updated = toUserRow(res.data.data);
+      setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
+      setEditEmail(null);
+      showToast('User updated.');
+    } catch (err) {
+      console.error('Failed to update user:', err);
+      showToast('Could not update user.');
+    } finally {
+      setSavingUserId(null);
+    }
   };
 
-  const handleSavePricing = () => {
-    showToast('Pricing roles saved (mock).');
-    console.log('[MOCK] Saving pricing roles:', pricing);
+  const handleSavePricingRoles = async () => {
+    const threshold = Number(pricing.threshold);
+    if (!pricing.owner.trim() || Number.isNaN(threshold) || threshold < 0) {
+      showToast('Enter a valid pricing owner and threshold.');
+      return;
+    }
+
+    setSavingPricingRoles(true);
+    try {
+      const res = await updatePricingRolesSettings({
+        owner: pricing.owner.trim(),
+        approval_threshold: threshold,
+      });
+      setPricing({
+        owner: res.data.data.value.owner,
+        threshold: String(res.data.data.value.approval_threshold),
+      });
+      showToast('Pricing roles saved.');
+    } catch (err) {
+      console.error('Failed to save pricing roles:', err);
+      showToast('Could not save pricing roles.');
+    } finally {
+      setSavingPricingRoles(false);
+    }
   };
 
-  const handleSaveWhatsapp = () => {
-    showToast('WhatsApp settings saved (mock).');
-    console.log('[MOCK] Saving WhatsApp settings:', whatsapp);
+  const handleSaveWhatsapp = async () => {
+    if (!whatsapp.number.trim() || !whatsapp.template.trim()) {
+      showToast('Enter a WhatsApp number and template.');
+      return;
+    }
+
+    setSavingWhatsapp(true);
+    try {
+      const res = await updateWhatsappSettings({
+        number: whatsapp.number.trim(),
+        template: whatsapp.template.trim(),
+      });
+      setWhatsapp({
+        number: String(res.data.data.value.number ?? ''),
+        template: String(res.data.data.value.template ?? ''),
+      });
+      showToast('WhatsApp settings saved.');
+    } catch (err) {
+      console.error('Failed to save WhatsApp settings:', err);
+      showToast('Could not save WhatsApp settings.');
+    } finally {
+      setSavingWhatsapp(false);
+    }
   };
 
   // ── Pricing table edit handlers ────────────────────────────────────────
@@ -121,12 +210,11 @@ export default function OwnerSettings() {
     );
   };
 
-  // ── Save default pricing to backend (mock) ──────────────────────────────
+  // ── Save default pricing to backend ─────────────────────────────────────
   const handleSaveDefaultPricing = async () => {
     try {
-      // This will log in mock mode, and call the real API when available
       await updatePricingSettings(defaultPricing);
-      showToast('Default pricing saved (mock).');
+      showToast('Default pricing saved.');
     } catch (err) {
       console.error(err);
       showToast('Error saving pricing.');
@@ -184,8 +272,13 @@ export default function OwnerSettings() {
               />
             </div>
           </div>
-          <button className="btn primary" style={{ marginTop: 12 }} onClick={handleSavePricing}>
-            Save Pricing Roles
+          <button
+            className="btn primary"
+            style={{ marginTop: 12 }}
+            onClick={handleSavePricingRoles}
+            disabled={savingPricingRoles}
+          >
+            {savingPricingRoles ? 'Saving...' : 'Save Pricing Roles'}
           </button>
         </article>
 
@@ -331,8 +424,13 @@ export default function OwnerSettings() {
               onChange={(e) => setWhatsapp((w) => ({ ...w, template: e.target.value }))}
             />
           </div>
-          <button className="btn primary" style={{ marginTop: 12 }} onClick={handleSaveWhatsapp}>
-            Save WhatsApp Settings
+          <button
+            className="btn primary"
+            style={{ marginTop: 12 }}
+            onClick={handleSaveWhatsapp}
+            disabled={savingWhatsapp}
+          >
+            {savingWhatsapp ? 'Saving...' : 'Save WhatsApp Settings'}
           </button>
         </article>
 
@@ -351,28 +449,30 @@ export default function OwnerSettings() {
             <tbody>
               {users.map((u) =>
                 editEmail === u.email ? (
-                  <tr key={u.email}>
+                  <tr key={u.id}>
                     <td>{u.email}</td>
                     <td>
-                      <select className="select" value={editRole} onChange={(e) => setEditRole(e.target.value)}>
-                        <option>Owner</option>
-                        <option>Manager</option>
-                        <option>Staff</option>
+                      <select className="select" value={editRole} onChange={(e) => setEditRole(e.target.value as UserProfile['role'])}>
+                        <option value="owner">Owner</option>
+                        <option value="staff">Staff</option>
+                        <option value="client">Client</option>
                       </select>
                     </td>
                     <td>
-                      <select className="select" value={editStatus} onChange={(e) => setEditStatus(e.target.value)}>
-                        <option>Active</option>
-                        <option>Inactive</option>
+                      <select className="select" value={editStatus} onChange={(e) => setEditStatus(e.target.value as 'active' | 'inactive')}>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
                       </select>
                     </td>
                     <td style={{ display: 'flex', gap: 6 }}>
-                      <button className="btn primary" onClick={saveEdit}>Save</button>
-                      <button className="btn" onClick={() => setEditEmail(null)}>Cancel</button>
+                      <button className="btn primary" onClick={saveEdit} disabled={savingUserId === u.id}>
+                        {savingUserId === u.id ? 'Saving...' : 'Save'}
+                      </button>
+                      <button className="btn" onClick={() => setEditEmail(null)} disabled={savingUserId === u.id}>Cancel</button>
                     </td>
                   </tr>
                 ) : (
-                  <tr key={u.email}>
+                  <tr key={u.id}>
                     <td>{u.email}</td>
                     <td>{u.role}</td>
                     <td><StatusBadge status={u.status} /></td>

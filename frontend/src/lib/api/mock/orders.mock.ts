@@ -39,7 +39,7 @@ export const getDashboardStats = async (): Promise<AxiosResponse<ApiSuccess<Dash
     activeJobs: orders.filter((o) => o.status === 'IN_PRODUCTION').length,
     unpricedOrders: orders.filter((o) => o.status === 'UNPRICED_PENDING').length,
     accountingItems: 0,
-    totalRevenue: orders.reduce((s, o) => s + parseFloat(o.total_price || '0'), 0),
+    totalRevenue: orders.reduce((s, o) => s + Number(o.total_price || 0), 0),
     pendingOrders: orders.filter((o) => o.status === 'UNPRICED_PENDING').length,
     completedOrders: orders.filter((o) => o.status === 'DELIVERED').length,
   }
@@ -95,11 +95,15 @@ export const createOrder = async (
   console.log('[MOCK] createOrder', orderData)
   const newOrder: Order = {
     id: Date.now(),
-    status: orderData.status ?? 'UNPRICED_PENDING',
+    status: (orderData.status ?? 'UNPRICED_PENDING') as Order['status'],
     quantity: orderData.quantity,
-    total_price: String(orderData.total_price),
+    total_price: Number(orderData.total_price),
     customer: 1,
     approved_by: null,
+    created_at: new Date().toISOString(),
+    updated_at: null,
+    due_date: null,
+    paid_amount: null,
   }
   return wrap(newOrder, 'Order created successfully')
 }
@@ -111,7 +115,18 @@ export const replaceOrder = async (
   await delay(400)
   console.log('[MOCK] replaceOrder', orderId, orderData)
   return wrap(
-    { id: orderId, customer: 1, approved_by: null, ...orderData, total_price: String(orderData.total_price) } as Order,
+    {
+      id: orderId,
+      customer: 1,
+      approved_by: null,
+      status: (orderData.status ?? 'UNPRICED_PENDING') as Order['status'],
+      quantity: orderData.quantity ?? 1,
+      total_price: Number(orderData.total_price ?? 0),
+      created_at: new Date().toISOString(),
+      updated_at: null,
+      due_date: null,
+      paid_amount: null,
+    },
     'Order updated successfully'
   )
 }
@@ -123,7 +138,18 @@ export const updateOrder = async (
   await delay(400)
   console.log('[MOCK] updateOrder', orderId, updates)
   return wrap(
-    { id: orderId, customer: 1, approved_by: null, ...updates, total_price: String(updates.total_price) } as Order,
+    {
+      id: orderId,
+      customer: 1,
+      approved_by: null,
+      status: (updates.status ?? 'UNPRICED_PENDING') as Order['status'],
+      quantity: updates.quantity ?? 1,
+      total_price: Number(updates.total_price ?? 0),
+      created_at: new Date().toISOString(),
+      updated_at: null,
+      due_date: null,
+      paid_amount: null,
+    },
     'Order updated successfully'
   )
 }
@@ -183,7 +209,7 @@ export const approveQuote = async (
 ): Promise<AxiosResponse<ApiSuccess<ApproveQuoteResponse>>> => {
   await delay(500)
   console.log('[MOCK] approveQuote', quoteId)
-  const mockOrder: Order = { id: Date.now(), status: 'CONFIRMED', quantity: 1, total_price: '0', customer: 1, approved_by: null }
+  const mockOrder: Order = { id: Date.now(), status: 'CONFIRMED', quantity: 1, total_price: 0, customer: 1, approved_by: null, created_at: new Date().toISOString(), updated_at: null, due_date: null, paid_amount: null }
   return wrap({ quote: { id: quoteId, status: 'Approved' }, order: mockOrder })
 }
 
@@ -211,4 +237,18 @@ export const submitQuoteForOrder = async (
   await delay(500)
   console.log('[MOCK] submitQuoteForOrder', orderId, quoteData)
   return wrap({ id: Date.now(), orderId, ...quoteData } as unknown as Quote)
+}
+
+export const getProductionJobs = async (): Promise<AxiosResponse<ApiSuccess<any[]>>> => {
+  await delay()
+  return wrap([], 'Production jobs fetched successfully')
+}
+
+export const updateProductionJob = async (
+  itemId: number | string,
+  updates: { current_step?: string; completed_quantity?: number }
+): Promise<AxiosResponse<ApiSuccess<any>>> => {
+  await delay(300)
+  console.log('[MOCK] updateProductionJob', itemId, updates)
+  return wrap({ id: itemId, ...updates }, 'Production job updated successfully')
 }
