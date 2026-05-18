@@ -1,41 +1,41 @@
 export type Role = 'owner' | 'manager' | 'client';
 
 export interface NavItem {
-  label: string;
+  labelKey: string;
   page: string;
   path: string;
 }
 
 export const NAVS: Record<Role, NavItem[]> = {
   owner: [
-    { label: 'Dashboard',         page: 'owner-dashboard',     path: '/owner' },
-    { label: 'Place Order',       page: 'owner-place-order',   path: '/owner/place-order' },
-    { label: 'Unpriced Queue',    page: 'unpriced-queue',      path: '/owner/unpriced-queue' },
-    { label: 'Production',        page: 'owner-production',    path: '/owner/production' },
-    { label: 'Client Management', page: 'client-management',   path: '/owner/clients' },
-    { label: 'Delivery Tracking', page: 'delivery-tracking',   path: '/owner/delivery-tracking' },
-    { label: 'Accounting',        page: 'accounting',          path: '/owner/accounting' },
-    { label: 'Notifications',     page: 'owner-notifications', path: '/owner/notifications' },
-    { label: 'Settings',          page: 'owner-settings',      path: '/owner/settings' },
+    { labelKey: 'dashboard',        page: 'owner-dashboard',     path: '/owner' },
+    { labelKey: 'placeOrder',       page: 'owner-place-order',   path: '/owner/place-order' },
+    { labelKey: 'unpricedQueue',    page: 'unpriced-queue',      path: '/owner/unpriced-queue' },
+    { labelKey: 'production',       page: 'owner-production',    path: '/owner/production' },
+    { labelKey: 'clientManagement', page: 'client-management',   path: '/owner/clients' },
+    { labelKey: 'deliveryTracking', page: 'delivery-tracking',   path: '/owner/delivery-tracking' },
+    { labelKey: 'accounting',       page: 'accounting',          path: '/owner/accounting' },
+    { labelKey: 'notifications',    page: 'owner-notifications', path: '/owner/notifications' },
+    { labelKey: 'settings',         page: 'owner-settings',      path: '/owner/settings' },
   ],
   manager: [
-    { label: 'Dashboard',      page: 'active-jobs',     path: '/manager/jobs' },
-    { label: 'Orders',         page: 'manager-orders',  path: '/manager/orders' },
-    { label: 'Completed Jobs', page: 'completed-jobs',  path: '/manager/completed' },
-    { label: 'Work View',      page: 'order-work-view', path: '/manager/work-view' },
-    { label: 'Batch Lookup',   page: 'batch-lookup',    path: '/manager/batch-lookup' },
-    { label: 'Delivery',       page: 'delivery-list',   path: '/manager/deliveries' },
+    { labelKey: 'dashboard',      page: 'active-jobs',     path: '/manager/jobs' },
+    { labelKey: 'orders',         page: 'manager-orders',  path: '/manager/orders' },
+    { labelKey: 'completedJobs',  page: 'completed-jobs',  path: '/manager/completed' },
+    { labelKey: 'workView',       page: 'order-work-view', path: '/manager/work-view' },
+    { labelKey: 'batchLookup',    page: 'batch-lookup',    path: '/manager/batch-lookup' },
+    { labelKey: 'delivery',       page: 'delivery-list',   path: '/manager/deliveries' },
   ],
   client: [
-    { label: 'Dashboard',        page: 'client-dashboard',     path: '/client' },
-    { label: 'My Orders',        page: 'my-orders',            path: '/client/orders' },
-    { label: 'Place New Order',  page: 'place-new-order',      path: '/client/place-order' },
-    { label: 'Quotes',           page: 'quotes',               path: '/client/quotes' },
-    { label: 'Documents',        page: 'document-management',  path: '/client/documents' },
-    { label: 'Invoices',         page: 'client-invoices',      path: '/client/invoices' },
-    { label: 'Notifications',    page: 'client-notifications', path: '/client/notifications' },
-    { label: 'Profile Settings', page: 'profile-settings',     path: '/client/profile' },
-    { label: 'Support',          page: 'support',              path: '/client/support' },
+    { labelKey: 'dashboard',       page: 'client-dashboard',     path: '/client' },
+    { labelKey: 'myOrders',        page: 'my-orders',            path: '/client/orders' },
+    { labelKey: 'placeNewOrder',   page: 'place-new-order',      path: '/client/place-order' },
+    { labelKey: 'quotes',          page: 'quotes',               path: '/client/quotes' },
+    { labelKey: 'documents',       page: 'document-management',  path: '/client/documents' },
+    { labelKey: 'invoices',        page: 'client-invoices',      path: '/client/invoices' },
+    { labelKey: 'notifications',   page: 'client-notifications', path: '/client/notifications' },
+    { labelKey: 'profileSettings', page: 'profile-settings',     path: '/client/profile' },
+    { labelKey: 'support',         page: 'support',              path: '/client/support' },
   ],
 };
 
