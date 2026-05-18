@@ -1,0 +1,39 @@
+{
+  "pageTitle": "تفاصيل الطلب",
+  "title": "الطلب {{id}}",
+  "loading": "جاري تحميل تفاصيل الطلب...",
+  "errors": {
+    "noId": "لم يتم تقديم معرف الطلب.",
+    "notFound": "الطلب غير موجود.",
+    "loadFailed": "تعذّر تحميل تفاصيل الطلب. يرجى المحاولة مجدداً."
+  },
+  "backLabel": "طلباتي",
+  "batchCode": "رمز الدُفعة",
+  "orderDate": "تاريخ الطلب",
+  "estDelivery": "التسليم المتوقع",
+  "total": "الإجمالي",
+  "paid": "المدفوع",
+  "paymentMethod": "طريقة الدفع",
+  "deliveryStatus": "حالة التسليم",
+  "productionProgress": "تقدم الإنتاج",
+  "specs": {
+    "title": "المواصفات",
+    "qty": "الكمية",
+    "notes": "ملاحظات"
+  },
+  "timeline": {
+    "title": "الجدول الزمني",
+    "pending": "قيد الانتظار",
+    "items": {
+      "orderPlaced": "تم تقديم الطلب",
+      "production": "الإنتاج",
+      "delivery": "التسليم"
+    }
+  },
+  "help": {
+    "title": "هل تحتاج مساعدة في هذا الطلب؟",
+    "trackOrder": "تتبع الطلب",
+    "viewInvoice": "عرض الفاتورة",
+    "contactSupport": "التواصل مع الدعم"
+  }
+}

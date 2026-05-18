@@ -1,18 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
 import { useNavigation } from '../../context/NavigationContext';
-// Direct service imports – bypasses VITE_USE_MOCK
-import { getOrderById, getOrders } from '../../lib/api/ordersQuotesService';
+import { getOrderById } from '../../lib/api/ordersQuotesService';
 import { getBatches } from '../../lib/api/batchesService';
 import { getDeliveries } from '../../lib/api/deliveriesService';
 
 // ─── Display types ─────────────────────────────────────────────────
 interface TrackingStep {
   label: string;
+  isKey: boolean;  // true = run through t(), false = raw backend content
   done: boolean;
   current: boolean;
 }
@@ -20,11 +21,13 @@ interface TrackingStep {
 interface TrackingUpdate {
   time: string;
   message: string;
+  isKey: boolean;
+  messageParams?: Record<string, string>;
   type: 'done' | 'info' | 'warn';
 }
 
 interface DetailRow {
-  label: string;
+  labelKey: string;
   value: string;
 }
 
@@ -32,7 +35,7 @@ interface TrackingData {
   id: string;
   product: string;
   status: string;
-  currentStatusLabel: string;
+  statusKey: string;
   orderDate: string;
   estimatedDelivery: string;
   total: string;
@@ -69,78 +72,77 @@ function getProgressColor(progress: number): 'green' | 'orange' | undefined {
   return undefined;
 }
 
-function getCurrentStatusLabel(status: string, progress: number): string {
-  if (status === 'CANCELED') return 'This order was canceled.';
-  if (status === 'COMPLETED') return 'Order completed and delivered.';
-  if (status === 'UNPRICED_PENDING') return 'Your order is being reviewed for pricing.';
-  if (status === 'PRICED_PENDING_CONFIRMATION') return 'Awaiting your confirmation to begin production.';
+function getStatusKey(status: string, progress: number): string {
+  if (status === 'CANCELED') return 'trackOrder:statusLabels.canceled';
+  if (status === 'COMPLETED') return 'trackOrder:statusLabels.completed';
+  if (status === 'UNPRICED_PENDING') return 'trackOrder:statusLabels.unpricedPending';
+  if (status === 'PRICED_PENDING_CONFIRMATION') return 'trackOrder:statusLabels.pricedPendingConfirmation';
   if (status === 'IN_PROGRESS') {
-    if (progress >= 80) return 'Almost ready – final quality check.';
-    return 'Your order is currently being produced.';
+    if (progress >= 80) return 'trackOrder:statusLabels.almostReady';
+    return 'trackOrder:statusLabels.inProgress';
   }
-  return 'Order status unknown.';
+  return 'trackOrder:statusLabels.unknown';
 }
 
 function buildSteps(status: string, progress: number, stages?: any[]): TrackingStep[] {
-  // If batch has stages, use them
   if (stages && stages.length > 0) {
     let foundCurrent = false;
     return stages.map((s: any) => {
       const isDone = s.status === 'completed' || s.status === 'done';
       if (!isDone && !foundCurrent) {
         foundCurrent = true;
-        return { label: s.stage || s.label || 'Step', done: false, current: true };
+        return { label: s.stage || s.label || 'Step', isKey: false, done: false, current: true };
       }
-      return { label: s.stage || s.label || 'Step', done: isDone, current: false };
+      return { label: s.stage || s.label || 'Step', isKey: false, done: isDone, current: false };
     });
   }
 
-  // Fallback steps based on status and progress
-  const steps: TrackingStep[] = [
-    { label: 'Order Placed', done: true, current: false },
-    { label: 'Pricing', done: status !== 'UNPRICED_PENDING' && status !== 'PRICED_PENDING_CONFIRMATION', current: status === 'PRICED_PENDING_CONFIRMATION' },
-    { label: 'Production', done: (status === 'IN_PROGRESS' && progress > 0) || status === 'COMPLETED', current: status === 'IN_PROGRESS' && progress < 80 },
-    { label: 'Quality Check', done: status === 'COMPLETED', current: status === 'IN_PROGRESS' && progress >= 80 },
-    { label: 'Delivered', done: status === 'COMPLETED', current: false },
+  return [
+    { label: 'trackOrder:steps.orderPlaced', isKey: true, done: true, current: false },
+    { label: 'trackOrder:steps.pricing', isKey: true, done: status !== 'UNPRICED_PENDING' && status !== 'PRICED_PENDING_CONFIRMATION', current: status === 'PRICED_PENDING_CONFIRMATION' },
+    { label: 'trackOrder:steps.production', isKey: true, done: (status === 'IN_PROGRESS' && progress > 0) || status === 'COMPLETED', current: status === 'IN_PROGRESS' && progress < 80 },
+    { label: 'trackOrder:steps.qualityCheck', isKey: true, done: status === 'COMPLETED', current: status === 'IN_PROGRESS' && progress >= 80 },
+    { label: 'trackOrder:steps.delivered', isKey: true, done: status === 'COMPLETED', current: false },
   ];
-  return steps;
 }
 
 function buildUpdates(order: any, stages?: any[]): TrackingUpdate[] {
   const updates: TrackingUpdate[] = [];
 
-  // Order created
   if (order.created_at) {
     updates.push({
       time: formatDateTime(order.created_at),
-      message: 'Order submitted.',
+      message: 'trackOrder:updates.orderSubmitted',
+      isKey: true,
       type: 'done',
     });
   }
 
-  // Batch stages
   if (stages) {
     stages.forEach((s: any) => {
       updates.push({
         time: formatDateTime(s.updated_at || s.updatedAt),
         message: `${s.stage || s.label}: ${s.status}`,
+        isKey: false,
         type: s.status === 'completed' ? 'done' : 'info',
       });
     });
   }
 
-  // Status-specific messages
   if (order.status === 'PRICED_PENDING_CONFIRMATION') {
     updates.push({
       time: formatDateTime(order.updated_at),
-      message: `Quote sent – total ${formatAmount(order.total_price)}. Awaiting confirmation.`,
+      message: 'trackOrder:updates.quoteSent',
+      isKey: true,
+      messageParams: { total: formatAmount(order.total_price) },
       type: 'info',
     });
   }
   if (order.status === 'CANCELED') {
     updates.push({
       time: formatDateTime(order.updated_at),
-      message: 'Order canceled.',
+      message: 'trackOrder:updates.orderCanceled',
+      isKey: true,
       type: 'warn',
     });
   }
@@ -150,16 +152,25 @@ function buildUpdates(order: any, stages?: any[]): TrackingUpdate[] {
 
 function buildDetails(order: any, batch?: any): DetailRow[] {
   return [
-    { label: 'Product', value: order.upload?.file_name || `Order #${order.id}` },
-    { label: 'Quantity', value: order.quantity ? `${order.quantity} pcs` : (batch?.qty ? `${batch.qty} pcs` : '—') },
-    { label: 'Order Date', value: formatDate(order.created_at) },
-    { label: 'Due Date', value: formatDate(order.due_date) },
-    { label: 'Payment Method', value: order.payment_method || '—' },
-    { label: 'Notes', value: order.notes || '—' },
+    { labelKey: 'trackOrder:details.product', value: order.upload?.file_name || `Order #${order.id}` },
+    { labelKey: 'trackOrder:details.quantity', value: order.quantity ? `${order.quantity} pcs` : (batch?.qty ? `${batch.qty} pcs` : '—') },
+    { labelKey: 'trackOrder:details.orderDate', value: formatDate(order.created_at) },
+    { labelKey: 'trackOrder:details.dueDate', value: formatDate(order.due_date) },
+    { labelKey: 'trackOrder:details.paymentMethod', value: order.payment_method || '—' },
+    { labelKey: 'trackOrder:details.notes', value: order.notes || '—' },
   ];
 }
 
 export default function TrackOrder() {
+  return (
+    <Suspense fallback={null}>
+      <TrackOrderInner />
+    </Suspense>
+  );
+}
+
+function TrackOrderInner() {
+  const { t } = useTranslation(['common', 'trackOrder']);
   const { id: urlId } = useParams<{ id: string }>();
   const { navigateTopLevel } = useNavigation();
   const [orderIdInput, setOrderIdInput] = useState(urlId || '');
@@ -179,7 +190,6 @@ export default function TrackOrder() {
     setResult(null);
 
     try {
-      // Fetch the specific order, then batches and deliveries to find matches
       const [orderRes, batchesRes, deliveriesRes] = await Promise.all([
         getOrderById(numericId),
         getBatches().catch(() => ({ data: { data: [] } })),
@@ -196,7 +206,6 @@ export default function TrackOrder() {
       const batches = batchesRes.data.data || [];
       const deliveries = deliveriesRes.data.data || [];
 
-      // Find matching batch and delivery by order ID
       const batch = batches.find((b: any) => b.orderId === order.id || b.order_id === order.id);
       const delivery = deliveries.find((d: any) => d.orderId === order.id || d.order_id === order.id);
 
@@ -212,7 +221,7 @@ export default function TrackOrder() {
         id: String(order.id),
         product: order.upload?.file_name || `Order #${order.id}`,
         status: order.status,
-        currentStatusLabel: getCurrentStatusLabel(order.status, progress),
+        statusKey: getStatusKey(order.status, progress),
         orderDate: formatDate(order.created_at),
         estimatedDelivery: formatDate(estimatedDelivery),
         total: formatAmount(order.total_price),
@@ -250,27 +259,27 @@ export default function TrackOrder() {
 
   return (
     <AppShell role="client" activePage="my-orders">
-      <Topbar title="Track Order" />
+      <Topbar title={t('trackOrder:title')} />
 
       <section className="box center-card" style={{ marginBottom: 14 }}>
-        <h2 style={{ marginBottom: 6 }}>Track Your Order</h2>
-        <p className="muted" style={{ marginBottom: 14 }}>Enter your order ID to see live tracking updates.</p>
+        <h2 style={{ marginBottom: 6 }}>{t('trackOrder:search.heading')}</h2>
+        <p className="muted" style={{ marginBottom: 14 }}>{t('trackOrder:search.subtitle')}</p>
         <div className="actions-inline">
           <input
             className="input"
             type="text"
-            placeholder="Enter Order ID (e.g. 1021)"
+            placeholder={t('trackOrder:search.placeholder')}
             value={orderIdInput}
             onChange={(e) => { setOrderIdInput(e.target.value); setResult(null); setNotFound(false); }}
             onKeyDown={(e) => e.key === 'Enter' && handleTrack()}
           />
           <button className="btn primary" onClick={() => handleTrack()} disabled={loading}>
-            {loading ? 'Searching...' : 'Track Order'}
+            {loading ? t('trackOrder:search.searching') : t('trackOrder:search.button')}
           </button>
         </div>
         {notFound && (
           <p style={{ color: 'var(--accent)', fontSize: 13, marginTop: 8 }}>
-            No order found for "{orderIdInput}". Please check the ID and try again.
+            {t('trackOrder:search.notFound', { id: orderIdInput })}
           </p>
         )}
       </section>
@@ -281,10 +290,10 @@ export default function TrackOrder() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
               <div>
                 <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Order #{result.id} · {result.product}</p>
-                <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>{result.currentStatusLabel}</h2>
+                <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>{t(result.statusKey)}</h2>
                 <p style={{ fontSize: 13, color: 'var(--muted)' }}>
-                  Ordered: {result.orderDate} &nbsp;·&nbsp; Est. Delivery: {result.estimatedDelivery}
-                  {result.total !== 'EGP —' && <>&nbsp;·&nbsp; Total: <strong>{result.total}</strong></>}
+                  {t('trackOrder:result.ordered')} {result.orderDate} &nbsp;·&nbsp; {t('trackOrder:result.estDelivery')} {result.estimatedDelivery}
+                  {result.total !== 'EGP —' && <>&nbsp;·&nbsp; {t('trackOrder:result.total')} <strong>{result.total}</strong></>}
                 </p>
               </div>
               <StatusBadge status={result.status} />
@@ -292,14 +301,15 @@ export default function TrackOrder() {
 
             <ProgressBar percent={result.progress} color={getProgressColor(result.progress)} />
             <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6, marginBottom: 20 }}>
-              {result.progress}% complete
+              {result.progress}% {t('trackOrder:result.complete')}
             </p>
 
             <div style={{ display: 'flex', gap: 0, position: 'relative' }}>
               {result.steps.map((step, i) => {
                 const isLast = i === result.steps.length - 1;
+                const stepLabel = step.isKey ? t(step.label) : step.label;
                 return (
-                  <div key={step.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
+                  <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
                     {!isLast && (
                       <div style={{
                         position: 'absolute', top: 11, left: '50%', width: '100%', height: 2,
@@ -322,8 +332,8 @@ export default function TrackOrder() {
                       fontWeight: step.current ? 700 : 400,
                       color: step.done ? '#2c9a4b' : step.current ? 'var(--text)' : 'var(--muted)',
                     }}>
-                      {step.label}
-                      {step.current && <span style={{ display: 'block', color: '#e89023', fontWeight: 700 }}>← now</span>}
+                      {stepLabel}
+                      {step.current && <span style={{ display: 'block', color: '#e89023', fontWeight: 700 }}>{t('trackOrder:result.now')}</span>}
                     </p>
                   </div>
                 );
@@ -333,13 +343,14 @@ export default function TrackOrder() {
 
           <div className="grid-2" style={{ marginBottom: 14 }}>
             <section className="box">
-              <h3 style={{ marginBottom: 14 }}>Tracking Updates</h3>
+              <h3 style={{ marginBottom: 14 }}>{t('trackOrder:updates.title')}</h3>
               {result.updates.length === 0 ? (
-                <p className="muted" style={{ fontSize: 13 }}>No updates yet.</p>
+                <p className="muted" style={{ fontSize: 13 }}>{t('trackOrder:updates.noUpdates')}</p>
               ) : (
                 <div style={{ display: 'grid', gap: 10 }}>
                   {result.updates.map((u, i) => {
                     const dotColor = u.type === 'done' ? '#2c9a4b' : u.type === 'warn' ? '#e89023' : '#3498db';
+                    const messageText = u.isKey ? t(u.message, u.messageParams) : u.message;
                     return (
                       <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                         <div style={{
@@ -347,7 +358,7 @@ export default function TrackOrder() {
                           background: dotColor,
                         }} />
                         <div>
-                          <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)', marginBottom: 2 }}>{u.message}</p>
+                          <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)', marginBottom: 2 }}>{messageText}</p>
                           <p style={{ fontSize: 11, color: 'var(--muted)' }}>{u.time}</p>
                         </div>
                       </div>
@@ -358,11 +369,11 @@ export default function TrackOrder() {
             </section>
 
             <section className="box">
-              <h3 style={{ marginBottom: 14 }}>Order Details</h3>
+              <h3 style={{ marginBottom: 14 }}>{t('trackOrder:details.title')}</h3>
               <div style={{ display: 'grid', gap: 8 }}>
                 {result.details.map((d) => (
-                  <div key={d.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, borderBottom: '1px solid var(--border)', paddingBottom: 6 }}>
-                    <span style={{ color: 'var(--muted)' }}>{d.label}</span>
+                  <div key={d.labelKey} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, borderBottom: '1px solid var(--border)', paddingBottom: 6 }}>
+                    <span style={{ color: 'var(--muted)' }}>{t(d.labelKey)}</span>
                     <span style={{ fontWeight: 600 }}>{d.value}</span>
                   </div>
                 ))}
@@ -372,14 +383,16 @@ export default function TrackOrder() {
 
           <section className="box" style={{ marginBottom: 14 }}>
             <div className="table-head">
-              <p><strong>Need help with this order?</strong></p>
+              <p><strong>{t('trackOrder:help.title')}</strong></p>
               <div style={{ display: 'flex', gap: 10 }}>
                 {result.invoiceId && (
                   <button className="btn" onClick={() => navigateTopLevel(`/client/invoices/${result.invoiceId}`)}>
-                    View Invoice
+                    {t('trackOrder:help.viewInvoice')}
                   </button>
                 )}
-                <button className="btn primary" onClick={() => navigateTopLevel('support')}>Contact Support</button>
+                <button className="btn primary" onClick={() => navigateTopLevel('support')}>
+                  {t('trackOrder:help.contactSupport')}
+                </button>
               </div>
             </div>
           </section>
