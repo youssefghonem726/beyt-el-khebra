@@ -5,30 +5,18 @@ import StatCard from '../../components/StatCard';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
 import { useNavigation } from '../../context/NavigationContext';
-// ─── Replace manual fetches with API services ──────────────────────────────
-import { getDeliveries, getClients } from '../../lib/api';
+// Direct service imports – bypasses VITE_USE_MOCK
+import { getDeliveries } from '../../lib/api/deliveriesService';
+import type { DeliveryResponse } from '../../lib/api/deliveriesService';
+import { getClients } from '../../lib/api/invoicesClientsSettingsService';
 
-// Types for normalized data
-interface DeliveryRaw {
-  id: string;
-  orderId: string;
-  clientId: string;
-  address: string;
-  driver: string;
-  company: string;
-  phone: string;
-  status: string;
-  progress: number;
-  scheduledDate: string;
-}
-
+// UI types
 interface Client {
-  id: string;
+  id: number | string;
   name: string;
 }
 
-// Combined delivery for UI
-interface Delivery {
+interface DisplayDelivery {
   order: string;
   client: string;
   id: string;
@@ -43,13 +31,10 @@ interface Delivery {
 
 type ActionPanel = 'reschedule' | 'address' | 'cancel' | null;
 
-// Helper: extract short order number
-function getShortOrderId(fullId: string): string {
-  const match = fullId.match(/ORD-(\d+)-/);
-  return match ? `#${match[1]}` : fullId;
+function getShortOrderId(orderId: number): string {
+  return `#${orderId}`;
 }
 
-// Helper: map status to progress bar color
 function getStatusColor(status: string): 'green' | 'orange' | 'red' {
   if (status === 'on_time' || status === 'delivered' || status === 'scheduled') return 'green';
   if (status === 'delayed' || status === 'in_transit') return 'orange';
@@ -58,20 +43,18 @@ function getStatusColor(status: string): 'green' | 'orange' | 'red' {
 
 export default function DeliveryTracking() {
   const { navigateTopLevel } = useNavigation();
-  const [deliveries, setDeliveries] = useState<Delivery[]>([]);
+  const [deliveries, setDeliveries] = useState<DisplayDelivery[]>([]);
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState<string | null>(null);
   const [query, setQuery]           = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [selected, setSelected]     = useState<Delivery | null>(null);
-
+  const [selected, setSelected]     = useState<DisplayDelivery | null>(null);
   const [activeAction, setActiveAction] = useState<ActionPanel>(null);
   const [rescheduleDate, setRescheduleDate] = useState('');
   const [newAddress, setNewAddress]   = useState('');
   const [toast, setToast]             = useState<string | null>(null);
 
-  // Fetch deliveries and clients via API
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -80,17 +63,17 @@ export default function DeliveryTracking() {
           getClients(),
         ]);
 
-        const deliveriesRaw: DeliveryRaw[] = deliveriesRes.data.data;
-        const clientsList: Client[] = clientsRes.data.data.results; // paginated
+        const raw: DeliveryResponse[] = deliveriesRes.data.data;
+        const clients: Client[] = clientsRes.data.data.results;
 
         // Build client name map
-        const clientsMap: Record<string, string> = {};
-        clientsList.forEach(c => { clientsMap[c.id] = c.name; });
+        const clientsMap = new Map<number, string>();
+        clients.forEach(c => clientsMap.set(Number(c.id), c.name));
 
-        const deliveryList: Delivery[] = deliveriesRaw.map((d) => ({
+        const deliveryList: DisplayDelivery[] = raw.map((d) => ({
           order: getShortOrderId(d.orderId),
-          client: clientsMap[d.clientId] || 'Unknown Client',
-          id: d.id,
+          client: clientsMap.get(d.clientId) || 'Unknown',
+          id: String(d.id),
           address: d.address,
           driver: d.driver,
           company: d.company,
@@ -102,9 +85,14 @@ export default function DeliveryTracking() {
 
         setDeliveries(deliveryList);
         if (deliveryList.length > 0) setSelected(deliveryList[0]);
-      } catch (err) {
-        console.error('Failed to load delivery data:', err);
-        setError('Could not load delivery data. Please try again later.');
+      } catch (err: any) {
+        // If deliveries endpoint is 404 (not built yet) → empty list
+        if (err?.response?.status === 404) {
+          setDeliveries([]);
+        } else {
+          console.error('Failed to load delivery data:', err);
+          setError('Could not load delivery data. Please try again later.');
+        }
       } finally {
         setLoading(false);
       }
@@ -119,8 +107,7 @@ export default function DeliveryTracking() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  // Apply changes locally (mock behaviour)
-  const applyUpdate = (orderShortId: string, changes: Partial<Delivery>, message: string) => {
+  const applyUpdate = (orderShortId: string, changes: Partial<DisplayDelivery>, message: string) => {
     setDeliveries(ds => ds.map(d => d.order === orderShortId ? { ...d, ...changes } : d));
     setSelected(s => s?.order === orderShortId ? { ...s, ...changes } : s);
     setActiveAction(null);
@@ -141,7 +128,7 @@ export default function DeliveryTracking() {
   const statusColor = (s: string): 'green' | 'orange' | 'red' =>
     s === 'on_time' || s === 'delivered' ? 'green' : s === 'delayed' ? 'orange' : 'red';
 
-  const selectDelivery = (d: Delivery) => {
+  const selectDelivery = (d: DisplayDelivery) => {
     setSelected(d);
     setActiveAction(null);
   };

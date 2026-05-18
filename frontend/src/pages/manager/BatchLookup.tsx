@@ -4,49 +4,35 @@ import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
 import { downloadText } from '../../utils/download';
+// Direct service imports – bypasses VITE_USE_MOCK
+import { getBatches } from '../../lib/api/batchesService';
+import { getOrders } from '../../lib/api/ordersQuotesService';
+import { getClients } from '../../lib/api/invoicesClientsSettingsService';
 
 interface Props { role?: 'manager' | 'owner'; }
 
-interface Stage {
-  stage: string;
-  status: string;
-  updatedAt: string | null;
-}
-
-// Normalized batch (from batches.json)
-interface BatchRaw {
-  id: string;
-  orderId: string;
-  clientId: string;
+// ─── Backend shapes ─────────────────────────────────────────────────
+interface BackendBatch {
+  id: number;
+  orderId: number;
   product: string;
   qty: number;
   progress: number;
   priority: string;
-  assignedTo: string | null;
-  deadline: string | null;
+  assignedTo?: string | null;
+  deadline?: string | null;
   status: string;
-  stages: Stage[];
-  notes: string;
+  stages?: { stage: string; status: string; updatedAt?: string }[];
+  notes?: string;
 }
 
-// Order (from orders.json)
-interface Order {
-  id: string;
-  clientId: string;
-  orderDate: string;
-  deliveryDate: string | null;
+interface BackendOrder {
+  id: number;
+  customer: number;
+  created_at?: string;
 }
 
-// Client (from clients.json)
-interface Client {
-  id: string;
-  name: string;
-  phone: string;
-  address: string;
-  taxId: string;
-}
-
-// Combined view for batch
+// ─── Display shape ──────────────────────────────────────────────────
 interface BatchView {
   code: string;
   order: string;
@@ -60,11 +46,11 @@ interface BatchView {
   assignedTo: string;
   deadline: string;
   notes?: string;
-  stages: Stage[];
-  clientInfo: { address: string; phone: string; taxId: string; };
+  stages: { stage: string; status: string; updatedAt: string }[];
+  clientInfo: { address: string; phone: string; taxId: string };
 }
 
-// Helper: format ISO date to DD MMM YYYY
+// ─── Helpers ───────────────────────────────────────────────────────
 function formatDateShort(isoDate: string | null): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
@@ -72,7 +58,6 @@ function formatDateShort(isoDate: string | null): string {
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-// Helper: format date with time for stage updates (if needed)
 function formatDateTime(isoDate: string | null): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
@@ -89,26 +74,36 @@ export default function BatchLookup({ role = 'manager' }: Props) {
   const [selected, setSelected] = useState<BatchView | null>(null);
 
   useEffect(() => {
-    Promise.all([
-      fetch('/data/json/batches.json').then(res => res.json()),
-      fetch('/data/json/orders.json').then(res => res.json()),
-      fetch('/data/json/clients.json').then(res => res.json())
-    ])
-      .then(([batchesRaw, ordersRaw, clientsRaw]) => {
-        const ordersMap: Record<string, Order> = {};
-        ordersRaw.forEach((o: Order) => { ordersMap[o.id] = o; });
-        const clientsMap: Record<string, Client> = {};
-        clientsRaw.forEach((c: Client) => { clientsMap[c.id] = c; });
+    const fetchData = async () => {
+      try {
+        const [batchesRes, ordersRes, clientsRes] = await Promise.all([
+          getBatches(),
+          getOrders(),
+          getClients(),
+        ]);
 
-        const batchViews: BatchView[] = batchesRaw.map((b: BatchRaw) => {
-          const order = ordersMap[b.orderId];
-          const client = clientsMap[b.clientId];
-          // Use order date if available, otherwise fallback to a default
-          const dateStr = order ? formatDateShort(order.orderDate) : '—';
+        const batchesRaw: BackendBatch[] = batchesRes.data.data;
+        const orders: BackendOrder[] = ordersRes.data.data;
+        const clients = clientsRes.data.data.results;
+
+        console.log('BatchLookup - batches:', batchesRaw);
+        console.log('BatchLookup - orders:', orders);
+        console.log('BatchLookup - clients:', clients);
+
+        // Build lookup maps
+        const orderMap = new Map(orders.map(o => [o.id, o]));
+        const clientMap = new Map(clients.map((c: any) => [c.id, c]));
+
+        const batchViews: BatchView[] = batchesRaw.map((b: BackendBatch) => {
+          const order = orderMap.get(b.orderId);
+          const client = order ? clientMap.get(order.customer) : null;
+          const clientName = client ? client.name : 'Unknown';
+          const dateStr = order?.created_at ? formatDateShort(order.created_at) : '—';
+
           return {
-            code: b.id,
-            order: b.orderId,
-            client: client ? client.name : 'Unknown',
+            code: String(b.id),
+            order: `#${b.orderId}`,
+            client: clientName,
             status: b.status,
             date: dateStr,
             product: b.product,
@@ -116,27 +111,34 @@ export default function BatchLookup({ role = 'manager' }: Props) {
             progress: b.progress,
             priority: b.priority,
             assignedTo: b.assignedTo || 'Unassigned',
-            deadline: formatDateShort(b.deadline),
+            deadline: formatDateShort(b.deadline ?? null),
             notes: b.notes,
-            stages: b.stages.map(s => ({
+            stages: (b.stages || []).map(s => ({
               ...s,
-              updatedAt: s.updatedAt ? formatDateTime(s.updatedAt) : '—'
+              updatedAt: s.updatedAt ? formatDateTime(s.updatedAt) : '—',
             })),
-            clientInfo: client ? {
-              address: client.address,
-              phone: client.phone,
-              taxId: client.taxId
-            } : { address: '—', phone: '—', taxId: '—' }
+            clientInfo: {
+              address: client?.address || '—',
+              phone: client?.phone || '—',
+              taxId: client?.taxId || '—',
+            },
           };
         });
+
         setBatches(batchViews);
+      } catch (err: any) {
+        if (err?.response?.status === 404) {
+          setBatches([]);
+        } else {
+          console.error('Failed to load batch data:', err);
+          setError('Could not load batch data. Please try again later.');
+        }
+      } finally {
         setLoading(false);
-      })
-      .catch((err) => {
-        console.error('Failed to load batch data:', err);
-        setError('Could not load batch data. Please try again later.');
-        setLoading(false);
-      });
+      }
+    };
+
+    fetchData();
   }, []);
 
   const filtered = batches.filter((b) => {

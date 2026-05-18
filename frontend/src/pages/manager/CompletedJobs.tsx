@@ -4,9 +4,35 @@ import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
 import { useNavigation } from '../../context/NavigationContext';
+// Direct service imports – bypasses VITE_USE_MOCK
+import { getBatches } from '../../lib/api/batchesService';
+import { getOrders } from '../../lib/api/ordersQuotesService';
+import { getClients } from '../../lib/api/invoicesClientsSettingsService';
 
 interface Props { role?: 'manager' | 'owner'; }
 
+// ─── Backend shapes ─────────────────────────────────────────────────
+interface BackendBatch {
+  id: number;
+  orderId: number;
+  product: string;
+  qty: number;
+  progress: number;
+  priority: string;
+  assignedTo?: string | null;
+  deadline?: string | null;
+  status: string;
+  stages?: { stage: string; status: string; updatedAt?: string }[];
+  notes?: string;
+}
+
+interface BackendOrder {
+  id: number;
+  customer: number;
+  created_at?: string;
+}
+
+// ─── Display shapes ────────────────────────────────────────────────
 interface Stage {
   stage: string;
   status: string;
@@ -34,33 +60,7 @@ interface Job {
   info: JobInfo;
 }
 
-// Types from normalized JSON
-interface Batch {
-  id: string;
-  orderId: string;
-  clientId: string;
-  product: string;
-  qty: number;
-  progress: number;
-  priority: string;
-  assignedTo: string | null;
-  deadline: string | null;
-  status: string;
-  stages: Array<{ stage: string; status: string; updatedAt: string | null }>;
-  notes: string;
-}
-
-interface Order {
-  id: string;
-  orderDate: string;
-}
-
-interface Client {
-  id: string;
-  name: string;
-}
-
-// Helper: format ISO date to "DD MMM YYYY" or custom format (with time)
+// ─── Helpers ───────────────────────────────────────────────────────
 function formatDate(isoDate: string | null): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
@@ -82,65 +82,79 @@ export default function CompletedJobs({ role = 'manager' }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([
-      fetch('/data/json/batches.json').then(res => res.json()),
-      fetch('/data/json/orders.json').then(res => res.json()),
-      fetch('/data/json/clients.json').then(res => res.json())
-    ])
-      .then(([batchesRaw, ordersRaw, clientsRaw]) => {
+    const fetchData = async () => {
+      try {
+        const [batchesRes, ordersRes, clientsRes] = await Promise.all([
+          getBatches(),
+          getOrders(),
+          getClients(),
+        ]);
+
+        const batchesRaw: BackendBatch[] = batchesRes.data.data;
+        const orders: BackendOrder[] = ordersRes.data.data;
+        const clients = clientsRes.data.data.results;
+
+        console.log('CompletedJobs - batches:', batchesRaw);
+        console.log('CompletedJobs - orders:', orders);
+        console.log('CompletedJobs - clients:', clients);
+
         // Build lookup maps
-        const ordersMap: Record<string, Order> = {};
-        ordersRaw.forEach((o: Order) => { ordersMap[o.id] = o; });
-        const clientsMap: Record<string, Client> = {};
-        clientsRaw.forEach((c: Client) => { clientsMap[c.id] = c; });
+        const orderMap = new Map(orders.map(o => [o.id, o]));
+        const clientMap = new Map(clients.map((c: any) => [c.id, c]));
 
         // Filter completed batches
-        const completedBatches = batchesRaw.filter((b: Batch) => b.status === 'completed');
+        const completedBatches = batchesRaw.filter((b: BackendBatch) => b.status === 'completed');
 
-        const jobList: Job[] = completedBatches.map((batch: Batch) => {
-          const order = ordersMap[batch.orderId];
-          const client = clientsMap[batch.clientId];
-          const completionDate = order ? formatDate(order.orderDate) : '—'; // fallback, but we might use batch.deadline? Actually completion date is when order completed – we don't have a dedicated field. Use deadline or order date.
-          // For consistency with original, we can assume completion = deadline (or orderDate if no deadline). Original used a "completion" field; we'll use the batch.deadline if present, else order date.
-          const completion = batch.deadline ? formatDate(batch.deadline) : (order ? formatDate(order.orderDate) : '—');
+        const jobList: Job[] = completedBatches.map((batch: BackendBatch) => {
+          const order = orderMap.get(batch.orderId);
+          const client = order ? clientMap.get(order.customer) : null;
 
-          // Transform stages: format updatedAt timestamps
+          // Completion date: use batch.deadline if available, otherwise order created_at
+          const completion = batch.deadline ? formatDate(batch.deadline) : (order?.created_at ? formatDate(order.created_at) : '—');
+
+          // Transform stages
           const stages: Stage[] = (batch.stages || []).map(s => ({
             stage: s.stage,
             status: s.status,
-            updated: s.updatedAt ? formatDateTime(s.updatedAt) : '—'
+            updated: s.updatedAt ? formatDateTime(s.updatedAt) : '—',
           }));
 
           const info: JobInfo = {
             client: client ? client.name : 'Unknown',
-            batch: batch.id,
+            batch: String(batch.id),
             product: batch.product,
             qty: batch.qty,
-            status: 'completed',  // all are completed
+            status: 'completed',
             priority: batch.priority,
             deadline: batch.deadline ? formatDate(batch.deadline) : '—',
             team: batch.assignedTo || 'Unassigned',
             completion,
-            notes: batch.notes || '—'
+            notes: batch.notes || '—',
           };
 
           return {
-            id: batch.id,  // Use batch id as the job id (original had "Order #1024")
-            done: batch.progress,  // For completed, progress should equal qty
+            id: String(batch.id),
+            done: batch.progress,
             total: batch.qty,
             stages,
-            info
+            info,
           };
         });
 
         setJobs(jobList);
+      } catch (err: any) {
+        if (err?.response?.status === 404) {
+          setJobs([]);
+        } else {
+          console.error('Failed to load completed jobs:', err);
+          setError('Could not load completed jobs data. Please try again later.');
+        }
+      } finally {
         setLoading(false);
-      })
-      .catch((err) => {
-        console.error('Failed to load completed jobs:', err);
-        setError('Could not load completed jobs data. Please try again later.');
-        setLoading(false);
-      });
+      }
+    };
+
+    fetchData();
   }, []);
 
   if (loading) {
@@ -164,6 +178,9 @@ export default function CompletedJobs({ role = 'manager' }: Props) {
   return (
     <AppShell role={role} activePage={role === 'owner' ? 'owner-dashboard' : 'completed-jobs'}>
       <Topbar title="Completed Jobs" />
+      {jobs.length === 0 && (
+        <p style={{ color: 'var(--muted)', textAlign: 'center', padding: 40 }}>No completed jobs yet.</p>
+      )}
       {jobs.map((j) => (
         <section key={j.id} className="split" style={{ marginBottom: 14 }}>
           <article className="box">
@@ -175,13 +192,17 @@ export default function CompletedJobs({ role = 'manager' }: Props) {
                 <tr><th>Stage</th><th>Status</th><th>Updated At</th></tr>
               </thead>
               <tbody>
-                {j.stages.map((s) => (
-                  <tr key={s.stage}>
-                    <td>{s.stage}</td>
-                    <td><StatusBadge status={s.status} /></td>
-                    <td>{s.updated}</td>
-                  </tr>
-                ))}
+                {j.stages.length === 0 ? (
+                  <tr><td colSpan={3} style={{ textAlign: 'center', color: 'var(--muted)' }}>No stage details</td></tr>
+                ) : (
+                  j.stages.map((s) => (
+                    <tr key={s.stage}>
+                      <td>{s.stage}</td>
+                      <td><StatusBadge status={s.status} /></td>
+                      <td>{s.updated}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </article>

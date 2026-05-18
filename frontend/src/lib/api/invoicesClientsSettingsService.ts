@@ -1,4 +1,3 @@
-// src/lib/api/invoicesClientsSettingsService.ts
 import api from './axiosInstance'
 import type { AxiosResponse } from 'axios'
 import type {
@@ -19,12 +18,14 @@ import type {
   CreateTicketPayload,
   AppSettings,
   PricingRule,
+  PricingRoleSettings,
   WhatsappSettings,
   UserProfile,
 } from './types'
 
+export type { Client } from './types'
+
 // ─── Deliveries ──────────────────────────────────────────────────────────────
-// @pending — not yet implemented in Django
 
 export const getDeliveries = (): Promise<AxiosResponse<ApiSuccess<Delivery[]>>> =>
   api.get('/api/deliveries/')
@@ -58,7 +59,6 @@ export const cancelDelivery = (
   api.post(`/api/deliveries/${deliveryId}/cancel/`, payload)
 
 // ─── Invoices ────────────────────────────────────────────────────────────────
-// @pending — not yet implemented in Django
 
 export const getInvoices = (): Promise<AxiosResponse<ApiSuccess<Invoice[]>>> =>
   api.get('/api/invoices/')
@@ -74,14 +74,12 @@ export const payInvoice = (
 ): Promise<AxiosResponse<ApiSuccess<Pick<Invoice, 'id' | 'status' | 'paidDate'>>>> =>
   api.post(`/api/invoices/${invoiceId}/pay/`, paymentPayload)
 
-/** Returns a PDF blob — caller handles the browser download trigger */
 export const downloadInvoice = (
   invoiceId: string
 ): Promise<AxiosResponse<Blob>> =>
   api.get(`/api/invoices/${invoiceId}/download/`, { responseType: 'blob' })
 
 // ─── Accounting ──────────────────────────────────────────────────────────────
-// @pending — not yet implemented in Django
 
 export const getAccountingOverview = (): Promise<AxiosResponse<ApiSuccess<AccountingOverview>>> =>
   api.get('/api/accounting/overview/')
@@ -93,16 +91,56 @@ export const getRevenue = (): Promise<AxiosResponse<ApiSuccess<Invoice[]>>> =>
   api.get('/api/accounting/revenue/')
 
 // ─── Clients ─────────────────────────────────────────────────────────────────
-// @pending — not yet implemented in Django
 
-export const getClients = (
+export const getClients = async (
   params: GetClientsParams = {}
 ): Promise<AxiosResponse<ApiSuccess<PaginatedResponse<Client>>>> => {
-  const { page = 1, pageSize = 20, q } = params
-  const query: Record<string, unknown> = { page, pageSize }
+  const { q } = params
+  const query: Record<string, unknown> = {}
+
   if (q) query.q = q
-  return api.get('/api/clients/', { params: query })
+
+  const response = await api.get<ApiSuccess<UserProfile[]>>('/api/users/clients/', {
+    params: query,
+  })
+
+  const users = response.data.data
+
+  const clients: Client[] = users.map((u) => ({
+    id: String(u.id),
+    name: [u.first_name, u.last_name].filter(Boolean).join(' ') || u.email,
+    email: u.email,
+    phone: u.phone ?? '',
+    address: '',
+    taxId: '',
+    since: u.created_at ?? null,
+    stats: {
+      totalOrders: 0,
+      totalSpent: 0,
+    },
+  }))
+
+  return {
+    ...response,
+    data: {
+      ...response.data,
+      data: {
+        results: clients,
+        count: clients.length,
+        next: null,
+        previous: null,
+      },
+    },
+  }
 }
+
+export const createClientUser = (data: {
+  first_name: string
+  last_name: string
+  email: string
+  phone?: string
+}): Promise<AxiosResponse<ApiSuccess<UserProfile>>> =>
+  api.post('/api/users/clients/', data)
 
 export const getClientById = (
   clientId: string
@@ -122,18 +160,15 @@ export const updateClient = (
   api.patch(`/api/clients/${clientId}/`, updates)
 
 // ─── Notifications ───────────────────────────────────────────────────────────
-// @pending — not yet implemented in Django
 
 export const getNotifications = (): Promise<AxiosResponse<ApiSuccess<Notification[]>>> =>
   api.get('/api/notifications/')
 
-/** PATCH /api/notifications/<id>/read — marks single notification as read */
 export const markNotificationRead = (
   notificationId: number
 ): Promise<AxiosResponse<ApiSuccess<Notification>>> =>
   api.patch(`/api/notifications/${notificationId}/read/`)
 
-/** PATCH /api/notifications/<id>/ — general field update */
 export const updateNotification = (
   notificationId: number,
   updates: UpdateNotificationPayload
@@ -145,7 +180,6 @@ export const markAllNotificationsRead = (): Promise<
 > => api.patch('/api/notifications/read-all/')
 
 // ─── Support ─────────────────────────────────────────────────────────────────
-// @pending — not yet implemented in Django
 
 export const createSupportTicket = (
   ticketData: CreateTicketPayload
@@ -161,7 +195,6 @@ export const getSupportTicketById = (
   api.get(`/api/support/tickets/${ticketId}/`)
 
 // ─── Settings ────────────────────────────────────────────────────────────────
-// @pending — not yet implemented in Django
 
 export const getSettings = (): Promise<AxiosResponse<ApiSuccess<AppSettings>>> =>
   api.get('/api/settings/')
@@ -171,19 +204,26 @@ export const updatePricingSettings = (
 ): Promise<AxiosResponse<ApiSuccess<AppSettings>>> =>
   api.patch('/api/settings/pricing/', pricingData)
 
+export const updatePricingRolesSettings = (
+  pricingRolesData: PricingRoleSettings
+): Promise<AxiosResponse<ApiSuccess<{ key: string; value: PricingRoleSettings }>>> =>
+  api.patch('/api/settings/pricing-roles/', pricingRolesData)
+
 export const updateWhatsappSettings = (
   whatsappData: WhatsappSettings
-): Promise<AxiosResponse<ApiSuccess<WhatsappSettings>>> =>
+): Promise<AxiosResponse<ApiSuccess<{ key: string; value: WhatsappSettings }>>> =>
   api.patch('/api/settings/whatsapp/', whatsappData)
+
+// ─── Users Management ────────────────────────────────────────────────────────
+// Permanent backend endpoints:
+// GET   /api/users/
+// PATCH /api/users/<id>/
 
 export const getUsers = (): Promise<AxiosResponse<ApiSuccess<UserProfile[]>>> =>
   api.get('/api/users/')
 
-/**
- * PATCH /api/users/<email>/ — Django uses email as the lookup field, not id.
- */
 export const updateUser = (
-  email: string,
+  userId: number,
   updates: Partial<UserProfile>
 ): Promise<AxiosResponse<ApiSuccess<UserProfile>>> =>
-  api.patch(`/api/users/${email}/`, updates)
+  api.patch(`/api/users/${userId}/`, updates)

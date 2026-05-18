@@ -1,5 +1,7 @@
 from django.db import models
+from orders.models import Order
 from users.models import User
+from orders.models import Order
 
 
 class Quote(models.Model):
@@ -15,6 +17,13 @@ class Quote(models.Model):
         on_delete=models.CASCADE,
         related_name='quotes',
         db_column='customer_id'
+    )
+
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name='quotes',
+        db_column='order_id'
     )
 
     status = models.CharField(

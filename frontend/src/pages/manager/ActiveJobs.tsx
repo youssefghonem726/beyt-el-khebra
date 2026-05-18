@@ -5,54 +5,37 @@ import StatCard from '../../components/StatCard';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
 import { useNavigation } from '../../context/NavigationContext';
+// Direct service imports – bypasses VITE_USE_MOCK
+import { getBatches } from '../../lib/api/batchesService';
+import { getOrders } from '../../lib/api/ordersQuotesService';
+import { getClients } from '../../lib/api/invoicesClientsSettingsService';
 
-// Types based on normalized JSON files
-interface Stage {
-  stage: string;
-  status: string;
-  updatedAt: string | null;
-}
-
-interface Batch {
-  id: string;
-  orderId: string;
-  clientId?: string;       // may be redundant, but provided in normalized batches.json
+// ─── Backend types ─────────────────────────────────────────────────
+interface BackendBatch {
+  id: number;
+  orderId: number;
   product: string;
   qty: number;
   progress: number;
   priority: string;
-  assignedTo: string | null;
-  deadline: string | null;
+  assignedTo?: string | null;
+  deadline?: string | null;
   status: string;
-  stages: Stage[];
-  notes: string;
+  stages?: { stage: string; status: string; updatedAt?: string }[];
+  notes?: string;
+  paper?: string;
 }
 
-interface Order {
-  id: string;
-  clientId: string;
-  product: string;
+interface BackendOrder {
+  id: number;
+  customer: number;
+  product?: string;
   status: string;
-  orderDate: string;
-  deliveryDate: string | null;
-  total: number | null;
-  paid: number | null;
-  paymentMethod: string | null;
-  invoiceId: string | null;
-  specs: Record<string, any>;
+  total_price?: number | null;
+  upload?: { file_name?: string };
 }
 
-interface Client {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  address: string;
-  taxId: string;
-  since: string | null;
-}
-
-// Extended job view
+// ─── Display types ─────────────────────────────────────────────────
 interface Job {
   id: string;
   client: string;
@@ -66,9 +49,10 @@ interface Job {
   priority: string;
   assignedTo: string | null;
   notes: string;
-  stages: Stage[];
+  stages: { stage: string; status: string; updatedAt?: string }[];
 }
 
+// ─── Constants ────────────────────────────────────────────────────
 const STEPS = [
   'File Approved',
   'Printing Started',
@@ -86,7 +70,6 @@ function currentStep(pct: number): number {
   return 5;
 }
 
-// Helper to format date
 function formatDate(isoDate: string | null): string {
   if (!isoDate) return '—';
   const date = new Date(isoDate);
@@ -94,7 +77,6 @@ function formatDate(isoDate: string | null): string {
   return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-// Map batch status to display status (for badge & filtering)
 function normalizeStatus(batchStatus: string): string {
   switch (batchStatus) {
     case 'in_progress':
@@ -124,53 +106,73 @@ export default function ActiveJobs() {
   const [showWorkView, setShowWorkView] = useState(false);
 
   useEffect(() => {
-    Promise.all([
-      fetch('/data/json/batches.json').then(res => res.json()),
-      fetch('/data/json/orders.json').then(res => res.json()),
-      fetch('/data/json/clients.json').then(res => res.json())
-    ])
-      .then(([batches, orders, clients]) => {
-        const ordersMap: Record<string, Order> = {};
-        orders.forEach((o: Order) => { ordersMap[o.id] = o; });
-        const clientsMap: Record<string, Client> = {};
-        clients.forEach((c: Client) => { clientsMap[c.id] = c; });
+    const fetchData = async () => {
+      try {
+        // Fetch all required data in parallel
+        const [batchesRes, ordersRes, clientsRes] = await Promise.all([
+          getBatches(),
+          getOrders(),
+          getClients(),
+        ]);
 
-        const jobList: Job[] = batches.map((batch: Batch) => {
-          const order = ordersMap[batch.orderId];
-          const client = order ? clientsMap[order.clientId] : null;
-          // Extract paper from order specs if available
-          const paper = order?.specs?.paper || (order?.specs?.material) || '—';
+        const batches: BackendBatch[] = batchesRes.data.data;
+        const orders: BackendOrder[] = ordersRes.data.data;
+        const clients = clientsRes.data.data.results; // paginated
+
+        console.log('ActiveJobs - batches:', batches);
+        console.log('ActiveJobs - orders:', orders);
+        console.log('ActiveJobs - clients:', clients);
+
+        // Build lookup maps
+        const orderMap = new Map(orders.map(o => [o.id, o]));
+        const clientMap = new Map(clients.map((c: any) => [c.id, c.name]));
+
+        const jobList: Job[] = batches.map((batch: BackendBatch) => {
+          const order = orderMap.get(batch.orderId);
+          const clientId = order?.customer;
+          const clientName = clientId ? clientMap.get(clientId) || 'Unknown' : 'Unknown';
+          const paper = batch.paper || order?.product || '—';
+
           return {
-            id: batch.id,
-            client: client ? client.name : 'Unknown Client',
-            product: batch.product,
+            id: String(batch.id),
+            client: clientName,
+            product: batch.product || order?.upload?.file_name || `Order #${batch.orderId}`,
             qty: batch.qty,
             status: normalizeStatus(batch.status),
             progress: batch.progress,
-            dueDate: formatDate(batch.deadline),
+            dueDate: formatDate(batch.deadline ?? null),
             paper,
-            batchCode: batch.id,
+            batchCode: String(batch.id),
             priority: batch.priority,
-            assignedTo: batch.assignedTo,
-            notes: batch.notes,
-            stages: batch.stages || []
+            assignedTo: batch.assignedTo || null,
+            notes: batch.notes || '',
+            stages: (batch.stages || []).map(s => ({
+              ...s,
+              updatedAt: s.updatedAt || '—',
+            })),
           };
         });
 
         setJobs(jobList);
         if (jobList.length > 0 && !selectedJob) setSelectedJob(jobList[0]);
+      } catch (err: any) {
+        // If endpoint not yet built, show empty state
+        if (err?.response?.status === 404) {
+          setJobs([]);
+        } else {
+          console.error('Failed to load production data:', err);
+          setError('Could not load production data. Please try again later.');
+        }
+      } finally {
         setLoading(false);
-      })
-      .catch((err) => {
-        console.error('Failed to load production data:', err);
-        setError('Could not load production data. Please try again later.');
-        setLoading(false);
-      });
+      }
+    };
+
+    fetchData();
   }, []);
 
   const pct = (j: Job) => j.qty > 0 ? Math.round((j.progress / j.qty) * 100) : 0;
 
-  // Statistics (only consider active jobs – not completed or canceled)
   const activeJobs = jobs.filter(j => j.status !== 'completed' && j.status !== 'canceled').length;
   const inProgress = jobs.filter(j => j.status === 'in_progress').length;
   const onHold     = jobs.filter(j => j.status === 'on_hold').length;

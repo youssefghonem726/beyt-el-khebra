@@ -4,225 +4,121 @@ import Topbar from '../../components/Topbar';
 import StatCard from '../../components/StatCard';
 import StatusBadge from '../../components/StatusBadge';
 import { useNavigation } from '../../context/NavigationContext';
+// Direct service imports – bypasses VITE_USE_MOCK
+import { getOrders } from '../../lib/api/ordersQuotesService';
+import { getMe } from '../../lib/api/usersService';
 
-// --- Updated interfaces to match the new normalized JSON files ---
-export interface Client {
-  id: string;          // e.g., "CL-001"
-  name: string;
-  email: string;
-  phone: string;
-  address: string;
-  taxId: string;
-  since: string | null;
-  stats: {
-    totalOrders: number;
-    totalSpent: number;
-  };
-}
+// ─── Static data (no backend required) ────────────────────────────────
+const STATUS_GUIDE = [
+  { status: 'UNPRICED_PENDING', desc: 'Your order is waiting for pricing.' },
+  { status: 'PRICED_PENDING_CONFIRMATION', desc: 'Quote has been sent – awaiting your approval.' },
+  { status: 'IN_PROGRESS', desc: 'Your order is being produced.' },
+  { status: 'COMPLETED', desc: 'Order is complete and ready for delivery.' },
+  { status: 'CANCELED', desc: 'Order has been cancelled.' },
+];
 
-export interface Order {
-  id: string;          // e.g., "ORD-1021-2025"
-  clientId: string;    // needed to filter by client
-  product: string;     // was "type" in old version
+const STATUS_FILTERS = [
+  { label: 'Unpriced', value: 'UNPRICED_PENDING' },
+  { label: 'Pending Confirmation', value: 'PRICED_PENDING_CONFIRMATION' },
+  { label: 'In Progress', value: 'IN_PROGRESS' },
+  { label: 'Completed', value: 'COMPLETED' },
+  { label: 'Canceled', value: 'CANCELED' },
+];
+
+// ─── Types ────────────────────────────────────────────────────────────
+interface DisplayOrder {
+  id: string;
+  product: string;
   status: string;
-  orderDate: string;   // ISO date e.g. "2025-04-21"
-  deliveryDate: string | null;
-  total: number | null;
-  // other fields exist but not needed for the dashboard list
+  orderDate: string;
+  deliveryDate: string;
+  total: string;
 }
 
-export interface DashboardStats {
-  totalOrders: number;
-  pendingQuote: number;
-  inProgress: number;
-  completed: number;
-}
-
-export interface StatusFilterOption {
-  label: string;
-  value: string;
-}
-
-export interface StatusGuideItem {
-  status: string;
-  desc: string;
-}
-
-export interface DashboardData {
-  client: Client | null;
-  stats: DashboardStats;
-  orders: Order[];
-  statusFilters: StatusFilterOption[];
-  statusGuide: StatusGuideItem[];
-}
-
-interface Props {
-  /** Optional: specify which client to load by id (e.g., "CL-001") or name (e.g., "Ahmed Store"). Defaults to "CL-001" */
-  clientIdentifier?: string;
-  /** Optional: provide custom data source URLs */
-  dataUrls?: {
-    clients?: string;
-    orders?: string;
-    statusFilters?: string;
-    statusGuide?: string;
-  };
-  fallbackData?: Partial<DashboardData>;
-}
-
-// Default empty state
-const DEFAULT_DATA: DashboardData = {
-  client: null,
-  stats: { totalOrders: 0, pendingQuote: 0, inProgress: 0, completed: 0 },
-  orders: [],
-  statusFilters: [],
-  statusGuide: [],
-};
-
-// Default URLs for the new normalized JSON files
-const DEFAULT_URLS = {
-  clients: '/data/json/clients.json',
-  orders: '/data/json/orders.json',
-  statusFilters: '/data/json/statusFilters.json',
-  statusGuide: '/data/json/statusGuide.json',
-};
-
-// Helper: format ISO date to "DD MMM YYYY" (e.g., "21 Apr 2025")
+// ─── Helpers ──────────────────────────────────────────────────────────
 function formatDate(isoDate: string | null): string {
   if (!isoDate) return '—';
-  const date = new Date(isoDate);
-  if (isNaN(date.getTime())) return '—';
-  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const d = new Date(isoDate);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-// Helper: format total (number) to currency string
-function formatTotal(total: number | null): string {
-  if (total === null || total === undefined) return '—';
-  return total.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function formatTotal(amount: number | null): string {
+  if (amount === null || amount === undefined) return '—';
+  return `EGP ${amount.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-// Helper: find client - defaults to "CL-001" when no identifier provided
-function findClient(clients: Client[], identifier?: string): Client | null {
-  if (!clients.length) return null;
-  
-  // If an identifier is given, try to find by id or name
-  if (identifier) {
-    const lowerId = identifier.toLowerCase();
-    const matched = clients.find(c => 
-      c.id.toLowerCase() === lowerId || 
-      c.name.toLowerCase() === lowerId
-    );
-    if (matched) return matched;
-  }
-  
-  // No identifier or not found – default to CL-001
-  const defaultClient = clients.find(c => c.id === "CL-001");
-  if (defaultClient) return defaultClient;
-  
-  // Ultimate fallback: first client
-  return clients[0];
-}
-
-export default function ClientDashboard({ clientIdentifier, dataUrls, fallbackData }: Props) {
+export default function ClientDashboard() {
   const { navigateTopLevel } = useNavigation();
-  const [dashboardData, setDashboardData] = useState<DashboardData>(DEFAULT_DATA);
+
+  const [clientName, setClientName] = useState<string>('Client');
+  const [clientEmail, setClientEmail] = useState('');
+  const [clientPhone, setClientPhone] = useState('');
+
+  const [orders, setOrders] = useState<DisplayOrder[]>([]);
+  const [stats, setStats] = useState({
+    totalOrders: 0,
+    pendingQuote: 0,
+    inProgress: 0,
+    completed: 0,
+  });
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [query, setQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
-  const urls = { ...DEFAULT_URLS, ...dataUrls };
-
   useEffect(() => {
     const fetchData = async () => {
-      setLoading(true);
-      setError(null);
-      
       try {
-        // Fetch all required JSON files in parallel
-        const [clientsRes, ordersRes, statusFiltersRes, statusGuideRes] = await Promise.allSettled([
-          fetch(urls.clients),
-          fetch(urls.orders),
-          fetch(urls.statusFilters),
-          fetch(urls.statusGuide),
+        // Fetch user profile and orders in parallel
+        const [userRes, ordersRes] = await Promise.all([
+          getMe(),
+          getOrders(),
         ]);
 
-        const parseResponse = async (response: PromiseSettledResult<Response>, fallback: any) => {
-          if (response.status === 'fulfilled' && response.value.ok) {
-            try {
-              return await response.value.json();
-            } catch {
-              return fallback;
-            }
-          }
-          return fallback;
-        };
+        const user = userRes.data.data;
+        setClientName([user.first_name, user.last_name].filter(Boolean).join(' ') || user.email);
+        setClientEmail(user.email);
+        setClientPhone(user.phone || '');
 
-        let clients: Client[] = await parseResponse(clientsRes, []);
-        if (!Array.isArray(clients)) clients = [];
-        
-        let orders: Order[] = await parseResponse(ordersRes, []);
-        if (!Array.isArray(orders)) orders = [];
+        const allOrders = ordersRes.data.data; // array of backend orders
+        console.log('ClientDashboard - raw orders:', allOrders);
 
-        const statusFilters = await parseResponse(statusFiltersRes, []);
-        const statusGuide = await parseResponse(statusGuideRes, []);
+        // Map to display orders
+        const displayOrders: DisplayOrder[] = allOrders.map((o: any) => ({
+          id: String(o.id),
+          product: o.upload?.file_name || `Order #${o.id}`,
+          status: o.status,
+          orderDate: formatDate(o.created_at),
+          deliveryDate: formatDate(o.due_date || null),
+          total: formatTotal(o.total_price),
+        }));
 
-        // Determine which client is currently selected (defaults to CL-001)
-        const selectedClient = findClient(clients, clientIdentifier);
-        
-        if (selectedClient) {
-          // Filter orders belonging to this client
-          const clientOrders = orders.filter(order => order.clientId === selectedClient.id);
-          
-          // Compute stats from filtered orders
-          const totalOrders = clientOrders.length;
-          const pendingQuote = clientOrders.filter(o => o.status === 'unpriced_pending').length;
-          const inProgress = clientOrders.filter(o => o.status === 'in_progress').length;
-          const completed = clientOrders.filter(o => o.status === 'completed').length;
-          
-          // Prepare orders for display (transform fields as needed)
-          const displayOrders = clientOrders.map(order => ({
-            id: order.id,
-            product: order.product,
-            status: order.status,
-            orderDate: formatDate(order.orderDate),
-            deliveryDate: formatDate(order.deliveryDate),
-            total: formatTotal(order.total),
-          }));
-          
-          setDashboardData({
-            client: selectedClient,
-            stats: { totalOrders, pendingQuote, inProgress, completed },
-            orders: displayOrders,
-            statusFilters,
-            statusGuide,
-            ...fallbackData, // override with any manual fallback
-          });
-        } else {
-          // No client found – show empty state
-          setDashboardData({
-            client: null,
-            stats: { totalOrders: 0, pendingQuote: 0, inProgress: 0, completed: 0 },
-            orders: [],
-            statusFilters,
-            statusGuide,
-            ...fallbackData,
-          });
-        }
+        setOrders(displayOrders);
+
+        // Compute stats
+        const totalOrders = displayOrders.length;
+        const pendingQuote = allOrders.filter((o: any) => o.status === 'UNPRICED_PENDING').length;
+        const inProgress = allOrders.filter((o: any) => o.status === 'IN_PROGRESS').length;
+        const completed = allOrders.filter((o: any) => o.status === 'COMPLETED').length;
+
+        setStats({ totalOrders, pendingQuote, inProgress, completed });
       } catch (err) {
-        console.error('Error fetching dashboard data:', err);
-        setError('Failed to load dashboard data. Please refresh the page.');
+        console.error('Failed to load dashboard:', err);
+        setError('Could not load dashboard data. Please try again later.');
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [urls.clients, urls.orders, urls.statusFilters, urls.statusGuide, clientIdentifier, fallbackData]);
+  }, []);
 
-  // Filter orders based on search query and status
-  const filtered = dashboardData.orders.filter((o) => {
+  // Filter orders by search query and status
+  const filtered = orders.filter((o) => {
     const matchQ = !query || o.id.toLowerCase().includes(query.toLowerCase()) || o.product.toLowerCase().includes(query.toLowerCase());
     const matchS = !filterStatus || o.status === filterStatus;
     return matchQ && matchS;
@@ -232,10 +128,7 @@ export default function ClientDashboard({ clientIdentifier, dataUrls, fallbackDa
     return (
       <AppShell role="client" activePage="client-dashboard">
         <Topbar title="Dashboard" />
-        <div className="loading-container">
-          <div className="spinner"></div>
-          <p>Loading your dashboard...</p>
-        </div>
+        <div className="loading-state">Loading your dashboard...</div>
       </AppShell>
     );
   }
@@ -245,33 +138,29 @@ export default function ClientDashboard({ clientIdentifier, dataUrls, fallbackDa
       <Topbar title="Dashboard" />
 
       {error && (
-        <div className="error-banner">
-          <span>⚠️ {error}</span>
-          <button onClick={() => window.location.reload()}>Retry</button>
+        <div className="box" style={{ background: '#fff0f0', color: '#c0392b', marginBottom: 12 }}>
+          {error}
         </div>
       )}
 
       <section className="welcome">
-        <h2>Welcome back, {dashboardData.client?.name || 'Guest'}</h2>
+        <h2>Welcome back, {clientName}</h2>
         <p>Here's what is happening with your orders.</p>
-        {dashboardData.client && (
-          <div className="client-info">
-            <span>📧 {dashboardData.client.email}</span>
-            <span>📞 {dashboardData.client.phone}</span>
-            {dashboardData.client.address && <span>📍 {dashboardData.client.address}</span>}
-          </div>
-        )}
+        <div className="client-info" style={{ marginTop: 8 }}>
+          <span>📧 {clientEmail}</span>
+          {clientPhone && <span>📞 {clientPhone}</span>}
+        </div>
       </section>
 
-      <section className="grid-4 stats-row">
-        <StatCard label="Total Orders"  value={dashboardData.stats.totalOrders}  sub="All time"                  />
-        <StatCard label="Pending Quote" value={dashboardData.stats.pendingQuote} sub="Awaiting pricing"           />
-        <StatCard label="In Progress"   value={dashboardData.stats.inProgress}   sub="Currently in production"   />
-        <StatCard label="Completed"     value={dashboardData.stats.completed}    sub="Successfully completed"     />
+      <section className="grid-4">
+        <StatCard label="Total Orders"  value={stats.totalOrders}  sub="All time" />
+        <StatCard label="Pending Quote" value={stats.pendingQuote} sub="Awaiting pricing" />
+        <StatCard label="In Progress"   value={stats.inProgress}   sub="Currently in production" />
+        <StatCard label="Completed"     value={stats.completed}    sub="Successfully completed" />
       </section>
 
-      <section className="content dashboard-content">
-        <article className="table-wrap orders-card">
+      <section className="content">
+        <article className="table-wrap">
           <div className="table-head">
             <h3>My Orders</h3>
             <div className="search-container">
@@ -286,15 +175,10 @@ export default function ClientDashboard({ clientIdentifier, dataUrls, fallbackDa
               {dropdownOpen && (
                 <div className="filter-dropdown show">
                   <div className="field">
-                    <label htmlFor="order-status">Status</label>
-                    <select
-                      className="select"
-                      id="order-status"
-                      value={filterStatus}
-                      onChange={(e) => setFilterStatus(e.target.value)}
-                    >
+                    <label>Status</label>
+                    <select className="select" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
                       <option value="">All Status</option>
-                      {dashboardData.statusFilters.map((f) => (
+                      {STATUS_FILTERS.map((f) => (
                         <option key={f.value} value={f.value}>{f.label}</option>
                       ))}
                     </select>
@@ -305,53 +189,48 @@ export default function ClientDashboard({ clientIdentifier, dataUrls, fallbackDa
             </div>
           </div>
 
-          <div className="table-responsive">
-            <table className="orders-table">
-              <thead>
-                <tr>
-                  <th>Order ID</th><th>Product</th><th>Status</th>
-                  <th>Order Date</th><th>Delivery Date</th><th>Total (EGP)</th><th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.length === 0 ? (
-                  <tr><td colSpan={7} className="no-results">No matching results</td></tr>
-                ) : (
-                  filtered.map((o) => (
-                    <tr key={o.id}>
-                      <td><strong>{o.id}</strong></td>
-                      <td>{o.product}</td>
-                      <td><StatusBadge status={o.status} /></td>
-                      <td>{o.orderDate}</td>
-                      <td>{o.deliveryDate}</td>
-                      <td>{o.total}</td>
-                      <td>
-                        <div className="action-buttons">
-                          <button className="btn btn-sm" onClick={() => navigateTopLevel(`/client/orders/${o.id}`)}>View</button>
-                          <button className="btn btn-sm" onClick={() => navigateTopLevel('track-order')}>Track</button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+          <table className="orders-table">
+            <thead>
+              <tr>
+                <th>Order ID</th><th>Product</th><th>Status</th>
+                <th>Order Date</th><th>Delivery Date</th><th>Total</th><th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr><td colSpan={7} className="no-results">No matching results</td></tr>
+              ) : (
+                filtered.map((o) => (
+                  <tr key={o.id}>
+                    <td><strong>#{o.id}</strong></td>
+                    <td>{o.product}</td>
+                    <td><StatusBadge status={o.status} /></td>
+                    <td>{o.orderDate}</td>
+                    <td>{o.deliveryDate}</td>
+                    <td>{o.total}</td>
+                    <td>
+                      <button className="btn btn-sm" onClick={() => navigateTopLevel(`/client/orders/${o.id}`)}>View</button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </article>
 
-        <div className="stack sidebar-cards">
-          <section className="box quick-actions">
+        <div className="stack">
+          <section className="box">
             <h3>Quick Actions</h3>
             <button className="btn block primary" onClick={() => navigateTopLevel('place-new-order')}>Place New Order</button>
-            <button className="btn block"         onClick={() => navigateTopLevel('quotes')}>View Quotes</button>
-            <button className="btn block"         onClick={() => navigateTopLevel('support')}>Contact Support</button>
+            <button className="btn block" onClick={() => navigateTopLevel('quotes')}>View Quotes</button>
+            <button className="btn block" onClick={() => navigateTopLevel('support')}>Contact Support</button>
           </section>
 
-          <section className="box status-guide">
+          <section className="box">
             <h3>Order Status Guide</h3>
             <ul className="status-list">
-              {dashboardData.statusGuide.map((s) => (
-                <li key={s.status}>
+              {STATUS_GUIDE.map((s) => (
+                <li key={s.status} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                   <StatusBadge status={s.status} />
                   <span className="status-desc">{s.desc}</span>
                 </li>

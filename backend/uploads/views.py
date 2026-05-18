@@ -42,6 +42,72 @@ def get_authenticated_user(request):
     return user, None
 
 
+def is_owner_or_staff(user):
+    return user.role in ("owner", "staff")
+
+
+def format_document(file_record, owner_type="client"):
+    file_name = file_record.file_name or f"Document #{file_record.id}"
+    extension = ""
+
+    if "." in file_name:
+        extension = file_name.rsplit(".", 1)[-1].upper()
+
+    document_type = extension or (file_record.file_type or "Other").upper()
+
+    return {
+        "id": str(file_record.id),
+        "name": file_name,
+        "fileName": file_name,
+        "type": document_type,
+        "sizeKB": 0,
+        "uploadedDate": file_record.created_at.strftime("%d %b %Y") if file_record.created_at else "",
+        "reorderCount": file_record.reorder_count or 0,
+        "ownerType": owner_type,
+        "ownerId": str(file_record.owner_id_id) if file_record.owner_id_id else None,
+    }
+
+
+@api_view(["GET"])
+def documents_list(request):
+    user, auth_error = get_authenticated_user(request)
+
+    if auth_error:
+        return auth_error
+
+    owner_type = request.query_params.get("ownerType")
+    owner_id = request.query_params.get("ownerId")
+
+    files = File.objects.all().order_by("-created_at")
+
+    if owner_type == "client" and owner_id:
+        try:
+            owner_id_int = int(owner_id)
+        except (TypeError, ValueError):
+            return error_response(
+                message="Validation error",
+                errors={"ownerId": "ownerId must be a valid user id."},
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not is_owner_or_staff(user) and user.id != owner_id_int:
+            return error_response(
+                message="Forbidden",
+                errors={"detail": "You can only view your own documents"},
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+
+        files = files.filter(owner_id_id=owner_id_int)
+    else:
+        files = files.filter(owner_id=user)
+
+    return success_response(
+        message="Documents fetched successfully",
+        data=[format_document(file_record, owner_type or "client") for file_record in files],
+        status_code=status.HTTP_200_OK
+    )
+
+
 @api_view(["GET", "POST"])
 @parser_classes([MultiPartParser, FormParser])
 def uploads_list_create(request):
@@ -87,17 +153,25 @@ def uploads_list_create(request):
                 status_code=status.HTTP_400_BAD_REQUEST
             )
 
+        # Save file to Django's default storage (Supabase storage bucket)
         file_path = default_storage.save(
             f"uploads/{uploaded_file.name}",
             ContentFile(uploaded_file.read())
         )
-
         file_url = default_storage.url(file_path)
+
+        # Additional optional fields from request
+        file_name = request.data.get("file_name", uploaded_file.name)
+        mime_type = uploaded_file.content_type or None
 
         file_record = File.objects.create(
             url=file_url,
             file_type=file_type,
-            uploaded_by=user
+            uploaded_by=user,
+            file_name=file_name,
+            mime_type=mime_type,
+            owner_id=user,           # Set owner to the uploading user
+            reorder_count=0,
         )
 
         serializer = FileSerializer(file_record)
@@ -109,7 +183,7 @@ def uploads_list_create(request):
         )
 
 
-@api_view(["GET", "DELETE"])
+@api_view(["GET", "DELETE", "PATCH"])
 def upload_detail(request, file_id):
     user, auth_error = get_authenticated_user(request)
 
@@ -127,7 +201,6 @@ def upload_detail(request, file_id):
 
     if request.method == "GET":
         serializer = FileSerializer(file_record)
-
         return success_response(
             message="File fetched successfully",
             data=serializer.data,
@@ -136,9 +209,31 @@ def upload_detail(request, file_id):
 
     if request.method == "DELETE":
         file_record.delete()
-
         return success_response(
             message="File deleted successfully",
             data={},
+            status_code=status.HTTP_200_OK
+        )
+
+    if request.method == "PATCH":
+        # Allow renaming and updating mime_type
+        new_name = request.data.get("file_name")
+        new_mime = request.data.get("mime_type")
+
+        updated_fields = []
+        if new_name is not None:
+            file_record.file_name = new_name
+            updated_fields.append("file_name")
+        if new_mime is not None:
+            file_record.mime_type = new_mime
+            updated_fields.append("mime_type")
+
+        if updated_fields:
+            file_record.save(update_fields=updated_fields)
+
+        serializer = FileSerializer(file_record)
+        return success_response(
+            message="File updated successfully",
+            data=serializer.data,
             status_code=status.HTTP_200_OK
         )

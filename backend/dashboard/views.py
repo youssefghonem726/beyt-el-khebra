@@ -72,26 +72,52 @@ def dashboard_stats(request):
     completed_orders = Order.objects.filter(status="COMPLETED").count()
     cancelled_orders = Order.objects.filter(status="CANCELLED").count()
 
-    total_order_value = Order.objects.aggregate(total=Sum("total_price"))["total"] or Decimal("0")
-    total_paid_amount = Order.objects.aggregate(total=Sum("paid_amount"))["total"] or Decimal("0")
+    accounting_orders = Order.objects.filter(
+        status__in=[
+            "PRICED_PENDING_CONFIRMATION",
+            "CONFIRMED",
+            "IN_PROGRESS",
+            "COMPLETED",
+            "CLOSED",
+        ],
+        total_price__isnull=False,
+        total_price__gt=0,
+    )
+    total_order_value = accounting_orders.aggregate(total=Sum("total_price"))["total"] or Decimal("0")
+    total_paid_amount = accounting_orders.aggregate(total=Sum("paid_amount"))["total"] or Decimal("0")
     total_remaining_amount = total_order_value - total_paid_amount
 
-    unpaid_orders = Order.objects.filter(payment_status="unpaid").count()
-    partial_paid_orders = Order.objects.filter(payment_status="partial").count()
-    paid_orders = Order.objects.filter(payment_status="paid").count()
+    unpaid_orders = accounting_orders.exclude(payment_status="paid").count()
+    partial_paid_orders = accounting_orders.filter(payment_status="partial").count()
+    paid_orders = accounting_orders.filter(payment_status="paid").count()
 
-    total_items = OrderItem.objects.count()
-    total_quantity = OrderItem.objects.aggregate(total=Sum("quantity"))["total"] or 0
-    total_completed_quantity = OrderItem.objects.aggregate(total=Sum("completed_quantity"))["total"] or 0
+    production_order_statuses = ["CONFIRMED", "IN_PROGRESS"]
+    active_production_steps = ["pending", "design", "printing", "cutting", "packaging"]
+    production_items = OrderItem.objects.filter(
+        order__status__in=production_order_statuses,
+        current_step__in=active_production_steps,
+    )
+    total_items = production_items.count()
+    total_quantity = production_items.aggregate(total=Sum("quantity"))["total"] or 0
+    total_completed_quantity = production_items.aggregate(total=Sum("completed_quantity"))["total"] or 0
 
     if total_quantity == 0:
         overall_progress_percentage = 0
     else:
         overall_progress_percentage = int((total_completed_quantity / total_quantity) * 100)
 
-    items_in_printing = OrderItem.objects.filter(current_step="printing").count()
-    items_in_packaging = OrderItem.objects.filter(current_step="packaging").count()
-    items_ready = OrderItem.objects.filter(current_step="ready").count()
+    items_in_printing = OrderItem.objects.filter(
+        order__status__in=production_order_statuses,
+        current_step="printing",
+    ).count()
+    items_in_packaging = OrderItem.objects.filter(
+        order__status__in=production_order_statuses,
+        current_step="packaging",
+    ).count()
+    items_ready = OrderItem.objects.filter(
+        order__status__in=["IN_PROGRESS", "COMPLETED"],
+        current_step="ready",
+    ).count()
 
     total_quotes = Quote.objects.count()
     pending_quotes = Quote.objects.filter(status="pending").count()

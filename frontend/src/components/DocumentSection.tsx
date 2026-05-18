@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { getDocuments } from '../lib/api';               // your new API function
-import type { Document } from '../../lib/api/types';       // or from where you export it
+// Direct import from the real service – bypasses VITE_USE_MOCK
+import { getDocuments } from '../lib/api/documentsService';
 
 // ── Local display type (unchanged) ──────────────────────────────────────────
 export interface ClientDocument {
@@ -46,28 +46,22 @@ export default function DocumentSection({ clientId }: Props) {
 
   // ── Fetch via API ─────────────────────────────────────────────────────────
   useEffect(() => {
-    let cancelled = false;
-
     const fetchDocuments = async () => {
-      setLoading(true);
-      setError(null);
-
       try {
         const res = await getDocuments({ ownerType: 'client', ownerId: clientId });
-        if (!cancelled) {
-          // Data matches our ClientDocument interface, extra fields are ignored
-          setDocs(res.data.data);
+        setDocs(res.data.data);                     // ✅ fixed: now uses setDocs
+      } catch (err: any) {
+        // 404 → endpoint not built yet → empty list, not an error
+        if (err?.response?.status === 404) {
+          setDocs([]);
+        } else {
+          setError('Failed to load documents.');
         }
-      } catch (err) {
-        console.error(err);
-        if (!cancelled) setError('Could not load documents.');
       } finally {
-        if (!cancelled) setLoading(false);
+        setLoading(false);
       }
     };
-
     fetchDocuments();
-    return () => { cancelled = true; };
   }, [clientId]);
 
   // ── Rename focus ─────────────────────────────────────────────────────────

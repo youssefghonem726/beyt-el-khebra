@@ -25,6 +25,7 @@ class SupabaseAuthentication(BaseAuthentication):
                 settings.SUPABASE_JWT_SECRET,
                 algorithms=["HS256"],
                 audience="authenticated",
+                leeway=60
             )
             return (SupabaseUser(payload), token)
         except jwt.ExpiredSignatureError:
