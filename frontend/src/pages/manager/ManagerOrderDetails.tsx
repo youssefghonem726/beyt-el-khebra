@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
 import { useNavigation } from '../../context/NavigationContext';
-// Direct service imports – bypasses VITE_USE_MOCK
 import { getOrderById } from '../../lib/api/ordersQuotesService';
 import { getBatches } from '../../lib/api/batchesService';
 import { getClients } from '../../lib/api/invoicesClientsSettingsService';
@@ -51,6 +51,15 @@ function formatDateTime(isoDate: string | null): string {
 }
 
 export default function ManagerOrderDetails() {
+  return (
+    <Suspense fallback={null}>
+      <ManagerOrderDetailsInner />
+    </Suspense>
+  );
+}
+
+function ManagerOrderDetailsInner() {
+  const { t } = useTranslation(['common', 'managerOrderDetails']);
   const { id: orderId } = useParams<{ id: string }>();
   const { navigateTopLevel } = useNavigation();
   const [job, setJob] = useState<Job | null>(null);
@@ -60,7 +69,7 @@ export default function ManagerOrderDetails() {
 
   useEffect(() => {
     if (!orderId) {
-      setError('No order ID provided.');
+      setError(t('managerOrderDetails:errors.noId'));
       setLoading(false);
       return;
     }
@@ -69,7 +78,7 @@ export default function ManagerOrderDetails() {
       try {
         const numericId = parseInt(orderId, 10);
         if (isNaN(numericId)) {
-          setError(`Invalid order ID: ${orderId}`);
+          setError(t('managerOrderDetails:errors.noId'));
           setLoading(false);
           return;
         }
@@ -80,7 +89,7 @@ export default function ManagerOrderDetails() {
           order = orderRes.data.data;
         } catch (orderErr: any) {
           if (orderErr?.response?.status === 404) {
-            setError(`Order #${numericId} not found.`);
+            setError(t('managerOrderDetails:errors.notFound', { id: numericId }));
             setLoading(false);
             return;
           }
@@ -129,7 +138,7 @@ export default function ManagerOrderDetails() {
         });
       } catch (err: any) {
         console.error('Failed to load order details:', err);
-        setError('Could not load order details.');
+        setError(t('managerOrderDetails:errors.loadFailed'));
       } finally {
         setLoading(false);
       }
@@ -143,8 +152,8 @@ export default function ManagerOrderDetails() {
   if (loading) {
     return (
       <AppShell role="manager" activePage="manager-orders">
-        <Topbar title="Order Details" />
-        <div className="loading-state">Loading order details...</div>
+        <Topbar title={t('managerOrderDetails:loading')} />
+        <div className="loading-state">{t('managerOrderDetails:loading')}</div>
       </AppShell>
     );
   }
@@ -152,28 +161,32 @@ export default function ManagerOrderDetails() {
   if (error || !job) {
     return (
       <AppShell role="manager" activePage="manager-orders">
-        <Topbar title="Order Details" />
-        <div className="error-state">{error || 'Order not found.'}</div>
+        <Topbar title={t('managerOrderDetails:jobInfo.title')} />
+        <div className="error-state">{error || t('managerOrderDetails:errors.orderNotFound')}</div>
       </AppShell>
     );
   }
 
   return (
     <AppShell role="manager" activePage="manager-orders">
-      <Topbar title={`Order #${job.id}`} />
+      <Topbar title={t('managerOrderDetails:title', { id: job.id })} />
 
       <section className="split" style={{ marginBottom: 14 }}>
         <article className="box">
-          <h3>Work Progress - {job.id}</h3>
-          <p><strong>{job.done} / {job.total}</strong> completed ({pct(job)}%)</p>
+          <h3>{t('managerOrderDetails:workProgress.title', { id: job.id })}</h3>
+          <p><strong>{job.done} / {job.total}</strong> {t('managerOrderDetails:workProgress.completed')} ({pct(job)}%)</p>
           <ProgressBar percent={pct(job)} color={pct(job) === 100 ? 'green' : pct(job) >= 50 ? 'orange' : undefined} style={{ margin: '8px 0 14px' }} />
           <table className="orders-table" style={{ width: '100%' }}>
             <thead>
-              <tr><th>Stage</th><th>Status</th><th>Updated At</th></tr>
+              <tr>
+                <th>{t('managerOrderDetails:table.stage')}</th>
+                <th>{t('managerOrderDetails:table.status')}</th>
+                <th>{t('managerOrderDetails:table.updatedAt')}</th>
+              </tr>
             </thead>
             <tbody>
               {job.stages.length === 0 ? (
-                <tr><td colSpan={3} style={{ textAlign: 'center', color: 'var(--muted)' }}>No stage details</td></tr>
+                <tr><td colSpan={3} style={{ textAlign: 'center', color: 'var(--muted)' }}>{t('managerOrderDetails:table.noStages')}</td></tr>
               ) : (
                 job.stages.map((s) => (
                   <tr key={s.stage}>
@@ -188,20 +201,20 @@ export default function ManagerOrderDetails() {
         </article>
 
         <aside className="box">
-          <h3>Job Info</h3>
+          <h3>{t('managerOrderDetails:jobInfo.title')}</h3>
           <ul style={{ listStyle: 'none', paddingLeft: 0 }}>
-            <li><strong>Client Name:</strong> {job.info.client}</li>
-            <li><strong>Batch Code:</strong> {job.info.batch}</li>
-            <li><strong>Product:</strong> {job.info.product}</li>
-            <li><strong>Quantity:</strong> {job.info.qty}</li>
-            <li><strong>Status:</strong> <StatusBadge status={job.info.status} /></li>
-            <li><strong>Priority:</strong> {job.info.priority}</li>
-            <li><strong>Deadline:</strong> {job.info.deadline}</li>
-            <li><strong>Assigned To:</strong> {job.info.team}</li>
-            <li><strong>Notes:</strong> {job.info.notes}</li>
+            <li><strong>{t('managerOrderDetails:jobInfo.client')}:</strong> {job.info.client}</li>
+            <li><strong>{t('managerOrderDetails:jobInfo.batch')}:</strong> {job.info.batch}</li>
+            <li><strong>{t('managerOrderDetails:jobInfo.product')}:</strong> {job.info.product}</li>
+            <li><strong>{t('managerOrderDetails:jobInfo.qty')}:</strong> {job.info.qty}</li>
+            <li><strong>{t('managerOrderDetails:jobInfo.status')}:</strong> <StatusBadge status={job.info.status} /></li>
+            <li><strong>{t('managerOrderDetails:jobInfo.priority')}:</strong> {job.info.priority}</li>
+            <li><strong>{t('managerOrderDetails:jobInfo.deadline')}:</strong> {job.info.deadline}</li>
+            <li><strong>{t('managerOrderDetails:jobInfo.assignedTo')}:</strong> {job.info.team}</li>
+            <li><strong>{t('managerOrderDetails:jobInfo.notes')}:</strong> {job.info.notes}</li>
           </ul>
           <div className="line" />
-          <button className="btn primary block" onClick={() => setShowWorkView(true)}>Open Work View</button>
+          <button className="btn primary block" onClick={() => setShowWorkView(true)}>{t('managerOrderDetails:openWorkView')}</button>
         </aside>
       </section>
 
@@ -225,26 +238,32 @@ export default function ManagerOrderDetails() {
               padding: '14px 20px', borderBottom: '1px solid var(--border, #e4e6eb)',
               position: 'sticky', top: 0, background: 'var(--surface, #fff)', zIndex: 1,
             }}>
-              <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>Work View — Order #{job.id}</h2>
+              <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>{t('managerOrderDetails:modal.title', { id: job.id })}</h2>
               <button
                 onClick={() => setShowWorkView(false)}
                 style={{ padding: '5px 14px', background: '#2f3640', color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}
               >
-                ✕ Close
+                {t('managerOrderDetails:modal.close')}
               </button>
             </div>
             <div style={{ padding: 20 }}>
               <p className="muted" style={{ fontSize: 13, marginBottom: 14 }}>{job.info.client} · {job.info.product}</p>
               <ProgressBar percent={pct(job)} color={pct(job) === 100 ? 'green' : pct(job) >= 50 ? 'orange' : undefined} />
               <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6, marginBottom: 18 }}>
-                {job.done} / {job.total} printed ({pct(job)}%)
+                {job.done} / {job.total} {t('managerOrderDetails:modal.printed')} ({pct(job)}%)
               </p>
 
               {job.stages.length > 0 ? (
                 <>
-                  <h4 style={{ marginBottom: 10 }}>Production Stages</h4>
+                  <h4 style={{ marginBottom: 10 }}>{t('managerOrderDetails:modal.productionStages')}</h4>
                   <table style={{ marginBottom: 20 }}>
-                    <thead><tr><th>Stage</th><th>Status</th><th>Updated At</th></tr></thead>
+                    <thead>
+                      <tr>
+                        <th>{t('managerOrderDetails:table.stage')}</th>
+                        <th>{t('managerOrderDetails:table.status')}</th>
+                        <th>{t('managerOrderDetails:table.updatedAt')}</th>
+                      </tr>
+                    </thead>
                     <tbody>
                       {job.stages.map((s) => (
                         <tr key={s.stage}>
@@ -257,20 +276,20 @@ export default function ManagerOrderDetails() {
                   </table>
                 </>
               ) : (
-                <p style={{ color: 'var(--muted)', fontSize: 13 }}>No stage details available.</p>
+                <p style={{ color: 'var(--muted)', fontSize: 13 }}>{t('managerOrderDetails:modal.noStages')}</p>
               )}
 
               <div className="form-grid-2" style={{ fontSize: 14, gap: 8 }}>
-                <p><strong>Client:</strong> {job.info.client}</p>
-                <p><strong>Batch:</strong> {job.info.batch}</p>
-                <p><strong>Product:</strong> {job.info.product}</p>
-                <p><strong>Quantity:</strong> {job.info.qty} pcs</p>
-                <p><strong>Priority:</strong> {job.info.priority}</p>
-                <p><strong>Deadline:</strong> {job.info.deadline}</p>
-                <p><strong>Assigned To:</strong> {job.info.team}</p>
+                <p><strong>{t('managerOrderDetails:jobInfo.client')}:</strong> {job.info.client}</p>
+                <p><strong>{t('managerOrderDetails:jobInfo.batch')}:</strong> {job.info.batch}</p>
+                <p><strong>{t('managerOrderDetails:jobInfo.product')}:</strong> {job.info.product}</p>
+                <p><strong>{t('managerOrderDetails:jobInfo.qty')}:</strong> {job.info.qty} pcs</p>
+                <p><strong>{t('managerOrderDetails:jobInfo.priority')}:</strong> {job.info.priority}</p>
+                <p><strong>{t('managerOrderDetails:jobInfo.deadline')}:</strong> {job.info.deadline}</p>
+                <p><strong>{t('managerOrderDetails:jobInfo.assignedTo')}:</strong> {job.info.team}</p>
               </div>
               {job.info.notes !== '—' && (
-                <p style={{ marginTop: 8 }}><strong>Notes:</strong> {job.info.notes}</p>
+                <p style={{ marginTop: 8 }}><strong>{t('managerOrderDetails:jobInfo.notes')}:</strong> {job.info.notes}</p>
               )}
             </div>
           </div>

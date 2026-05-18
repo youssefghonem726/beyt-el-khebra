@@ -1,0 +1,41 @@
+{
+  "loading": "Loading order details...",
+  "title": "Order #{{id}}",
+  "errors": {
+    "noId": "No order ID provided.",
+    "notFound": "Order #{{id}} not found.",
+    "loadFailed": "Could not load order details.",
+    "orderNotFound": "Order not found."
+  },
+  "workProgress": {
+    "title": "Work Progress - {{id}}",
+    "completed": "completed",
+    "printed": "printed"
+  },
+  "table": {
+    "stage": "Stage",
+    "status": "Status",
+    "updatedAt": "Updated At",
+    "noStages": "No stage details"
+  },
+  "jobInfo": {
+    "title": "Job Info",
+    "client": "Client Name",
+    "batch": "Batch Code",
+    "product": "Product",
+    "qty": "Quantity",
+    "status": "Status",
+    "priority": "Priority",
+    "deadline": "Deadline",
+    "assignedTo": "Assigned To",
+    "notes": "Notes"
+  },
+  "openWorkView": "Open Work View",
+  "modal": {
+    "title": "Work View — Order #{{id}}",
+    "close": "✕ Close",
+    "productionStages": "Production Stages",
+    "noStages": "No stage details available.",
+    "printed": "printed"
+  }
+}
