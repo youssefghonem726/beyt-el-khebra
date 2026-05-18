@@ -1,28 +1,25 @@
-import { useState, useEffect, Fragment } from 'react';
+import { useState, useEffect, Fragment, Suspense } from 'react';
+import { useTranslation } from 'react-i18next';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
-import { useNavigation } from '../../context/NavigationContext';
-// Direct service imports – bypasses VITE_USE_MOCK
 import { getDeliveries } from '../../lib/api/deliveriesService';
 import type { DeliveryResponse } from '../../lib/api/deliveriesService';
 import { getOrders } from '../../lib/api/ordersQuotesService';
 import { getClients } from '../../lib/api/invoicesClientsSettingsService';
 
-// ─── Display type ──────────────────────────────────────────────────
 interface Delivery {
   id: string;
-  orderId: string;        // real order ID (numeric)
-  orderDisplayId: string;  // display ID (e.g., "#1021")
+  orderId: string;
+  orderDisplayId: string;
   client: string;
   address: string;
-  scheduledDate: string;   // formatted date string
+  scheduledDate: string;
   status: string;
 }
 
 type ExpandKey = { id: string; action: 'reschedule' | 'address' } | null;
 
-// ─── Helpers ───────────────────────────────────────────────────────
 function formatDate(isoDate: string | null): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
@@ -30,12 +27,16 @@ function formatDate(isoDate: string | null): string {
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function getShortOrderId(orderId: number): string {
-  return `#${orderId}`;
+export default function DeliveryList() {
+  return (
+    <Suspense fallback={null}>
+      <DeliveryListInner />
+    </Suspense>
+  );
 }
 
-export default function DeliveryList() {
-  const { navigateTopLevel } = useNavigation();
+function DeliveryListInner() {
+  const { t } = useTranslation(['common', 'deliveryList']);
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,36 +49,25 @@ export default function DeliveryList() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch deliveries, orders, and clients in parallel
         const [deliveriesRes, ordersRes, clientsRes] = await Promise.all([
-          getDeliveries(),
-          getOrders(),
-          getClients(),
+          getDeliveries(), getOrders(), getClients(),
         ]);
 
         const deliveriesRaw: DeliveryResponse[] = deliveriesRes.data.data;
         const orders: any[] = ordersRes.data.data;
         const clients = clientsRes.data.data.results;
 
-        console.log('DeliveryList - deliveries:', deliveriesRaw);
-        console.log('DeliveryList - orders:', orders);
-        console.log('DeliveryList - clients:', clients);
-
-        // Build client map (user ID → client name)
         const clientMap = new Map(clients.map((c: any) => [c.id, c.name]));
-
-        // Build order → customer map (order ID → customer user ID)
         const orderCustomerMap = new Map(orders.map((o: any) => [o.id, o.customer]));
 
         const deliveryList: Delivery[] = deliveriesRaw.map((d: DeliveryResponse) => {
-          // Find client name: from the delivery's clientId, or from the order's customer
           const customerId = d.clientId || orderCustomerMap.get(d.orderId);
           const clientName = customerId ? clientMap.get(customerId) || 'Unknown' : 'Unknown';
 
           return {
             id: String(d.id),
             orderId: String(d.orderId),
-            orderDisplayId: getShortOrderId(d.orderId),
+            orderDisplayId: `#${d.orderId}`,
             client: clientName,
             address: d.address,
             scheduledDate: formatDate(d.scheduledDate),
@@ -91,7 +81,7 @@ export default function DeliveryList() {
           setDeliveries([]);
         } else {
           console.error('Failed to load deliveries:', err);
-          setError('Could not load delivery data. Please try again later.');
+          setError(t('deliveryList:error'));
         }
       } finally {
         setLoading(false);
@@ -116,8 +106,8 @@ export default function DeliveryList() {
   if (loading) {
     return (
       <AppShell role="manager" activePage="delivery-list">
-        <Topbar title="Deliveries" />
-        <div className="loading-state">Loading deliveries...</div>
+        <Topbar title={t('deliveryList:title')} />
+        <div className="loading-state">{t('deliveryList:loading')}</div>
       </AppShell>
     );
   }
@@ -125,7 +115,7 @@ export default function DeliveryList() {
   if (error) {
     return (
       <AppShell role="manager" activePage="delivery-list">
-        <Topbar title="Deliveries" />
+        <Topbar title={t('deliveryList:title')} />
         <div className="error-state">{error}</div>
       </AppShell>
     );
@@ -133,22 +123,22 @@ export default function DeliveryList() {
 
   return (
     <AppShell role="manager" activePage="delivery-list">
-      <Topbar title="Deliveries" />
+      <Topbar title={t('deliveryList:title')} />
 
       <section className="table-wrap">
-        <div className="table-head"><h3>All Deliveries</h3></div>
+        <div className="table-head"><h3>{t('deliveryList:allDeliveries')}</h3></div>
 
         <div className="table-responsive">
           <table className="orders-table">
             <thead>
               <tr>
-                <th>Delivery</th>
-                <th>Order</th>
-                <th>Client</th>
-                <th>Address</th>
-                <th>Scheduled</th>
-                <th>Status</th>
-                <th>Actions</th>
+                <th>{t('deliveryList:table.delivery')}</th>
+                <th>{t('deliveryList:table.order')}</th>
+                <th>{t('deliveryList:table.client')}</th>
+                <th>{t('deliveryList:table.address')}</th>
+                <th>{t('deliveryList:table.scheduled')}</th>
+                <th>{t('deliveryList:table.status')}</th>
+                <th>{t('deliveryList:table.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -170,37 +160,37 @@ export default function DeliveryList() {
                       <td>
                         {isDone || isCancelled ? (
                           <span className="muted" style={{ fontSize: 12 }}>
-                            {isDone ? 'Delivered' : 'Cancelled'}
+                            {isDone ? t('deliveryList:actions.delivered') : t('deliveryList:actions.cancelled')}
                           </span>
                         ) : (
                           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                             <button
                               className="btn primary"
                               style={{ fontSize: 11, padding: '3px 8px' }}
-                              onClick={() => setDelivered(s => { const n = new Set(s); n.add(d.id); return n; })}
+                              onClick={() => setDelivered((s) => { const n = new Set(s); n.add(d.id); return n; })}
                             >
-                              Mark Delivered
+                              {t('deliveryList:actions.markDelivered')}
                             </button>
                             <button
                               className={`btn${isExpanded && expand?.action === 'reschedule' ? ' primary' : ''}`}
                               style={{ fontSize: 11, padding: '3px 8px' }}
                               onClick={() => toggle(d.id, 'reschedule')}
                             >
-                              Reschedule
+                              {t('deliveryList:actions.reschedule')}
                             </button>
                             <button
                               className={`btn${isExpanded && expand?.action === 'address' ? ' primary' : ''}`}
                               style={{ fontSize: 11, padding: '3px 8px' }}
                               onClick={() => toggle(d.id, 'address')}
                             >
-                              Change Address
+                              {t('deliveryList:actions.changeAddress')}
                             </button>
                             <button
                               className="btn"
                               style={{ fontSize: 11, padding: '3px 8px', color: '#d9534f' }}
-                              onClick={() => setCancelled(s => { const n = new Set(s); n.add(d.id); return n; })}
+                              onClick={() => setCancelled((s) => { const n = new Set(s); n.add(d.id); return n; })}
                             >
-                              Cancel
+                              {t('deliveryList:actions.cancel')}
                             </button>
                           </div>
                         )}
@@ -213,7 +203,7 @@ export default function DeliveryList() {
                           {expand?.action === 'reschedule' && (
                             <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
                               <div className="field" style={{ margin: 0 }}>
-                                <label>New Delivery Date</label>
+                                <label>{t('deliveryList:reschedule.label')}</label>
                                 <input
                                   className="input"
                                   type="date"
@@ -222,26 +212,30 @@ export default function DeliveryList() {
                                 />
                               </div>
                               <button className="btn primary" disabled={!date} onClick={saveAndClose}>
-                                Save
+                                {t('deliveryList:reschedule.save')}
                               </button>
-                              <button className="btn" onClick={() => setExpand(null)}>Cancel</button>
+                              <button className="btn" onClick={() => setExpand(null)}>
+                                {t('deliveryList:reschedule.cancel')}
+                              </button>
                             </div>
                           )}
                           {expand?.action === 'address' && (
                             <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
                               <div className="field" style={{ margin: 0, flex: 1 }}>
-                                <label>New Address</label>
+                                <label>{t('deliveryList:address.label')}</label>
                                 <input
                                   className="input"
-                                  placeholder="Enter updated delivery address"
+                                  placeholder={t('deliveryList:address.placeholder')}
                                   value={address}
                                   onChange={(e) => setAddress(e.target.value)}
                                 />
                               </div>
                               <button className="btn primary" disabled={!address.trim()} onClick={saveAndClose}>
-                                Save
+                                {t('deliveryList:address.save')}
                               </button>
-                              <button className="btn" onClick={() => setExpand(null)}>Cancel</button>
+                              <button className="btn" onClick={() => setExpand(null)}>
+                                {t('deliveryList:address.cancel')}
+                              </button>
                             </div>
                           )}
                         </td>
