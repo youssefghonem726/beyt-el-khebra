@@ -1,9 +1,19 @@
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
+import { useTranslation } from 'react-i18next';
 import AuthShell from '../../components/AuthShell';
 import supabase from '../../lib/supabase';
 import { useNavigation } from '../../context/NavigationContext';
 
 export default function CreateAccount() {
+  return (
+    <Suspense fallback={null}>
+      <CreateAccountInner />
+    </Suspense>
+  );
+}
+
+function CreateAccountInner() {
+  const { t } = useTranslation(['common', 'auth']);
   const { navigateTopLevel } = useNavigation();
   const [form, setForm] = useState({
     name: '',
@@ -25,22 +35,22 @@ export default function CreateAccount() {
     
     // Basic validation
     if (!form.email || !form.password) {
-      setError('Email and password are required');
+      setError(t('auth:signup.errors.required'));
       return;
     }
 
     if (form.password !== form.confirm) {
-      setError('Passwords do not match');
+      setError(t('auth:signup.errors.mismatch'));
       return;
     }
 
     if (form.password.length < 6) {
-      setError('Password must be at least 6 characters');
+      setError(t('auth:signup.errors.minLength'));
       return;
     }
 
     if (!agreed) {
-      setError('You must agree to the terms');
+      setError(t('auth:signup.errors.terms'));
       return;
     }
 
@@ -67,7 +77,7 @@ export default function CreateAccount() {
 
     // After successful signup, redirect to login
     if (data?.user) {
-      alert('Account created successfully! Please login.');
+      alert(t('auth:signup.successAlert'));
       navigateTopLevel('login');
     }
   };
@@ -92,8 +102,8 @@ export default function CreateAccount() {
   return (
     <AuthShell>
       <section className="auth-card">
-        <h1 className="center">Create Account</h1>
-        <p className="center muted">Register to get started</p>
+        <h1 className="center">{t('auth:signup.title')}</h1>
+        <p className="center muted">{t('auth:signup.subtitle')}</p>
 
         {error && (
           <p style={{ color: '#d32f2f', textAlign: 'center', marginBottom: 15 }}>
@@ -102,44 +112,44 @@ export default function CreateAccount() {
         )}
 
         <div className="field">
-          <label>Full Name</label>
+          <label>{t('auth:signup.fullName')}</label>
           <input
             className="input"
             type="text"
-            placeholder="Enter your full name"
+            placeholder={t('auth:signup.fullNamePlaceholder')}
             value={form.name}
             onChange={set('name')}
           />
         </div>
 
         <div className="field">
-          <label>Email Address</label>
+          <label>{t('auth:signup.email')}</label>
           <input
             className="input"
             type="email"
-            placeholder="Enter your email"
+            placeholder={t('auth:signup.emailPlaceholder')}
             value={form.email}
             onChange={set('email')}
           />
         </div>
 
         <div className="field">
-          <label>Password</label>
+          <label>{t('auth:signup.password')}</label>
           <input
             className="input"
             type="password"
-            placeholder="Create a password (min. 6 characters)"
+            placeholder={t('auth:signup.passwordPlaceholder')}
             value={form.password}
             onChange={set('password')}
           />
         </div>
 
         <div className="field">
-          <label>Confirm Password</label>
+          <label>{t('auth:signup.confirmPassword')}</label>
           <input
             className="input"
             type="password"
-            placeholder="Confirm your password"
+            placeholder={t('auth:signup.confirmPlaceholder')}
             value={form.confirm}
             onChange={set('confirm')}
           />
@@ -151,7 +161,7 @@ export default function CreateAccount() {
             checked={agreed}
             onChange={(e) => setAgreed(e.target.checked)}
           />{' '}
-          I agree to the Terms of Service and Privacy Policy
+          {t('auth:signup.terms')}
         </label>
 
         <button
@@ -159,21 +169,21 @@ export default function CreateAccount() {
           onClick={handleSignup}
           disabled={loading}
         >
-          {loading ? 'Creating account...' : 'Create Account'}
+          {loading ? t('auth:signup.creating') : t('auth:signup.submit')}
         </button>
 
-        <p className="center muted tiny">or</p>
+        <p className="center muted tiny">{t('auth:signup.or')}</p>
 
-        <button 
-          className="btn block center" 
+        <button
+          className="btn block center"
           onClick={handleGoogleSignup}
           disabled={loading}
         >
-          Sign up with Google
+          {t('auth:signup.google')}
         </button>
 
         <p className="center tiny">
-          Already have an account?{' '}
+          {t('auth:signup.hasAccount')}{' '}
           <a
             href="#"
             onClick={(e) => {
@@ -181,7 +191,7 @@ export default function CreateAccount() {
               navigateTopLevel('login');
             }}
           >
-            <strong>Login</strong>
+            <strong>{t('auth:signup.login')}</strong>
           </a>
         </p>
 

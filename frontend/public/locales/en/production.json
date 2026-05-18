@@ -1,0 +1,71 @@
+{
+  "title": "Production Dashboard",
+  "loading": "Loading production data...",
+  "error": "Could not load production data. Please try again later.",
+  "updateError": "Could not update production job.",
+  "stats": {
+    "activeJobs": "Active Jobs",
+    "activeSub": "Confirmed/in-progress items",
+    "ready": "Ready",
+    "readySub": "Not started yet",
+    "inProgress": "In Progress",
+    "inProgressSub": "Being worked on",
+    "completed": "Completed",
+    "completedSub": "Ready items still in active orders"
+  },
+  "steps": {
+    "pending": "Ready for production",
+    "design": "Design",
+    "printing": "Printing",
+    "cutting": "Cutting",
+    "packaging": "Packaging",
+    "ready": "Ready"
+  },
+  "table": {
+    "title": "All Jobs",
+    "searchPlaceholder": "Search by job ID, order, client or product...",
+    "empty": "No production jobs found.",
+    "filter": {
+      "label": "Status",
+      "all": "All",
+      "apply": "Apply"
+    }
+  },
+  "card": {
+    "order": "Order",
+    "client": "Client",
+    "product": "Product",
+    "step": "Step",
+    "pcs": "{{count}} pcs",
+    "completedOf": "{{completed}} / {{total}} completed ({{percent}}%)",
+    "openWorkView": "Open Work View"
+  },
+  "detail": {
+    "jobDetails": "Job Details",
+    "product": "Product",
+    "quantity": "Quantity",
+    "orderStatus": "Order Status",
+    "dueDate": "Due Date",
+    "progress": "Progress",
+    "completedOf": "{{completed}} / {{total}} ({{percent}}%) complete",
+    "updateStep": "Update Step",
+    "openWorkView": "Open Work View"
+  },
+  "workView": {
+    "title": "Work View - {{id}}",
+    "close": "Close",
+    "progressTitle": "Work Progress - {{id}}",
+    "completedOf": "{{completed}} / {{total}} completed ({{percent}}%)",
+    "stageCol": "Stage",
+    "statusCol": "Status",
+    "jobInfo": "Job Info",
+    "client": "Client",
+    "order": "Order",
+    "product": "Product",
+    "quantity": "Quantity",
+    "status": "Status",
+    "currentStep": "Current Step",
+    "deadline": "Deadline",
+    "notes": "Notes"
+  }
+}

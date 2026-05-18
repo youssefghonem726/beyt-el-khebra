@@ -1,0 +1,41 @@
+{
+  "loading": "جاري تحميل تفاصيل الطلب...",
+  "title": "الطلب #{{id}}",
+  "errors": {
+    "noId": "لم يتم تقديم معرف الطلب.",
+    "notFound": "الطلب #{{id}} غير موجود.",
+    "loadFailed": "تعذّر تحميل تفاصيل الطلب.",
+    "orderNotFound": "الطلب غير موجود."
+  },
+  "workProgress": {
+    "title": "تقدم العمل - {{id}}",
+    "completed": "مكتمل",
+    "printed": "مطبوع"
+  },
+  "table": {
+    "stage": "المرحلة",
+    "status": "الحالة",
+    "updatedAt": "تاريخ التحديث",
+    "noStages": "لا توجد تفاصيل للمراحل"
+  },
+  "jobInfo": {
+    "title": "معلومات الوظيفة",
+    "client": "اسم العميل",
+    "batch": "رمز الدُفعة",
+    "product": "المنتج",
+    "qty": "الكمية",
+    "status": "الحالة",
+    "priority": "الأولوية",
+    "deadline": "الموعد النهائي",
+    "assignedTo": "مُسنَد إلى",
+    "notes": "ملاحظات"
+  },
+  "openWorkView": "فتح عرض العمل",
+  "modal": {
+    "title": "عرض العمل — الطلب #{{id}}",
+    "close": "✕ إغلاق",
+    "productionStages": "مراحل الإنتاج",
+    "noStages": "لا تتوفر تفاصيل للمراحل.",
+    "printed": "مطبوع"
+  }
+}

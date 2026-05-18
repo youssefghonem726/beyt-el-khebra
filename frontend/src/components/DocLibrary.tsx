@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+
 // ── Inlined from types.ts ───────────────────────────────────────────
 interface ClientDocument {
   id: string;
@@ -35,14 +37,14 @@ interface DocLibraryProps {
 }
 
 export function DocLibrary({ docs, selectedDocId, onSelect }: DocLibraryProps) {
+  const { t } = useTranslation('ownerPlaceOrder');
+
   if (docs.length === 0) return null;
 
   return (
     <div className="box">
-      <h3 className="doc-library__heading">Use a file from this client's library</h3>
-      <p className="doc-library__help">
-        Select a saved file to use as the print file, or upload a new one below.
-      </p>
+      <h3 className="doc-library__heading">{t('shared.docLibrary.title')}</h3>
+      <p className="doc-library__help">{t('shared.docLibrary.help')}</p>
       <div className={styles.docLibrary__list}>
         {docs.map(doc => {
           const isSelected = doc.id === selectedDocId;
@@ -64,7 +66,7 @@ export function DocLibrary({ docs, selectedDocId, onSelect }: DocLibraryProps) {
                   {doc.fileName}&nbsp;·&nbsp;{fmtSize(doc.sizeKB)}
                   {(doc.reorderCount ?? 0) > 0 && (
                     <span className={styles.docLibrary__reorder}>
-                      Ordered {doc.reorderCount}×
+                      {t('shared.docLibrary.orderedCount', { count: doc.reorderCount })}
                     </span>
                   )}
                 </div>

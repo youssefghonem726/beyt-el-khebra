@@ -1,0 +1,5 @@
+[
+  { "email": "owner@baytelkhebra.com",      "role": "Owner",      "status": "active" },
+  { "email": "manager@baytelkhebra.com",    "role": "Manager",    "status": "active" },
+  { "email": "production@baytelkhebra.com", "role": "Production", "status": "active" }
+]

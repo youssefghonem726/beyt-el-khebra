@@ -1,0 +1,85 @@
+{
+  "title": "مستنداتي",
+  "loading": "جاري التحميل...",
+  "error": "تعذّر تحميل مستنداتك.",
+  "header": "ملفات جاهزة للطباعة",
+  "headerSub": "أدر مستنداتك وأعد طلب أي تصميم.",
+  "stats": {
+    "totalDocuments": "إجمالي المستندات",
+    "savedFiles": "ملفات طباعة محفوظة",
+    "mostOrdered": "الأكثر طلباً",
+    "topDesign": "أكثر التصاميم استخداماً",
+    "totalReorders": "إجمالي إعادة الطلبات",
+    "lifetimeReorders": "إعادة طلبات منذ البداية",
+    "storageUsed": "التخزين المستخدم",
+    "totalSize": "إجمالي حجم الملفات"
+  },
+  "libraryTitle": "مكتبة المستندات",
+  "searchPlaceholder": "البحث باسم الملف...",
+  "uploadNew": "+ رفع ملف جديد",
+  "table": {
+    "fileName": "اسم الملف",
+    "type": "النوع",
+    "size": "الحجم",
+    "uploaded": "تاريخ الرفع",
+    "reorders": "إعادة الطلبات",
+    "action": "إجراء"
+  },
+  "empty": "لا توجد مستندات. ارفع أول ملف طباعة.",
+  "actions": {
+    "reorder": "إعادة طلب",
+    "download": "تحميل",
+    "edit": "تعديل",
+    "delete": "حذف",
+    "confirmReorder": "تأكيد إعادة الطلب",
+    "cancel": "إلغاء"
+  },
+  "reorderPanel": {
+    "hint": "💡 لم يُحدَّد السعر بعد — سنرسل لك عرض سعر بعد التأكيد.",
+    "finish": {
+      "glossy": "لامع",
+      "matte": "مطفأ",
+      "uncoated": "غير مطلي"
+    },
+    "size": {
+      "standard": "قياسي",
+      "a4": "A4",
+      "a3": "A3",
+      "custom": "مخصص"
+    }
+  },
+  "toast": {
+    "reorderPlaced": "✅ تم تقديم الطلب {{ref}}! {{qty}} × \"{{name}}\" — سنرسل لك عرض سعر قريباً.",
+    "deleted": "🗑️ تم حذف المستند",
+    "deleteError": "❌ تعذّر الحذف",
+    "updated": "✏️ تم تحديث المستند",
+    "renameError": "❌ تعذّر إعادة التسمية",
+    "uploaded": "📄 تم رفع الملف",
+    "uploadError": "❌ فشل الرفع",
+    "downloaded": "تم تحميل \"{{name}}\""
+  },
+  "confirm": {
+    "delete": "حذف هذا المستند نهائياً؟"
+  },
+  "alert": {
+    "unsupportedFormat": "صيغة غير مدعومة.",
+    "maxFileSize": "الحد الأقصى لحجم الملف 100 ميغابايت"
+  },
+  "uploadModal": {
+    "title": "رفع مستند",
+    "dropZoneReady": "✅ {{name}}",
+    "dropZoneReadySub": "جاهز للرفع",
+    "dropZoneEmpty": "📄 انقر أو اسحب الملف هنا",
+    "dropZoneEmptySub": "PDF, AI, PSD, JPG, PNG (الحد الأقصى 100 ميغابايت)",
+    "nameLabel": "اسم المستند (اختياري)",
+    "namePlaceholder": "اتركه فارغاً لاستخدام اسم الملف",
+    "cancel": "إلغاء",
+    "upload": "رفع"
+  },
+  "editModal": {
+    "title": "تعديل المستند",
+    "nameLabel": "اسم المستند",
+    "cancel": "إلغاء",
+    "save": "حفظ"
+  }
+}

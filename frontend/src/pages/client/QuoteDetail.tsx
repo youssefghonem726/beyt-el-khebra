@@ -1,209 +1,153 @@
-import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useState, useEffect, Suspense } from 'react';
+import { useTranslation } from 'react-i18next';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import { useNavigation } from '../../context/NavigationContext';
+import { getQuotes } from '../../lib/api/quotesService';
+import type { QuoteResponse } from '../../lib/api/quotesService';
 
-interface LineItem { description: string; qty: number; unitPrice: number; }
-
-interface QuoteData {
-  id: string; order: string; status: string; vatRate: number;
-  items: LineItem[]; notes: string; validUntil?: string; invoicePage?: string;
+interface QuoteSummary {
+  id: number;
+  status: string;
+  amount: number;
 }
 
-const QUOTE_DATA: Record<string, QuoteData> = {
-  'Q-211': {
-    id: 'Q-211', order: '#1021', status: 'Awaiting Confirmation', vatRate: 0.14,
-    validUntil: '28 Apr 2025',
-    items: [
-      { description: 'Business Cards (Matte 350gsm) – 500 pcs', qty: 500, unitPrice: 1.80 },
-      { description: 'Glossy Finish Coating',                    qty: 1,   unitPrice: 200  },
-      { description: 'Delivery & Handling',                      qty: 1,   unitPrice: 150  },
-    ],
-    notes: 'Quote valid until 28 Apr 2025. Confirm to start production.',
-  },
-  'Q-208': {
-    id: 'Q-208', order: '#1018', status: 'Approved', vatRate: 0.14,
-    invoicePage: 'invoice-detail-INV-9018',
-    items: [
-      { description: 'Flyers A5 (Glossy 150gsm) – 200 pcs', qty: 200, unitPrice: 3.50 },
-      { description: 'Delivery & Handling',                   qty: 1,   unitPrice: 100  },
-    ],
-    notes: 'Quote approved. Invoice INV-9018 has been issued.',
-  },
-};
-
-function fmt(n: number) {
+function fmt(n: number): string {
   return n.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function computeTotalFromItems(items: QuoteResponse['items']): number {
+  return items.reduce((sum, item) => {
+    const price =
+      typeof item.estimated_total_price === 'string'
+        ? parseFloat(item.estimated_total_price)
+        : item.estimated_total_price;
+    return sum + (price || 0);
+  }, 0);
+}
+
 export default function QuoteDetail() {
-  const { id: quoteId = '' } = useParams<{ id: string }>();
-  const { navigateTopLevel, goBack } = useNavigation();
-  const quote = QUOTE_DATA[quoteId];
+  return (
+    <Suspense fallback={null}>
+      <QuoteDetailInner />
+    </Suspense>
+  );
+}
 
-  const [confirming, setConfirming] = useState(false);
-  const [confirmed, setConfirmed] = useState(false);
-  const [requestOpen, setRequestOpen] = useState(false);
-  const [requestMsg, setRequestMsg] = useState('');
-  const [requestSent, setRequestSent] = useState(false);
+function QuoteDetailInner() {
+  const { t } = useTranslation(['common', 'quotes']);
+  const { navigateTopLevel } = useNavigation();
+  const [quotes, setQuotes] = useState<QuoteSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  if (!quote) {
+  useEffect(() => {
+    const fetchQuotes = async () => {
+      try {
+        const res = await getQuotes();
+        const rawQuotes: QuoteResponse[] = res.data.data;
+
+        const summaries: QuoteSummary[] = rawQuotes.map((q) => {
+          let amount: number;
+          if (q.total_estimated_price != null) {
+            amount =
+              typeof q.total_estimated_price === 'string'
+                ? parseFloat(q.total_estimated_price)
+                : q.total_estimated_price;
+          } else {
+            amount = computeTotalFromItems(q.items || []);
+          }
+
+          const statusMap: Record<string, string> = {
+            pending: 'awaiting_confirmation',
+            approved: 'approved',
+            rejected: 'rejected',
+            converted: 'converted',
+          };
+
+          return {
+            id: q.id,
+            status: statusMap[q.status] || q.status,
+            amount,
+          };
+        });
+
+        setQuotes(summaries);
+      } catch (err) {
+        console.error('Failed to load quotes:', err);
+        setError(t('quotes:error'));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchQuotes();
+  }, []);
+
+  if (loading) {
     return (
       <AppShell role="client" activePage="quotes">
-        <Topbar title="Quote Detail" />
-        <section className="table-wrap"><div className="error-state">Quote not found.</div></section>
+        <Topbar title={t('quotes:title')} />
+        <div className="loading-state">{t('quotes:loading')}</div>
       </AppShell>
     );
   }
 
-  const subtotal = quote.items.reduce((s, i) => s + i.qty * i.unitPrice, 0);
-  const vat = subtotal * quote.vatRate;
-  const total = subtotal + vat;
+  if (error) {
+    return (
+      <AppShell role="client" activePage="quotes">
+        <Topbar title={t('quotes:title')} />
+        <div className="error-state">{error}</div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell role="client" activePage="quotes">
-      <Topbar title={`Quote ${quote.id}`} onBack={goBack} backLabel="Quotes" />
+      <Topbar title={t('quotes:title')} />
 
-      <div className="box invoice-detail-card" style={{ maxWidth: 760, margin: '0 auto' }}>
-        <div className="invoice-header">
-          <div>
-            <div className="invoice-brand">Bayt El Khebra</div>
-            <h2 className="invoice-id">Quote {quote.id}</h2>
-            <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>For order {quote.order}</p>
-          </div>
-          <StatusBadge status={quote.status} />
+      <section className="table-wrap">
+        <div className="table-head" style={{ marginBottom: 10 }}>
+          <h3>{t('quotes:myQuotes')}</h3>
+          <button className="btn primary" onClick={() => navigateTopLevel('place-new-order')}>
+            {t('quotes:requestNew')}
+          </button>
         </div>
-
-        {quote.validUntil && (
-          <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20 }}>
-            Valid until: <strong>{quote.validUntil}</strong>
-          </p>
-        )}
-
-        <div className="table-responsive">
-          <table className="orders-table invoice-items-table">
-            <thead>
+        <table className="orders-table">
+          <thead>
+            <tr>
+              <th>{t('quotes:table.id')}</th>
+              <th>{t('quotes:table.status')}</th>
+              <th>{t('quotes:table.amount')}</th>
+              <th>{t('quotes:table.action')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {quotes.length === 0 ? (
               <tr>
-                <th>Item</th>
-                <th style={{ textAlign: 'center' }}>Qty</th>
-                <th style={{ textAlign: 'right' }}>Unit Price (EGP)</th>
-                <th style={{ textAlign: 'right' }}>Total (EGP)</th>
+                <td colSpan={4} className="no-results">{t('quotes:empty')}</td>
               </tr>
-            </thead>
-            <tbody>
-              {quote.items.map((item, i) => (
-                <tr key={i}>
-                  <td>{item.description}</td>
-                  <td style={{ textAlign: 'center' }}>{item.qty}</td>
-                  <td style={{ textAlign: 'right' }}>{fmt(item.unitPrice)}</td>
-                  <td style={{ textAlign: 'right' }}>{fmt(item.qty * item.unitPrice)}</td>
+            ) : (
+              quotes.map((q) => (
+                <tr key={q.id}>
+                  <td>#{q.id}</td>
+                  <td><StatusBadge status={q.status} /></td>
+                  <td style={{ fontWeight: 600 }}>EGP {fmt(q.amount)}</td>
+                  <td>
+                    <button
+                      className="btn"
+                      onClick={() => navigateTopLevel(`/client/quotes/${q.id}`)}
+                    >
+                      {t('quotes:table.review')}
+                    </button>
+                  </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="invoice-totals">
-          <div className="invoice-total-row">
-            <span className="total-label">Subtotal</span>
-            <span className="total-value">{fmt(subtotal)}</span>
-          </div>
-          <div className="invoice-total-row">
-            <span className="total-label">VAT ({(quote.vatRate * 100).toFixed(0)}%)</span>
-            <span className="total-value">{fmt(vat)}</span>
-          </div>
-          <div className="invoice-total-row invoice-grand-total">
-            <span className="total-label">Total</span>
-            <span className="total-value">{fmt(total)} EGP</span>
-          </div>
-        </div>
-
-        {quote.notes && <div className="invoice-note" style={{ marginTop: 20 }}>{quote.notes}</div>}
-
-        {/* ── Confirmed success banner ── */}
-        {confirmed && (
-          <div style={{ marginTop: 20, padding: '16px 20px', background: '#d1fae5', border: '1px solid #6ee7b7', borderRadius: 10, color: '#065f46' }}>
-            <strong>Quote confirmed!</strong> Your order is now being sent to production. We'll notify you once it starts.
-            <div style={{ marginTop: 12 }}>
-              <button className="btn primary" onClick={() => navigateTopLevel('my-orders')}>View My Orders</button>
-            </div>
-          </div>
-        )}
-
-        {/* ── Request changes success banner ── */}
-        {requestSent && (
-          <div style={{ marginTop: 20, padding: '16px 20px', background: '#dbeafe', border: '1px solid #93c5fd', borderRadius: 10, color: '#1e40af' }}>
-            <strong>Request sent!</strong> Our team will review your changes and get back to you shortly.
-          </div>
-        )}
-
-        {/* ── Awaiting confirmation actions ── */}
-        {quote.status === 'Awaiting Confirmation' && !confirmed && !requestSent && (
-          <>
-            {/* Confirm step */}
-            {!confirming && !requestOpen && (
-              <div className="invoice-actions">
-                <button className="btn primary" onClick={() => setConfirming(true)}>
-                  Confirm Quote
-                </button>
-                <button className="btn" onClick={() => setRequestOpen(true)}>
-                  Request Changes
-                </button>
-              </div>
+              ))
             )}
-
-            {confirming && (
-              <div style={{ marginTop: 20, padding: '16px 20px', background: '#fef9ec', border: '1px solid #fcd34d', borderRadius: 10 }}>
-                <p style={{ fontWeight: 600, marginBottom: 8 }}>Are you sure you want to confirm this quote?</p>
-                <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 16 }}>
-                  Confirming will lock in the pricing and send the order to production. This cannot be undone.
-                </p>
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <button className="btn primary" onClick={() => { setConfirmed(true); setConfirming(false); }}>
-                    Yes, Confirm
-                  </button>
-                  <button className="btn" onClick={() => setConfirming(false)}>Cancel</button>
-                </div>
-              </div>
-            )}
-
-            {requestOpen && (
-              <div style={{ marginTop: 20, padding: '16px 20px', background: '#f8f9fb', border: '1px solid var(--border)', borderRadius: 10 }}>
-                <p style={{ fontWeight: 600, marginBottom: 8 }}>What changes would you like to request?</p>
-                <textarea
-                  className="input"
-                  style={{ width: '100%', minHeight: 100, resize: 'vertical', marginBottom: 12 }}
-                  placeholder="Describe the changes you'd like (e.g. different quantity, paper type, size…)"
-                  value={requestMsg}
-                  onChange={(e) => setRequestMsg(e.target.value)}
-                />
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <button
-                    className="btn primary"
-                    disabled={!requestMsg.trim()}
-                    onClick={() => { setRequestSent(true); setRequestOpen(false); }}
-                  >
-                    Send Request
-                  </button>
-                  <button className="btn" onClick={() => { setRequestOpen(false); setRequestMsg(''); }}>Cancel</button>
-                </div>
-              </div>
-            )}
-          </>
-        )}
-
-        {/* ── Approved actions ── */}
-        {quote.status === 'Approved' && quote.invoicePage && (
-          <div className="invoice-actions">
-            <button className="btn primary" onClick={() => navigateTopLevel(quote.invoicePage!)}>
-              View Invoice
-            </button>
-            <button className="btn" onClick={() => navigateTopLevel('support')}>Contact Support</button>
-          </div>
-        )}
-      </div>
+          </tbody>
+        </table>
+      </section>
     </AppShell>
   );
 }

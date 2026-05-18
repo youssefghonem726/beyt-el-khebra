@@ -1,0 +1,29 @@
+[
+  {
+    "id": "Q-211",
+    "orderId": "placeholder ORD-1021-2025",
+    "clientId": "CL-001",
+    "status": "Awaiting Confirmation",
+    "vatRate": 0.14,
+    "validUntil": "2025-04-28",
+    "items": [
+      { "description": "Business Cards (Matte 350gsm) – 500 pcs", "qty": 500, "unitPrice": 1.80 },
+      { "description": "Glossy Finish Coating", "qty": 1, "unitPrice": 200 },
+      { "description": "Delivery & Handling", "qty": 1, "unitPrice": 150 }
+    ],
+    "notes": "Quote valid until 28 Apr 2025. Confirm to start production."
+  },
+  {
+    "id": "Q-208",
+    "orderId": "ORD-1018-2025",
+    "clientId": "CL-001",
+    "status": "Approved",
+    "vatRate": 0.14,
+    "invoiceId": "INV-9018",
+    "items": [
+      { "description": "Flyers A5 (Glossy 150gsm) – 200 pcs", "qty": 200, "unitPrice": 3.50 },
+      { "description": "Delivery & Handling", "qty": 1, "unitPrice": 100 }
+    ],
+    "notes": "Quote approved. Invoice INV-9018 has been issued."
+  }
+]

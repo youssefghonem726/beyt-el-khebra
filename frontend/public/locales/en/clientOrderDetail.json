@@ -1,0 +1,39 @@
+{
+  "pageTitle": "Order Detail",
+  "title": "Order {{id}}",
+  "loading": "Loading order details...",
+  "errors": {
+    "noId": "No order ID provided.",
+    "notFound": "Order not found.",
+    "loadFailed": "Could not load order details. Please try again later."
+  },
+  "backLabel": "My Orders",
+  "batchCode": "Batch Code",
+  "orderDate": "Order Date",
+  "estDelivery": "Est. Delivery",
+  "total": "Total",
+  "paid": "Paid",
+  "paymentMethod": "Payment Method",
+  "deliveryStatus": "Delivery Status",
+  "productionProgress": "Production Progress",
+  "specs": {
+    "title": "Specifications",
+    "qty": "Quantity",
+    "notes": "Notes"
+  },
+  "timeline": {
+    "title": "Timeline",
+    "pending": "Pending",
+    "items": {
+      "orderPlaced": "Order placed",
+      "production": "Production",
+      "delivery": "Delivery"
+    }
+  },
+  "help": {
+    "title": "Need help with this order?",
+    "trackOrder": "Track Order",
+    "viewInvoice": "View Invoice",
+    "contactSupport": "Contact Support"
+  }
+}

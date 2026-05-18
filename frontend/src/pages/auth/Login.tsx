@@ -1,10 +1,20 @@
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import AuthShell from '../../components/AuthShell';
 import supabase from '../../lib/supabase';
-import { getRoleHomePage } from '../../App';
+import { getRoleHomePage, getRoleFromAccessToken } from '../../App';
 
 export default function Login() {
+  return (
+    <Suspense fallback={null}>
+      <LoginInner />
+    </Suspense>
+  );
+}
+
+function LoginInner() {
+  const { t } = useTranslation(['common', 'auth']);
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -22,7 +32,8 @@ export default function Login() {
       return;
     }
 
-    const role = data.user?.app_metadata?.user_role ?? 'client';
+    const accessToken = data.session?.access_token;
+    const role = getRoleFromAccessToken(accessToken);
     navigate(getRoleHomePage(role));
   };
 
@@ -33,8 +44,8 @@ export default function Login() {
   return (
     <AuthShell>
       <section className="auth-card">
-        <h1 className="center">Welcome Back!</h1>
-        <p className="center muted">Login to your account</p>
+        <h1 className="center">{t('auth:login.title')}</h1>
+        <p className="center muted">{t('auth:login.subtitle')}</p>
 
         {error && (
           <p style={{ color: '#d32f2f', textAlign: 'center', marginBottom: 15 }}>
@@ -43,22 +54,22 @@ export default function Login() {
         )}
 
         <div className="field">
-          <label>Email Address</label>
+          <label>{t('auth:login.email')}</label>
           <input
             className="input"
             type="email"
-            placeholder="Enter your email"
+            placeholder={t('auth:login.emailPlaceholder')}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
         </div>
 
         <div className="field">
-          <label>Password</label>
+          <label>{t('auth:login.password')}</label>
           <input
             className="input"
             type="password"
-            placeholder="Enter your password"
+            placeholder={t('auth:login.passwordPlaceholder')}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
@@ -71,32 +82,31 @@ export default function Login() {
               checked={remember}
               onChange={(e) => setRemember(e.target.checked)}
             />{' '}
-            Remember me
+            {t('auth:login.rememberMe')}
           </label>
 
-          <a className="tiny" href="#" onClick={(e) => { e.preventDefault(); }}>
-            Forgot Password?
+          <a className="tiny" href="#" onClick={(e) => e.preventDefault()}>
+            {t('auth:login.forgotPassword')}
           </a>
         </div>
 
         <button className="btn primary block center" onClick={handleLogin}>
-          Login Account
+          {t('auth:login.submit')}
         </button>
 
-        <p className="center muted tiny">or</p>
+        <p className="center muted tiny">{t('auth:login.or')}</p>
 
         <button className="btn block center" onClick={handleGoogleLogin}>
-          Login with Google
+          {t('auth:login.google')}
         </button>
 
         <p className="center tiny">
-          Don't have an account?{' '}
+          {t('auth:login.noAccount')}{' '}
           <a href="#" onClick={(e) => { e.preventDefault(); navigate('/create-account'); }}>
-            <strong>Create Account</strong>
+            <strong>{t('auth:login.createAccount')}</strong>
           </a>
         </p>
 
-        {/* DEV ONLY — remove before production */}
         {import.meta.env.DEV && (
           <button
             className="btn block center"

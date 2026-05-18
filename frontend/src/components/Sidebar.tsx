@@ -1,19 +1,22 @@
+import { useTranslation } from 'react-i18next';
 import { NAVS } from '../data/navData';
 import type { Role } from '../data/navData';
 import { useNavigation } from '../context/NavigationContext';
+import LanguageToggle from './LanguageToggle';
 
 interface Props {
   role: Role;
   activePage: string;
 }
 
-const ROLE_LABEL: Record<Role, string> = {
-  owner:   'Owner Dashboard',
-  manager: 'Manager Dashboard',
-  client:  'Client Dashboard',
+const ROLE_BRAND_KEY: Record<Role, string> = {
+  owner:   'ownerDashboard',
+  manager: 'managerDashboard',
+  client:  'clientDashboard',
 };
 
 export default function Sidebar({ role, activePage }: Props) {
+  const { t } = useTranslation('common');
   const { navigateTopLevel } = useNavigation();
   const links = NAVS[role];
 
@@ -21,8 +24,8 @@ export default function Sidebar({ role, activePage }: Props) {
     <aside className="sidebar">
       <h2 className="logo">
         <span className="logo-mark">Logo</span>
-        <span className="logo-name">Bayt El Khebra</span>
-        <span className="logo-sub">{ROLE_LABEL[role]}</span>
+        <span className="logo-name">{t('brand.name')}</span>
+        <span className="logo-sub">{t(`brand.${ROLE_BRAND_KEY[role]}`)}</span>
       </h2>
       <nav>
         {links.map((item) => (
@@ -32,13 +35,14 @@ export default function Sidebar({ role, activePage }: Props) {
             href="#"
             onClick={(e) => { e.preventDefault(); navigateTopLevel(item.page); }}
           >
-            {item.label}
+            {t(`nav.${item.labelKey}`)}
           </a>
         ))}
       </nav>
       <div className="sidebar-footer">
+        <LanguageToggle />
         <a className="logout-link" href="#" onClick={(e) => { e.preventDefault(); navigateTopLevel('login'); }}>
-          Log Out
+          {t('actions.logout')}
         </a>
       </div>
     </aside>

@@ -1,0 +1,74 @@
+{
+  "title": "لوحة الإنتاج",
+  "loading": "جاري تحميل بيانات الإنتاج...",
+  "error": "تعذّر تحميل بيانات الإنتاج. يرجى المحاولة مجدداً.",
+  "empty": "لا توجد وظائف متاحة.",
+  "noMatch": "لا توجد وظائف مطابقة.",
+  "stats": {
+    "activeJobs": "الوظائف النشطة",
+    "inQueue": "في قائمة الانتظار حالياً",
+    "inProgress": "قيد التنفيذ",
+    "beingWorked": "يُعمل عليها",
+    "onHold": "معلّقة",
+    "waiting": "في انتظار شيء",
+    "completed": "مكتملة",
+    "finished": "وظائف منتهية"
+  },
+  "filter": {
+    "all": "الكل",
+    "inProgress": "قيد التنفيذ",
+    "onHold": "معلّقة",
+    "completed": "مكتملة"
+  },
+  "list": {
+    "title": "الوظائف النشطة",
+    "searchPlaceholder": "البحث برقم الوظيفة أو العميل أو المنتج…",
+    "client": "العميل",
+    "product": "المنتج",
+    "due": "الموعد",
+    "printed": "مطبوع",
+    "openWorkView": "فتح عرض العمل"
+  },
+  "detail": {
+    "title": "تفاصيل الوظيفة",
+    "product": "المنتج",
+    "quantity": "الكمية",
+    "pcs": "قطعة",
+    "paper": "الورق",
+    "dueDate": "تاريخ الاستحقاق",
+    "progress": "التقدم",
+    "complete": "مكتمل",
+    "steps": "خطوات الإنتاج",
+    "current": "← الحالية",
+    "openWorkView": "فتح عرض العمل"
+  },
+  "steps": {
+    "File Approved": "تمت الموافقة على الملف",
+    "Printing Started": "بدأ الطباعة",
+    "Finishing": "التشطيب",
+    "Quality Check": "مراقبة الجودة",
+    "Ready for Delivery": "جاهز للتسليم"
+  },
+  "workView": {
+    "title": "عرض العمل — {{id}}",
+    "close": "✕ إغلاق",
+    "stages": "مراحل الإنتاج",
+    "stepsTitle": "خطوات الإنتاج",
+    "table": {
+      "stage": "المرحلة",
+      "status": "الحالة",
+      "updatedAt": "آخر تحديث"
+    },
+    "client": "العميل",
+    "batch": "الدفعة",
+    "product": "المنتج",
+    "quantity": "الكمية",
+    "paper": "الورق",
+    "dueDate": "تاريخ الاستحقاق",
+    "priority": "الأولوية",
+    "assignedTo": "مُسند إلى",
+    "notes": "ملاحظات",
+    "pcs": "قطعة",
+    "printed": "مطبوع"
+  }
+}

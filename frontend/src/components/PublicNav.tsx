@@ -1,4 +1,5 @@
 import { useNavigation } from '../context/NavigationContext';
+import LanguageToggle from './LanguageToggle';
 
 export default function PublicNav() {
   const { navigateTopLevel } = useNavigation();
@@ -19,7 +20,10 @@ export default function PublicNav() {
         {link('support', 'Services')}
         {link('support', 'Contact Us')}
       </nav>
-      <a href="#" onClick={(e) => { e.preventDefault(); navigateTopLevel('login'); }}>Login</a>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <LanguageToggle />
+        <a href="#" onClick={(e) => { e.preventDefault(); navigateTopLevel('login'); }}>Login</a>
+      </div>
     </header>
   );
 }

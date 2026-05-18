@@ -1,246 +1,171 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useTranslation } from 'react-i18next';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatCard from '../../components/StatCard';
 import StatusBadge from '../../components/StatusBadge';
 import { useNavigation } from '../../context/NavigationContext';
+import { getOrders } from '../../lib/api/ordersQuotesService';
+import { getMe } from '../../lib/api/usersService';
 
-export interface Client {
-  name: string;
-  email: string;
-  phone: string;
-  page: string;
-}
+const STATUS_GUIDE_KEYS = [
+  'UNPRICED_PENDING',
+  'PRICED_PENDING_CONFIRMATION',
+  'IN_PROGRESS',
+  'COMPLETED',
+  'CANCELED',
+] as const;
 
-export interface Order {
+const STATUS_FILTER_VALUES = [
+  'UNPRICED_PENDING',
+  'PRICED_PENDING_CONFIRMATION',
+  'IN_PROGRESS',
+  'COMPLETED',
+  'CANCELED',
+] as const;
+
+interface DisplayOrder {
   id: string;
-  type: string;
+  product: string;
   status: string;
   orderDate: string;
   deliveryDate: string;
   total: string;
 }
 
-export interface DashboardStats {
-  totalOrders: number;
-  pendingQuote: number;
-  inProgress: number;
-  completed: number;
+function formatDate(isoDate: string | null): string {
+  if (!isoDate) return '—';
+  const d = new Date(isoDate);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-export interface StatusFilterOption {
-  label: string;
-  value: string;
+function formatTotal(amount: number | null): string {
+  if (amount === null || amount === undefined) return '—';
+  return `EGP ${amount.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-export interface StatusGuideItem {
-  status: string;
-  desc: string;
+export default function ClientDashboard() {
+  return (
+    <Suspense fallback={null}>
+      <ClientDashboardInner />
+    </Suspense>
+  );
 }
 
-export interface DashboardData {
-  client: Client | null;
-  stats: DashboardStats;
-  orders: Order[];
-  statusFilters: StatusFilterOption[];
-  statusGuide: StatusGuideItem[];
-}
-
-interface Props {
-  /** Optional: specify which client to load (by name or index). Defaults to first client */
-  clientIdentifier?: string | number;
-  /** Optional: provide custom data source URLs */
-  dataUrls?: {
-    clients?: string;
-    stats?: string;
-    orders?: string;
-    statusFilters?: string;
-    statusGuide?: string;
-  };
-  fallbackData?: Partial<DashboardData>;
-}
-
-const DEFAULT_DATA: DashboardData = {
-  client: { name: 'Ahmed Store', email: 'ahmed@store.com', phone: '+20 101 000 1021', page: 'client-detail-ahmed' },
-  stats: {
-    totalOrders: 127,
-    pendingQuote: 3,
-    inProgress: 5,
-    completed: 119,
-  },
-  orders: [
-    { id: '#1021', type: 'Business Cards', status: 'PRICED_PENDING_CONFIRMATION', orderDate: '21 Apr 2025', deliveryDate: '25 Apr 2025', total: '1,200.00' },
-    { id: '#1020', type: 'Flyers A5',      status: 'IN_PROGRESS',                orderDate: '18 Apr 2025', deliveryDate: '23 Apr 2025', total: '2,400.00' },
-    { id: '#1018', type: 'Posters A3',     status: 'UNPRICED_PENDING',           orderDate: '15 Apr 2025', deliveryDate: '—',           total: '—'        },
-    { id: '#1015', type: 'Stickers',       status: 'COMPLETED',                  orderDate: '10 Apr 2025', deliveryDate: '14 Apr 2025', total: '850.00'   },
-    { id: '#1012', type: 'Banners',        status: 'CANCELED',                   orderDate: '05 Apr 2025', deliveryDate: '—',           total: '—'        },
-  ],
-  statusFilters: [
-    { label: 'Unpriced Pending',           value: 'unpriced_pending'           },
-    { label: 'Priced Pending Confirmation', value: 'priced_pending_confirmation' },
-    { label: 'In Progress',                value: 'in_progress'                },
-    { label: 'Completed',                  value: 'completed'                  },
-    { label: 'Canceled',                   value: 'canceled'                   },
-  ],
-  statusGuide: [
-    { status: 'UNPRICED_PENDING',            desc: 'Waiting for pricing'    },
-    { status: 'PRICED_PENDING_CONFIRMATION', desc: 'Ready for confirmation' },
-    { status: 'IN_PROGRESS',                 desc: 'Production started'     },
-    { status: 'COMPLETED',                   desc: 'Order delivered'        },
-    { status: 'CANCELED',                    desc: 'Order canceled'         },
-  ],
-};
-
-// Default URLs for JSON files
-const DEFAULT_URLS = {
-  clients: '/data/clients.json',
-  stats: '/data/stats.json',
-  orders: '/data/orders.json',
-  statusFilters: '/data/statusFilters.json',
-  statusGuide: '/data/statusGuide.json',
-};
-
-export default function ClientDashboard({ clientIdentifier, dataUrls, fallbackData }: Props) {
+function ClientDashboardInner() {
+  const { t } = useTranslation(['common', 'clientDashboard']);
   const { navigateTopLevel } = useNavigation();
-  const [dashboardData, setDashboardData] = useState<DashboardData>(DEFAULT_DATA);
+
+  const [clientName, setClientName] = useState<string>('');
+  const [clientEmail, setClientEmail] = useState('');
+  const [clientPhone, setClientPhone] = useState('');
+
+  const [orders, setOrders] = useState<DisplayOrder[]>([]);
+  const [stats, setStats] = useState({
+    totalOrders: 0,
+    pendingQuote: 0,
+    inProgress: 0,
+    completed: 0,
+  });
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [query, setQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
-  // Merge URLs with defaults
-  const urls = { ...DEFAULT_URLS, ...dataUrls };
-
-  // Helper to find client by name or index
-  const findClient = (clients: Client[], identifier?: string | number): Client | null => {
-    if (!identifier || clients.length === 0) return clients[0] || null;
-    
-    if (typeof identifier === 'number') {
-      return clients[identifier] || clients[0] || null;
-    }
-    
-    // Search by name (case-insensitive)
-    return clients.find(c => c.name.toLowerCase() === identifier.toLowerCase()) || clients[0] || null;
-  };
-
-  // Fetch data from JSON files
   useEffect(() => {
     const fetchData = async () => {
-      setLoading(true);
-      setError(null);
-      
       try {
-        // Fetch all data in parallel
-        const [clientsRes, statsRes, ordersRes, statusFiltersRes, statusGuideRes] = await Promise.allSettled([
-          fetch(urls.clients),
-          fetch(urls.stats),
-          fetch(urls.orders),
-          fetch(urls.statusFilters),
-          fetch(urls.statusGuide),
-        ]);
+        const [userRes, ordersRes] = await Promise.all([getMe(), getOrders()]);
 
-        // Helper to safely parse JSON
-        const parseResponse = async (response: PromiseSettledResult<Response>, fallback: any) => {
-          if (response.status === 'fulfilled' && response.value.ok) {
-            try {
-              return await response.value.json();
-            } catch {
-              return fallback;
-            }
-          }
-          return fallback;
-        };
+        const user = userRes.data.data;
+        setClientName([user.first_name, user.last_name].filter(Boolean).join(' ') || user.email);
+        setClientEmail(user.email);
+        setClientPhone(user.phone || '');
 
-        // Extract data with fallbacks
-        let clients = await parseResponse(clientsRes, [DEFAULT_DATA.client]);
-        if (!Array.isArray(clients)) clients = [clients];
-        
-        const stats = await parseResponse(statsRes, DEFAULT_DATA.stats);
-        const orders = await parseResponse(ordersRes, DEFAULT_DATA.orders);
-        const statusFilters = await parseResponse(statusFiltersRes, DEFAULT_DATA.statusFilters);
-        const statusGuide = await parseResponse(statusGuideRes, DEFAULT_DATA.statusGuide);
+        const allOrders = ordersRes.data.data;
 
-        // Find the selected client
-        const selectedClient = findClient(clients, clientIdentifier);
-        
-        // Apply any fallback data passed as prop (overrides fetched data)
-        setDashboardData({
-          client: fallbackData?.client ?? selectedClient,
-          stats: { ...stats, ...fallbackData?.stats },
-          orders: fallbackData?.orders ?? orders,
-          statusFilters: fallbackData?.statusFilters ?? statusFilters,
-          statusGuide: fallbackData?.statusGuide ?? statusGuide,
+        const displayOrders: DisplayOrder[] = allOrders.map((o: any) => ({
+          id: String(o.id),
+          product: o.upload?.file_name || `Order #${o.id}`,
+          status: o.status,
+          orderDate: formatDate(o.created_at),
+          deliveryDate: formatDate(o.due_date || null),
+          total: formatTotal(o.total_price),
+        }));
+
+        setOrders(displayOrders);
+
+        setStats({
+          totalOrders: displayOrders.length,
+          pendingQuote: allOrders.filter((o: any) => o.status === 'UNPRICED_PENDING').length,
+          inProgress: allOrders.filter((o: any) => o.status === 'IN_PROGRESS').length,
+          completed: allOrders.filter((o: any) => o.status === 'COMPLETED').length,
         });
       } catch (err) {
-        console.error('Error fetching dashboard data:', err);
-        setError('Failed to load dashboard data. Using cached data.');
+        console.error('Failed to load dashboard:', err);
+        setError(t('clientDashboard:error'));
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [urls.clients, urls.stats, urls.orders, urls.statusFilters, urls.statusGuide, clientIdentifier, fallbackData]);
+  }, []);
 
-  const filtered = dashboardData.orders.filter((o) => {
-    const matchQ = !query || o.id.toLowerCase().includes(query.toLowerCase()) || o.type.toLowerCase().includes(query.toLowerCase());
-    const matchS = !filterStatus || o.status.toLowerCase().replace(/_/g, ' ').includes(filterStatus.replace(/_/g, ' '));
+  const filtered = orders.filter((o) => {
+    const matchQ = !query || o.id.toLowerCase().includes(query.toLowerCase()) || o.product.toLowerCase().includes(query.toLowerCase());
+    const matchS = !filterStatus || o.status === filterStatus;
     return matchQ && matchS;
   });
 
   if (loading) {
     return (
       <AppShell role="client" activePage="client-dashboard">
-        <Topbar title="Dashboard" />
-        <div className="loading-container">
-          <div className="spinner"></div>
-          <p>Loading your dashboard...</p>
-        </div>
+        <Topbar title={t('clientDashboard:title')} />
+        <div className="loading-state">{t('clientDashboard:loading')}</div>
       </AppShell>
     );
   }
 
   return (
     <AppShell role="client" activePage="client-dashboard">
-      <Topbar title="Dashboard" />
+      <Topbar title={t('clientDashboard:title')} />
 
       {error && (
-        <div className="error-banner">
-          <span>⚠️ {error}</span>
-          <button onClick={() => window.location.reload()}>Retry</button>
+        <div className="box" style={{ background: '#fff0f0', color: '#c0392b', marginBottom: 12 }}>
+          {error}
         </div>
       )}
 
       <section className="welcome">
-        <h2>Welcome back, {dashboardData.client?.name}</h2>
-        <p>Here's what is happening with your orders.</p>
-        {dashboardData.client && (
-          <div className="client-info">
-            <span> {dashboardData.client.name}</span>
-            <span> Email {dashboardData.client.email}</span>
-            <span> Phone number: {dashboardData.client.phone}</span>
-          </div>
-        )}
+        <h2>{t('clientDashboard:welcome.greeting', { name: clientName })}</h2>
+        <p>{t('clientDashboard:welcome.sub')}</p>
+        <div className="client-info" style={{ marginTop: 8 }}>
+          <span>📧 {clientEmail}</span>
+          {clientPhone && <span>📞 {clientPhone}</span>}
+        </div>
       </section>
 
-      <section className="grid-4 stats-row">
-        <StatCard label="Total Orders"  value={dashboardData.stats.totalOrders}  sub="All time"                  />
-        <StatCard label="Pending Quote" value={dashboardData.stats.pendingQuote} sub="Awaiting pricing"           />
-        <StatCard label="In Progress"   value={dashboardData.stats.inProgress}   sub="Currently in production"   />
-        <StatCard label="Completed"     value={dashboardData.stats.completed}    sub="Successfully completed"     />
+      <section className="grid-4">
+        <StatCard label={t('clientDashboard:stats.totalOrders')}  value={stats.totalOrders}  sub={t('clientDashboard:stats.allTime')} />
+        <StatCard label={t('clientDashboard:stats.pendingQuote')} value={stats.pendingQuote} sub={t('clientDashboard:stats.awaitingPricing')} />
+        <StatCard label={t('clientDashboard:stats.inProgress')}   value={stats.inProgress}   sub={t('clientDashboard:stats.inProduction')} />
+        <StatCard label={t('clientDashboard:stats.completed')}    value={stats.completed}    sub={t('clientDashboard:stats.successCompleted')} />
       </section>
 
-      <section className="content dashboard-content">
-        <article className="table-wrap orders-card">
+      <section className="content">
+        <article className="table-wrap">
           <div className="table-head">
-            <h3>My Orders</h3>
+            <h3>{t('clientDashboard:orders.title')}</h3>
             <div className="search-container">
               <input
                 className="input"
                 type="search"
-                placeholder="Search by order ID"
+                placeholder={t('clientDashboard:orders.searchPlaceholder')}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
@@ -248,72 +173,69 @@ export default function ClientDashboard({ clientIdentifier, dataUrls, fallbackDa
               {dropdownOpen && (
                 <div className="filter-dropdown show">
                   <div className="field">
-                    <label htmlFor="order-status">Status</label>
-                    <select
-                      className="select"
-                      id="order-status"
-                      value={filterStatus}
-                      onChange={(e) => setFilterStatus(e.target.value)}
-                    >
-                      <option value="">All Status</option>
-                      {dashboardData.statusFilters.map((f) => (
-                        <option key={f.value} value={f.value}>{f.label}</option>
+                    <label>{t('common:filter.status')}</label>
+                    <select className="select" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+                      <option value="">{t('common:filter.allStatus')}</option>
+                      {STATUS_FILTER_VALUES.map((v) => (
+                        <option key={v} value={v}>{t(`common:status.${v}`)}</option>
                       ))}
                     </select>
                   </div>
-                  <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>Apply</button>
+                  <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>{t('common:filter.apply')}</button>
                 </div>
               )}
             </div>
           </div>
 
-          <div className="table-responsive">
-            <table className="orders-table">
-              <thead>
-                <tr>
-                  <th>Order ID</th><th>Type</th><th>Status</th>
-                  <th>Order Date</th><th>Delivery Date</th><th>Total (EGP)</th><th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.length === 0 ? (
-                  <tr><td colSpan={7} className="no-results">No matching results</td></tr>
-                ) : filtered.map((o) => (
+          <table className="orders-table">
+            <thead>
+              <tr>
+                <th>{t('clientDashboard:table.id')}</th>
+                <th>{t('clientDashboard:table.product')}</th>
+                <th>{t('clientDashboard:table.status')}</th>
+                <th>{t('clientDashboard:table.orderDate')}</th>
+                <th>{t('clientDashboard:table.deliveryDate')}</th>
+                <th>{t('clientDashboard:table.total')}</th>
+                <th>{t('clientDashboard:table.action')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr><td colSpan={7} className="no-results">{t('clientDashboard:orders.noResults')}</td></tr>
+              ) : (
+                filtered.map((o) => (
                   <tr key={o.id}>
-                    <td><strong>{o.id}</strong></td>
-                    <td>{o.type}</td>
+                    <td><strong>#{o.id}</strong></td>
+                    <td>{o.product}</td>
                     <td><StatusBadge status={o.status} /></td>
                     <td>{o.orderDate}</td>
                     <td>{o.deliveryDate}</td>
                     <td>{o.total}</td>
                     <td>
-                      <div className="action-buttons">
-                        <button className="btn btn-sm" onClick={() => navigateTopLevel(`/client/orders/${o.id.replace('#', '')}`)}>View</button>
-                        <button className="btn btn-sm" onClick={() => navigateTopLevel('track-order')}>Track</button>
-                      </div>
+                      <button className="btn btn-sm" onClick={() => navigateTopLevel(`/client/orders/${o.id}`)}>{t('clientDashboard:table.view')}</button>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                ))
+              )}
+            </tbody>
+          </table>
         </article>
 
-        <div className="stack sidebar-cards">
-          <section className="box quick-actions">
-            <h3>Quick Actions</h3>
-            <button className="btn block primary" onClick={() => navigateTopLevel('place-new-order')}>Place New Order</button>
-            <button className="btn block"         onClick={() => navigateTopLevel('quotes')}>View Quotes</button>
-            <button className="btn block"         onClick={() => navigateTopLevel('support')}>Contact Support</button>
+        <div className="stack">
+          <section className="box">
+            <h3>{t('clientDashboard:quickActions.title')}</h3>
+            <button className="btn block primary" onClick={() => navigateTopLevel('place-new-order')}>{t('clientDashboard:quickActions.placeOrder')}</button>
+            <button className="btn block" onClick={() => navigateTopLevel('quotes')}>{t('clientDashboard:quickActions.viewQuotes')}</button>
+            <button className="btn block" onClick={() => navigateTopLevel('support')}>{t('clientDashboard:quickActions.contactSupport')}</button>
           </section>
 
-          <section className="box status-guide">
-            <h3>Order Status Guide</h3>
+          <section className="box">
+            <h3>{t('clientDashboard:statusGuide.title')}</h3>
             <ul className="status-list">
-              {dashboardData.statusGuide.map((s) => (
-                <li key={s.status}>
-                  <StatusBadge status={s.status} />
-                  <span className="status-desc">{s.desc}</span>
+              {STATUS_GUIDE_KEYS.map((key) => (
+                <li key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <StatusBadge status={key} />
+                  <span className="status-desc">{t(`clientDashboard:statusGuide.desc.${key}`)}</span>
                 </li>
               ))}
             </ul>

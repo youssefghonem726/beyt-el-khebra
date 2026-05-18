@@ -1,0 +1,15 @@
+{
+  "title": "Quotes",
+  "loading": "Loading quotes...",
+  "error": "Could not load your quotes. Please try again later.",
+  "myQuotes": "My Quotes",
+  "requestNew": "Request New Quote",
+  "empty": "No quotes available.",
+  "table": {
+    "id": "Quote ID",
+    "status": "Status",
+    "amount": "Amount",
+    "action": "Action",
+    "review": "Review Quote"
+  }
+}

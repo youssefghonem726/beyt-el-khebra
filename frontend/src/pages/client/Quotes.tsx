@@ -1,70 +1,95 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useTranslation } from 'react-i18next';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import { useNavigation } from '../../context/NavigationContext';
+import { getQuotes } from '../../lib/api/quotesService';
+import type { QuoteResponse } from '../../lib/api/quotesService';
 
-interface PricingRow {
-  id: string;
-  product: string;
-  size: string;
-  paper: string;
-  pricePerUnit: number;
-  minQty: number;
-  active: boolean;
-}
-
-interface Quote {
-  id: string;
-  order: string;
+interface QuoteSummary {
+  id: number;
   status: string;
-  amount: string;
-  action: {
-    label: string;
-    page: string;
-  };
+  amount: number;
 }
 
-function fmt(n: number) {
+function fmt(n: number): string {
   return n.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function computeTotalFromItems(items: QuoteResponse['items']): number {
+  return items.reduce((sum, item) => {
+    const price =
+      typeof item.estimated_total_price === 'string'
+        ? parseFloat(item.estimated_total_price)
+        : item.estimated_total_price;
+    return sum + (price || 0);
+  }, 0);
+}
+
 export default function Quotes() {
+  return (
+    <Suspense fallback={null}>
+      <QuotesInner />
+    </Suspense>
+  );
+}
+
+function QuotesInner() {
+  const { t } = useTranslation(['common', 'quotes']);
   const { navigateTopLevel } = useNavigation();
-  const [quotes, setQuotes] = useState<Quote[]>([]);
-  const [pricing, setPricing] = useState<PricingRow[]>([]);
-  const [showPricing, setShowPricing] = useState(false);
+  const [quotes, setQuotes] = useState<QuoteSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([
-      fetch('/data/quotes.json').then(res => {
-        if (!res.ok) throw new Error('Failed to load quotes');
-        return res.json();
-      }),
-      fetch('/data/pricing.json').then(res => {
-        if (!res.ok) throw new Error('Failed to load pricing');
-        return res.json();
-      })
-    ])
-      .then(([quotesData, pricingData]) => {
-        setQuotes(quotesData);
-        setPricing(pricingData.filter((p: PricingRow) => p.active));
+    const fetchQuotes = async () => {
+      try {
+        const res = await getQuotes();
+        const rawQuotes: QuoteResponse[] = res.data.data;
+
+        const summaries: QuoteSummary[] = rawQuotes.map((q) => {
+          let amount: number;
+          if (q.total_estimated_price != null) {
+            amount =
+              typeof q.total_estimated_price === 'string'
+                ? parseFloat(q.total_estimated_price)
+                : q.total_estimated_price;
+          } else {
+            amount = computeTotalFromItems(q.items || []);
+          }
+
+          const statusMap: Record<string, string> = {
+            pending: 'awaiting_confirmation',
+            approved: 'approved',
+            rejected: 'rejected',
+            converted: 'converted',
+          };
+
+          return {
+            id: q.id,
+            status: statusMap[q.status] || q.status,
+            amount,
+          };
+        });
+
+        setQuotes(summaries);
+      } catch (err) {
+        console.error('Failed to load quotes:', err);
+        setError(t('quotes:error'));
+      } finally {
         setLoading(false);
-      })
-      .catch((err) => {
-        console.error('Error loading data:', err);
-        setError('Could not load quotes or pricing. Please try again later.');
-        setLoading(false);
-      });
+      }
+    };
+
+    fetchQuotes();
   }, []);
 
   if (loading) {
     return (
       <AppShell role="client" activePage="quotes">
-        <Topbar title="Quotes" />
-        <div className="loading-state">Loading quotes...</div>
+        <Topbar title={t('quotes:title')} />
+        <div className="loading-state">{t('quotes:loading')}</div>
       </AppShell>
     );
   }
@@ -72,7 +97,7 @@ export default function Quotes() {
   if (error) {
     return (
       <AppShell role="client" activePage="quotes">
-        <Topbar title="Quotes" />
+        <Topbar title={t('quotes:title')} />
         <div className="error-state">{error}</div>
       </AppShell>
     );
@@ -80,86 +105,48 @@ export default function Quotes() {
 
   return (
     <AppShell role="client" activePage="quotes">
-      <Topbar title="Quotes" />
+      <Topbar title={t('quotes:title')} />
 
-      <section className="table-wrap" style={{ marginBottom: 16 }}>
+      <section className="table-wrap">
         <div className="table-head" style={{ marginBottom: 10 }}>
-          <h3>My Quotes</h3>
+          <h3>{t('quotes:myQuotes')}</h3>
           <button className="btn primary" onClick={() => navigateTopLevel('place-new-order')}>
-            Request New Quote
+            {t('quotes:requestNew')}
           </button>
         </div>
-        <table>
+        <table className="orders-table">
           <thead>
             <tr>
-              <th>Quote ID</th>
-              <th>Order</th>
-              <th>Status</th>
-              <th>Amount</th>
-              <th>Action</th>
+              <th>{t('quotes:table.id')}</th>
+              <th>{t('quotes:table.status')}</th>
+              <th>{t('quotes:table.amount')}</th>
+              <th>{t('quotes:table.action')}</th>
             </tr>
           </thead>
           <tbody>
-            {quotes.map(q => (
-              <tr key={q.id}>
-                <td>{q.id}</td>
-                <td>{q.order}</td>
-                <td><StatusBadge status={q.status} /></td>
-                <td style={{ fontWeight: 600 }}>{q.amount}</td>
-                <td>
-                  <button className="btn" onClick={() => navigateTopLevel(q.action.page)}>
-                    {q.action.label}
-                  </button>
-                </td>
+            {quotes.length === 0 ? (
+              <tr>
+                <td colSpan={4} className="no-results">{t('quotes:empty')}</td>
               </tr>
-            ))}
+            ) : (
+              quotes.map((q) => (
+                <tr key={q.id}>
+                  <td>#{q.id}</td>
+                  <td><StatusBadge status={q.status} /></td>
+                  <td style={{ fontWeight: 600 }}>EGP {fmt(q.amount)}</td>
+                  <td>
+                    <button
+                      className="btn"
+                      onClick={() => navigateTopLevel(`/client/quotes/${q.id}`)}
+                    >
+                      {t('quotes:table.review')}
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
-      </section>
-
-      <section className="table-wrap">
-        <div className="table-head" style={{ marginBottom: showPricing ? 14 : 0 }}>
-          <div>
-            <h3>Standard Pricing</h3>
-            <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>
-              Reference prices — your quote may vary based on specs and quantity.
-            </p>
-          </div>
-          <button className="btn" onClick={() => setShowPricing(v => !v)}>
-            {showPricing ? 'Hide Prices' : 'View Prices'}
-          </button>
-        </div>
-
-        {showPricing && (
-          pricing.length === 0 ? (
-            <p style={{ color: 'var(--muted)', fontSize: 13 }}>Pricing not available.</p>
-          ) : (
-            <table>
-              <thead>
-                <tr>
-                  <th>Product</th>
-                  <th>Size</th>
-                  <th>Paper / Material</th>
-                  <th style={{ textAlign: 'right' }}>Price / Unit (EGP)</th>
-                  <th style={{ textAlign: 'center' }}>Min Order</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pricing.map(row => (
-                  <tr key={row.id}>
-                    <td style={{ fontWeight: 500 }}>{row.product}</td>
-                    <td>{row.size}</td>
-                    <td>{row.paper}</td>
-                    <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--primary)' }}>
-                      {fmt(row.pricePerUnit)}
-                    </td>
-                    <td style={{ textAlign: 'center' }}>{row.minQty} pcs</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )
-        )}
       </section>
     </AppShell>
   );

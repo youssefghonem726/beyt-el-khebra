@@ -1,0 +1,43 @@
+{
+  "loading": "Loading delivery details...",
+  "errors": {
+    "noId": "No delivery ID provided.",
+    "notFound": "Delivery {{id}} not found.",
+    "loadFailed": "Could not load delivery details. Please try again later."
+  },
+  "title": "Delivery Actions - {{orderId}}",
+  "clientLabel": "Client:",
+  "description": "Use these actions to update delivery status and shipping details.",
+  "confirmed": {
+    "delivered": {
+      "title": "✓ Marked as Delivered",
+      "message": "Order {{orderId}} has been marked as delivered successfully."
+    },
+    "rescheduled": {
+      "title": "✓ Delivery Rescheduled",
+      "message": "New delivery date: {{date}}"
+    },
+    "cancelled": {
+      "title": "✓ Delivery Cancelled",
+      "message": "The delivery for Order {{orderId}} has been cancelled."
+    },
+    "addressChanged": {
+      "title": "✓ Address Updated",
+      "message": "New address: {{address}}"
+    }
+  },
+  "actions": {
+    "markDelivered": "Mark as Delivered",
+    "reschedule": "Reschedule Delivery Date",
+    "cancel": "Cancel Delivery",
+    "changeAddress": "Change Address",
+    "reset": "Reset",
+    "done": "Done",
+    "back": "← Back"
+  },
+  "form": {
+    "newDate": "New Delivery Date",
+    "newAddress": "New Address",
+    "addressPlaceholder": "Enter updated address"
+  }
+}

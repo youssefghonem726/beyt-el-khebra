@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 // ── Inlined from types.ts ───────────────────────────────────────────
 interface ClientDocument {
@@ -65,6 +66,7 @@ export function FileField({
   onClearLibrary,
   onFilePreview,
 }: FileFieldProps) {
+  const { t } = useTranslation('ownerPlaceOrder');
   const [showPicker, setShowPicker] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -87,7 +89,7 @@ export function FileField({
             className="btn btn--xs"
             onClick={() => { setShowPicker(true); onClearLibrary?.(); }}
           >
-            Change
+            {t('shared.change')}
           </button>
         </div>
       </div>
@@ -113,11 +115,11 @@ export function FileField({
         type="button"
         onClick={() => fileInputRef.current?.click()}
       >
-        📁 Browse...
+        {t('shared.browse')}
       </button>
       {value && (
         <div className={styles.fileField__selected}>
-          <span>Selected: {value.name}</span>
+          <span>{t('shared.selected', { name: value.name })}</span>
           <button
             className={styles.fileField__remove}
             onClick={() => { onChange(null); onFilePreview?.(null); }}

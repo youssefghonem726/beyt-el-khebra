@@ -1,8 +1,12 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
+import { useTranslation } from 'react-i18next';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import { useNavigation } from '../../context/NavigationContext';
 import { PdfPreviewPanel } from '../../components/PdfPreviewPanel';
+// Direct service imports – bypasses VITE_USE_MOCK
+import { createOrder } from '../../lib/api/ordersQuotesService';
+import { createUpload, getUploads } from '../../lib/api/uploadsService';  // FIXED: now from uploadsService
 
 type OrderType = 'package' | 'single' | null;
 type ItemType = 'book' | 'booklet' | 'card' | 'sticker' | 'poster';
@@ -20,17 +24,31 @@ interface ClientDocument {
   type: string;
   sizeKB: number;
   uploadedDate: string;
-  reorderCount: number;
+  reorderCount?: number;
+  ownerType: 'client' | 'template' | 'order';
+  ownerId: string;
   url?: string;
 }
 
-const ITEM_TYPES: { id: ItemType; label: string; icon: string }[] = [
-  { id: 'book',    label: 'Book',          icon: '📚' },
-  { id: 'booklet', label: 'Booklet',       icon: '📖' },
-  { id: 'card',    label: 'Business Card', icon: '🃏' },
-  { id: 'sticker', label: 'Sticker',       icon: '🏷️' },
-  { id: 'poster',  label: 'Poster',        icon: '🖼️' },
+// English labels kept intentionally — these values go to the backend via buildOrderItemNotes
+const ITEM_TYPES: { id: ItemType; icon: string; labelEn: string }[] = [
+  { id: 'book',    labelEn: 'Book',          icon: '📚' },
+  { id: 'booklet', labelEn: 'Booklet',       icon: '📖' },
+  { id: 'card',    labelEn: 'Business Card', icon: '🃏' },
+  { id: 'sticker', labelEn: 'Sticker',       icon: '🏷️' },
+  { id: 'poster',  labelEn: 'Poster',        icon: '🖼️' },
 ];
+
+const getItemLabelEn = (type: string): string =>
+  ITEM_TYPES.find(t => t.id === type)?.labelEn ?? type;
+
+const buildOrderItemNotes = (data: Record<string, any>, extraNotes = ''): string => {
+  const specs = Object.entries(data)
+    .filter(([, value]) => value !== undefined && value !== null && value !== '' && !(value instanceof File))
+    .map(([key, value]) => `${key}: ${String(value)}`);
+
+  return [...specs, extraNotes.trim()].filter(Boolean).join('\n');
+};
 
 function docTypeColor(type: string): string {
   switch (type.toUpperCase()) {
@@ -47,7 +65,6 @@ function fmtSize(kb: number): string {
   return kb >= 1024 ? (kb / 1024).toFixed(1) + ' MB' : kb + ' KB';
 }
 
-// ── Beautiful file field (browse button + library support) ──
 function FileField({
   label,
   value,
@@ -63,33 +80,24 @@ function FileField({
   onClearLibrary?: () => void;
   onFilePreview?: (file: File | null) => void;
 }) {
+  const { t } = useTranslation('placeNewOrder');
   const [showPicker, setShowPicker] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // If a library doc is selected and no new file picked, show the library badge
   if (libraryDoc && !value && !showPicker) {
     return (
       <div className="field mb-4">
         <label className="field-label">{label}</label>
         <div className="file-field__libraryItem">
-          <div
-            className="file-field__libraryBadge"
-            style={{ background: docTypeColor(libraryDoc.type) }}
-          >
+          <div className="file-field__libraryBadge" style={{ background: docTypeColor(libraryDoc.type) }}>
             {libraryDoc.type}
           </div>
           <div className="file-field__libraryInfo">
             <div className="file-field__libraryName">{libraryDoc.name}</div>
             <div className="file-field__libraryFileName">{libraryDoc.fileName}</div>
           </div>
-          <button
-            className="btn btn--xs"
-            onClick={() => {
-              setShowPicker(true);
-              onClearLibrary?.();
-            }}
-          >
-            Change
+          <button className="btn btn--xs" onClick={() => { setShowPicker(true); onClearLibrary?.(); }}>
+            {t('fileField.change')}
           </button>
         </div>
       </div>
@@ -110,18 +118,10 @@ function FileField({
           onFilePreview?.(file);
         }}
       />
-      <button
-        className="btn"
-        type="button"
-        onClick={() => fileInputRef.current?.click()}
-      >
-        📁 Browse...
+      <button className="btn" type="button" onClick={() => fileInputRef.current?.click()}>
+        {t('fileField.browse')}
       </button>
-      {value && (
-        <p className="file-field__selected">
-          Selected: {value.name}
-        </p>
-      )}
+      {value && <p className="file-field__selected">{t('fileField.selected', { name: value.name })}</p>}
     </div>
   );
 }
@@ -137,12 +137,6 @@ function SelectField({ label, options, value, onChange }: { label: string; optio
   );
 }
 
-const SPEC_LABEL: Record<string, string> = {
-  book: 'Book Specifications', booklet: 'Booklet Specifications',
-  card: 'Card Specifications', sticker: 'Sticker Specifications', poster: 'Poster Specifications',
-};
-
-// ── Item editor (now supports cover preview) ──
 function ItemEditor({
   item,
   onChange,
@@ -156,11 +150,11 @@ function ItemEditor({
   libraryDoc?: ClientDocument | null;
   onClearLibraryDoc?: () => void;
 }) {
+  const { t } = useTranslation('placeNewOrder');
   const d = item.data;
   const set = (k: string, v: any) => onChange({ ...d, [k]: v });
   const typeInfo = ITEM_TYPES.find(t => t.id === item.type)!;
 
-  // Local main file preview
   const [localMainUrl, setLocalMainUrl] = useState<string | null>(null);
   const [localMainFile, setLocalMainFile] = useState<File | null>(null);
 
@@ -176,7 +170,6 @@ function ItemEditor({
     setLocalMainFile(null);
   }, [d.pdf]);
 
-  // Local cover file preview
   const [localCoverUrl, setLocalCoverUrl] = useState<string | null>(null);
   const [localCoverFile, setLocalCoverFile] = useState<File | null>(null);
 
@@ -192,7 +185,6 @@ function ItemEditor({
     setLocalCoverFile(null);
   }, [d.cover]);
 
-  // Build documents for preview
   const previewDoc: ClientDocument | null = localMainFile
     ? {
         id: `${item.id}-main`,
@@ -202,6 +194,8 @@ function ItemEditor({
         sizeKB: Math.round(localMainFile.size / 1024),
         uploadedDate: new Date().toLocaleDateString(),
         url: localMainUrl!,
+        ownerType: 'client',
+        ownerId: 'temp',
       }
     : libraryDoc ?? null;
 
@@ -214,109 +208,108 @@ function ItemEditor({
         sizeKB: Math.round(localCoverFile.size / 1024),
         uploadedDate: new Date().toLocaleDateString(),
         url: localCoverUrl!,
+        ownerType: 'client',
+        ownerId: 'temp',
       }
     : null;
 
   return (
     <div className="box">
-      {/* Header */}
       <div className="item-editor__header">
         <div className="item-editor__typeInfo">
           <span className="item-editor__icon">{typeInfo.icon}</span>
-          <span className="item-editor__label">{typeInfo.label}</span>
+          <span className="item-editor__label">{t(`itemTypes.${typeInfo.id}`)}</span>
         </div>
-        <button className="btn btn-sm" onClick={onRemove}>Remove</button>
+        <button className="btn btn-sm" onClick={onRemove}>{t('itemEditor.remove')}</button>
       </div>
 
-      <p className="spec-section-label">File & Quantity</p>
-      <FileField
-        label="Print File (PDF)"
-        value={d.pdf ?? null}
-        onChange={f => set('pdf', f)}
-        libraryDoc={libraryDoc}
-        onClearLibrary={onClearLibraryDoc}
-        onFilePreview={
-          // We don't need to do anything extra because useEffect handles preview
-          undefined
-        }
-      />
+      <p className="spec-section-label">{t('itemEditor.fileAndQty')}</p>
+      <FileField label={t('itemEditor.printFile')} value={d.pdf ?? null} onChange={f => set('pdf', f)} libraryDoc={libraryDoc} onClearLibrary={onClearLibraryDoc} />
       <div className="field mb-4">
-        <label className="field-label">Quantity</label>
-        <input className="input" type="number" min={1} placeholder="e.g. 100" value={d.qty ?? ''} onChange={e => set('qty', e.target.value)} />
+        <label className="field-label">{t('itemEditor.quantity')}</label>
+        <input className="input" type="number" min={1} placeholder={t('itemEditor.qtyPlaceholder')} value={d.qty ?? ''} onChange={e => set('qty', e.target.value)} />
       </div>
 
-      {/* Per-type specs – kept clean */}
       {item.type === 'book' && (
         <>
           <div className="line line--compact" />
-          <p className="spec-section-label">{SPEC_LABEL.book}</p>
-          <FileField label="Cover File" value={d.cover ?? null} onChange={f => set('cover', f)} />
+          <p className="spec-section-label">{t('itemEditor.specs.book')}</p>
+          <FileField label={t('fields.coverFile')} value={d.cover ?? null} onChange={f => set('cover', f)} />
           {coverPreviewDoc && <PdfPreviewPanel doc={coverPreviewDoc} height={200} />}
           <div className="form-grid-2 mt-1">
-            <SelectField label="Cover Finish" options={['Matte', 'Shiny', 'Transparent']} value={d.coverFinish ?? 'Matte'} onChange={v => set('coverFinish', v)} />
-            <SelectField label="Colors" options={['B&W', 'Colors']} value={d.colors ?? 'Colors'} onChange={v => set('colors', v)} />
-            <SelectField label="Size" options={['A4', 'A5']} value={d.size ?? 'A4'} onChange={v => set('size', v)} />
-            <SelectField label="Print Type" options={['Front', 'Front & Back']} value={d.printType ?? 'Front & Back'} onChange={v => set('printType', v)} />
-            <SelectField label="Binding" options={['Softcover', 'Hardcover', 'Spiral']} value={d.casing ?? 'Softcover'} onChange={v => set('casing', v)} />
+            <SelectField label={t('fields.coverFinish')} options={['Matte', 'Shiny', 'Transparent']} value={d.coverFinish ?? 'Matte'} onChange={v => set('coverFinish', v)} />
+            <SelectField label={t('fields.colors')} options={['B&W', 'Colors']} value={d.colors ?? 'Colors'} onChange={v => set('colors', v)} />
+            <SelectField label={t('fields.size')} options={['A4', 'A5']} value={d.size ?? 'A4'} onChange={v => set('size', v)} />
+            <SelectField label={t('fields.printType')} options={['Front', 'Front & Back']} value={d.printType ?? 'Front & Back'} onChange={v => set('printType', v)} />
+            <SelectField label={t('fields.binding')} options={['Softcover', 'Hardcover', 'Spiral']} value={d.casing ?? 'Softcover'} onChange={v => set('casing', v)} />
           </div>
         </>
       )}
       {item.type === 'booklet' && (
         <>
           <div className="line line--compact" />
-          <p className="spec-section-label">{SPEC_LABEL.booklet}</p>
+          <p className="spec-section-label">{t('itemEditor.specs.booklet')}</p>
           <div className="form-grid-2">
-            <SelectField label="Paper Weight" options={['150g', '200g', '300g']} value={d.weight ?? '150g'} onChange={v => set('weight', v)} />
-            <SelectField label="Size" options={['A4', 'A3 (Centerfold)']} value={d.size ?? 'A4'} onChange={v => set('size', v)} />
-            <SelectField label="Colors" options={['B&W', 'Colors']} value={d.colors ?? 'Colors'} onChange={v => set('colors', v)} />
-            <SelectField label="Print Type" options={['Front', 'Front & Back']} value={d.printType ?? 'Front & Back'} onChange={v => set('printType', v)} />
-            <SelectField label="Binding" options={['Staple', 'Glue']} value={d.casing ?? 'Staple'} onChange={v => set('casing', v)} />
+            <SelectField label={t('fields.paperWeight')} options={['150g', '200g', '300g']} value={d.weight ?? '150g'} onChange={v => set('weight', v)} />
+            <SelectField label={t('fields.size')} options={['A4', 'A3 (Centerfold)']} value={d.size ?? 'A4'} onChange={v => set('size', v)} />
+            <SelectField label={t('fields.colors')} options={['B&W', 'Colors']} value={d.colors ?? 'Colors'} onChange={v => set('colors', v)} />
+            <SelectField label={t('fields.printType')} options={['Front', 'Front & Back']} value={d.printType ?? 'Front & Back'} onChange={v => set('printType', v)} />
+            <SelectField label={t('fields.binding')} options={['Staple', 'Glue']} value={d.casing ?? 'Staple'} onChange={v => set('casing', v)} />
           </div>
         </>
       )}
       {item.type === 'card' && (
         <>
           <div className="line line--compact" />
-          <p className="spec-section-label">{SPEC_LABEL.card}</p>
+          <p className="spec-section-label">{t('itemEditor.specs.card')}</p>
           <div className="form-grid-2">
-            <SelectField label="Paper Weight" options={['200g', '300g', '400g']} value={d.weight ?? '300g'} onChange={v => set('weight', v)} />
-            <SelectField label="Size" options={['6×9 cm', '3×6 cm', 'A5', 'A4 ÷ 8']} value={d.size ?? '6×9 cm'} onChange={v => set('size', v)} />
-            <SelectField label="Finish" options={['Matte', 'Glossy', 'UV']} value={d.finish ?? 'Matte'} onChange={v => set('finish', v)} />
-            <SelectField label="Print Type" options={['Front', 'Front & Back']} value={d.printType ?? 'Front & Back'} onChange={v => set('printType', v)} />
+            <SelectField label={t('fields.paperWeight')} options={['200g', '300g', '400g']} value={d.weight ?? '300g'} onChange={v => set('weight', v)} />
+            <SelectField label={t('fields.size')} options={['6×9 cm', '3×6 cm', 'A5', 'A4 ÷ 8']} value={d.size ?? '6×9 cm'} onChange={v => set('size', v)} />
+            <SelectField label={t('fields.finish')} options={['Matte', 'Glossy', 'UV']} value={d.finish ?? 'Matte'} onChange={v => set('finish', v)} />
+            <SelectField label={t('fields.printType')} options={['Front', 'Front & Back']} value={d.printType ?? 'Front & Back'} onChange={v => set('printType', v)} />
           </div>
         </>
       )}
       {item.type === 'sticker' && (
         <>
           <div className="line line--compact" />
-          <p className="spec-section-label">{SPEC_LABEL.sticker}</p>
+          <p className="spec-section-label">{t('itemEditor.specs.sticker')}</p>
           <div className="form-grid-2">
-            <SelectField label="Material" options={['Vinyl', 'Paper', 'Clear']} value={d.material ?? 'Vinyl'} onChange={v => set('material', v)} />
-            <SelectField label="Shape" options={['Rectangle', 'Circle', 'Custom']} value={d.shape ?? 'Rectangle'} onChange={v => set('shape', v)} />
-            <SelectField label="Finish" options={['Glossy', 'Matte']} value={d.finish ?? 'Glossy'} onChange={v => set('finish', v)} />
+            <SelectField label={t('fields.material')} options={['Vinyl', 'Paper', 'Clear']} value={d.material ?? 'Vinyl'} onChange={v => set('material', v)} />
+            <SelectField label={t('fields.shape')} options={['Rectangle', 'Circle', 'Custom']} value={d.shape ?? 'Rectangle'} onChange={v => set('shape', v)} />
+            <SelectField label={t('fields.finish')} options={['Glossy', 'Matte']} value={d.finish ?? 'Glossy'} onChange={v => set('finish', v)} />
           </div>
         </>
       )}
       {item.type === 'poster' && (
         <>
           <div className="line line--compact" />
-          <p className="spec-section-label">{SPEC_LABEL.poster}</p>
+          <p className="spec-section-label">{t('itemEditor.specs.poster')}</p>
           <div className="form-grid-2">
-            <SelectField label="Size" options={['A3', 'A2', 'A1', 'A0']} value={d.size ?? 'A3'} onChange={v => set('size', v)} />
-            <SelectField label="Paper Weight" options={['150g', '200g', '300g']} value={d.weight ?? '200g'} onChange={v => set('weight', v)} />
-            <SelectField label="Finish" options={['Matte', 'Glossy']} value={d.finish ?? 'Matte'} onChange={v => set('finish', v)} />
-            <SelectField label="Print Type" options={['Front', 'Front & Back']} value={d.printType ?? 'Front'} onChange={v => set('printType', v)} />
+            <SelectField label={t('fields.size')} options={['A3', 'A2', 'A1', 'A0']} value={d.size ?? 'A3'} onChange={v => set('size', v)} />
+            <SelectField label={t('fields.paperWeight')} options={['150g', '200g', '300g']} value={d.weight ?? '200g'} onChange={v => set('weight', v)} />
+            <SelectField label={t('fields.finish')} options={['Matte', 'Glossy']} value={d.finish ?? 'Matte'} onChange={v => set('finish', v)} />
+            <SelectField label={t('fields.printType')} options={['Front', 'Front & Back']} value={d.printType ?? 'Front'} onChange={v => set('printType', v)} />
           </div>
         </>
       )}
 
-      {/* Main file preview at bottom */}
       {previewDoc && <PdfPreviewPanel doc={previewDoc} height={200} />}
     </div>
   );
 }
 
+// ───────────────────────────── MAIN COMPONENT ───────────────────────────────
 export default function PlaceNewOrder() {
+  return (
+    <Suspense fallback={null}>
+      <PlaceNewOrderInner />
+    </Suspense>
+  );
+}
+
+function PlaceNewOrderInner() {
+  const { t } = useTranslation(['common', 'placeNewOrder']);
   const { navigateTopLevel } = useNavigation();
 
   const [orderType, setOrderType]     = useState<OrderType>(null);
@@ -325,21 +318,37 @@ export default function PlaceNewOrder() {
   const [singleData, setSingleData]   = useState<Record<string, any>>({});
   const [submitted, setSubmitted]     = useState(false);
   const [notes, setNotes]             = useState('');
+  const [submitting, setSubmitting]   = useState(false);
+  const [error, setError]             = useState<string | null>(null);
 
   // Document library
   const [docs, setDocs]               = useState<ClientDocument[]>([]);
   const [selectedDocId, setSelectedDocId] = useState('');
 
-  // Local previews for the SINGLE order page (not inside items)
+  // Local previews for the SINGLE order page
   const [localSingleFile, setLocalSingleFile] = useState<File | null>(null);
   const [localSingleUrl, setLocalSingleUrl] = useState<string | null>(null);
   const [localCoverFile, setLocalCoverFile] = useState<File | null>(null);
   const [localCoverUrl, setLocalCoverUrl] = useState<string | null>(null);
 
+  // Fetch the client's uploaded files
   useEffect(() => {
-    fetch('/data/documents.json')
-      .then(r => r.json())
-      .then(setDocs)
+    getUploads()
+      .then(res => {
+        const mapped: ClientDocument[] = res.data.data.map(u => ({
+          id: String(u.id),
+          name: u.file_name || u.url.split('/').pop() || 'File',
+          fileName: u.url.split('/').pop() || 'File',
+          type: (u.url.split('.').pop() ?? 'PDF').toUpperCase(),
+          sizeKB: 0,
+          uploadedDate: '',
+          reorderCount: u.reorder_count ?? 0,
+          ownerType: 'client' as const,
+          ownerId: String(u.owner_id || u.uploaded_by),
+          url: u.url,
+        }));
+        setDocs(mapped);
+      })
       .catch(() => {});
   }, []);
 
@@ -377,7 +386,6 @@ export default function PlaceNewOrder() {
     setLocalCoverUrl(null);
   }
 
-  // Handler for single order file previews
   const handleSingleFilePreview = useCallback((file: File | null) => {
     if (localSingleUrl) URL.revokeObjectURL(localSingleUrl);
     if (file) {
@@ -405,16 +413,18 @@ export default function PlaceNewOrder() {
   if (submitted) {
     return (
       <AppShell role="client" activePage="place-new-order">
-        <Topbar title="Place New Order" />
+        <Topbar title={t('placeNewOrder:title')} />
         <section className="box success-message">
           <div className="success-icon">✓</div>
-          <h2>Order Submitted!</h2>
-          <p className="success-subtext">
-            We've received your order and will send you a quote shortly.
-          </p>
+          <h2>{t('placeNewOrder:success.title')}</h2>
+          <p className="success-subtext">{t('placeNewOrder:success.subtext')}</p>
           <div className="flex gap-3 center">
-            <button className="btn primary" onClick={() => navigateTopLevel('my-orders')}>View My Orders</button>
-            <button className="btn" onClick={resetAll}>Place Another</button>
+            <button className="btn primary" onClick={() => navigateTopLevel('my-orders')}>
+              {t('placeNewOrder:success.viewOrders')}
+            </button>
+            <button className="btn" onClick={resetAll}>
+              {t('placeNewOrder:success.placeAnother')}
+            </button>
           </div>
         </section>
       </AppShell>
@@ -423,22 +433,26 @@ export default function PlaceNewOrder() {
 
   return (
     <AppShell role="client" activePage="place-new-order">
-      <Topbar title="Place New Order" />
+      <Topbar title={t('placeNewOrder:title')} />
+
+      {error && (
+        <div className="box" style={{ background: '#fff0f0', color: '#c0392b', marginBottom: 12 }}>
+          {error}
+        </div>
+      )}
 
       {/* ── Order type choice ── */}
       {!orderType && (
         <section className="order-type-picker mx-auto">
-          <p className="picker-intro">
-            Choose how you'd like to place your order.
-          </p>
+          <p className="picker-intro">{t('placeNewOrder:picker.intro')}</p>
           <div className="grid-2 gap-4">
             <div className="box picker-card" onClick={() => setOrderType('package')}>
-              <h3 className="mb-2">Package Order</h3>
-              <p className="picker-description">Combine multiple print items (books, cards, posters…) into one order.</p>
+              <h3 className="mb-2">{t('placeNewOrder:picker.package.title')}</h3>
+              <p className="picker-description">{t('placeNewOrder:picker.package.description')}</p>
             </div>
             <div className="box picker-card" onClick={() => setOrderType('single')}>
-              <h3 className="mb-2">Individual Order</h3>
-              <p className="picker-description">Order a single print item with full customization options.</p>
+              <h3 className="mb-2">{t('placeNewOrder:picker.single.title')}</h3>
+              <p className="picker-description">{t('placeNewOrder:picker.single.description')}</p>
             </div>
           </div>
         </section>
@@ -447,11 +461,8 @@ export default function PlaceNewOrder() {
       {/* ── Package order ── */}
       {orderType === 'package' && (
         <>
-          <button
-            className="global-back-btn"
-            onClick={() => { setOrderType(null); setSelectedDocId(''); }}
-          >
-            ← Back
+          <button className="global-back-btn" onClick={() => { setOrderType(null); setSelectedDocId(''); }}>
+            {t('placeNewOrder:back')}
           </button>
 
           <section className="split panel-wrapper">
@@ -459,30 +470,26 @@ export default function PlaceNewOrder() {
               {/* Document library */}
               {docs.length > 0 && (
                 <div className="box">
-                  <h3 className="doc-library__heading">Use a file from your library</h3>
-                  <p className="doc-library__help">
-                    Select a saved file to use as the print file for your first item.
-                  </p>
+                  <h3 className="doc-library__heading">{t('placeNewOrder:library.title')}</h3>
+                  <p className="doc-library__help">{t('placeNewOrder:library.helpPackage')}</p>
                   <div className="doc-list">
                     {docs.map(doc => {
                       const isSelected = doc.id === selectedDocId;
                       return (
-                        <div
-                          key={doc.id}
-                          onClick={() => setSelectedDocId(isSelected ? '' : doc.id)}
-                          className={`doc-list__item ${isSelected ? 'doc-list__item--selected' : ''}`}
-                        >
-                          <div
-                            className="doc-list__badge"
-                            style={{ background: docTypeColor(doc.type) }}
-                          >
+                        <div key={doc.id} onClick={() => setSelectedDocId(isSelected ? '' : doc.id)}
+                          className={`doc-list__item ${isSelected ? 'doc-list__item--selected' : ''}`}>
+                          <div className="doc-list__badge" style={{ background: docTypeColor(doc.type) }}>
                             {doc.type}
                           </div>
                           <div className="doc-list__info">
                             <div className="doc-list__name">{doc.name}</div>
                             <div className="doc-list__meta">
                               {doc.fileName}&nbsp;·&nbsp;{fmtSize(doc.sizeKB)}
-                              {doc.reorderCount > 0 && <span className="doc-list__reorder">Ordered {doc.reorderCount}×</span>}
+                              {(doc.reorderCount ?? 0) > 0 && (
+                                <span className="doc-list__reorder">
+                                  {t('placeNewOrder:library.orderedCount', { count: doc.reorderCount })}
+                                </span>
+                              )}
                             </div>
                           </div>
                           {isSelected && <div className="doc-list__check">✓</div>}
@@ -495,66 +502,53 @@ export default function PlaceNewOrder() {
 
               {/* Type picker */}
               <div className="box">
-                <h3 className="add-items-heading">Add Items to Your Package</h3>
-                <p className="add-items-help">Click a product type to add it to your order.</p>
+                <h3 className="add-items-heading">{t('placeNewOrder:addItems.title')}</h3>
+                <p className="add-items-help">{t('placeNewOrder:addItems.help')}</p>
                 <div className="item-type-grid">
-                  {ITEM_TYPES.map(t => (
-                    <button
-                      key={t.id}
-                      onClick={() => addItem(t.id)}
-                      className="item-type-btn"
-                    >
-                      <span className="item-type-icon">{t.icon}</span>
-                      <span className="item-type-label">{t.label}</span>
+                  {ITEM_TYPES.map(itemType => (
+                    <button key={itemType.id} onClick={() => addItem(itemType.id)} className="item-type-btn">
+                      <span className="item-type-icon">{itemType.icon}</span>
+                      <span className="item-type-label">{t(`placeNewOrder:itemTypes.${itemType.id}`)}</span>
                     </button>
                   ))}
                 </div>
                 {items.length === 0 && (
-                  <p className="no-items-hint">No items added yet. Click a type above to add it.</p>
+                  <p className="no-items-hint">{t('placeNewOrder:addItems.empty')}</p>
                 )}
               </div>
 
               {/* Item editors */}
               {items.map((item, idx) => (
-                <ItemEditor
-                  key={item.id}
-                  item={item}
-                  onChange={data => updateItem(item.id, data)}
+                <ItemEditor key={item.id} item={item} onChange={data => updateItem(item.id, data)}
                   onRemove={() => removeItem(item.id)}
                   libraryDoc={idx === 0 ? selectedDoc : null}
-                  onClearLibraryDoc={() => setSelectedDocId('')}
-                />
+                  onClearLibraryDoc={() => setSelectedDocId('')} />
               ))}
 
               {/* Notes */}
               {items.length > 0 && (
                 <div className="box">
-                  <h3 className="notes-heading">Additional Notes</h3>
-                  <textarea
-                    className="input textarea"
-                    rows={3}
-                    placeholder="Special instructions, finishing details…"
-                    value={notes}
-                    onChange={e => setNotes(e.target.value)}
-                  />
+                  <h3 className="notes-heading">{t('placeNewOrder:notes.title')}</h3>
+                  <textarea className="input textarea" rows={3} placeholder={t('placeNewOrder:notes.placeholder')}
+                    value={notes} onChange={e => setNotes(e.target.value)} />
                 </div>
               )}
             </div>
 
             {/* Right sidebar */}
             <aside className="sticky-panel box">
-              <h3 className="summary__heading">Order Summary</h3>
+              <h3 className="summary__heading">{t('placeNewOrder:summary.title')}</h3>
               <div className="summary-rows">
                 {items.length === 0 ? (
-                  <p className="summary__empty">No items added yet.</p>
+                  <p className="summary__empty">{t('placeNewOrder:summary.empty')}</p>
                 ) : (
                   items.map(i => {
-                    const typeInfo = ITEM_TYPES.find(t => t.id === i.type)!;
+                    const typeInfo = ITEM_TYPES.find(itemType => itemType.id === i.type)!;
                     return (
                       <div key={i.id} className="summary-row">
-                        <span><span className="mr-1">{typeInfo.icon}</span>{typeInfo.label}</span>
+                        <span><span className="mr-1">{typeInfo.icon}</span>{t(`placeNewOrder:itemTypes.${typeInfo.id}`)}</span>
                         <span className="summary-row__value">
-                          {i.data.qty ? Number(i.data.qty).toLocaleString() + ' pcs' : '—'}
+                          {i.data.qty ? t('placeNewOrder:summary.pcs', { count: Number(i.data.qty).toLocaleString() }) : '—'}
                         </span>
                       </div>
                     );
@@ -562,20 +556,38 @@ export default function PlaceNewOrder() {
                 )}
                 {selectedDoc && (
                   <div className="summary-row summary-row--file">
-                    <span className="summary-row__label">File</span>
+                    <span className="summary-row__label">{t('placeNewOrder:summary.file')}</span>
                     <span className="summary-row__file-value">{selectedDoc.name}</span>
                   </div>
                 )}
               </div>
               <div className="summary-footer">
-                <p className="summary-footer__text">A price quote will be sent to you after submission.</p>
+                <p className="summary-footer__text">{t('placeNewOrder:summary.priceNote')}</p>
               </div>
-              <button
-                className="btn primary block"
-                disabled={items.length === 0}
-                onClick={() => setSubmitted(true)}
-              >
-                Submit Package
+              <button className="btn primary block" disabled={items.length === 0 || submitting}
+                onClick={async () => {
+                  setSubmitting(true);
+                  setError(null);
+                  try {
+                    const totalQty = items.reduce((sum, i) => sum + (Number(i.data.qty) || 1), 0);
+                    await createOrder({
+                      status: 'UNPRICED_PENDING',
+                      quantity: totalQty || 1,
+                      total_price: 0,
+                      order_items: items.map(item => ({
+                        item_type: getItemLabelEn(item.type),
+                        quantity: Number(item.data.qty) || 1,
+                        notes: buildOrderItemNotes(item.data, notes),
+                      })),
+                    });
+                    setSubmitted(true);
+                  } catch {
+                    setError(t('placeNewOrder:errors.submitFailed'));
+                  } finally {
+                    setSubmitting(false);
+                  }
+                }}>
+                {submitting ? t('placeNewOrder:submit.submitting') : t('placeNewOrder:submit.package')}
               </button>
             </aside>
           </section>
@@ -585,11 +597,8 @@ export default function PlaceNewOrder() {
       {/* ── Single order ── */}
       {orderType === 'single' && (
         <>
-          <button
-            className="global-back-btn"
-            onClick={() => { setOrderType(null); setSingleType(''); setSingleData({}); setSelectedDocId(''); }}
-          >
-            ← Back
+          <button className="global-back-btn" onClick={() => { setOrderType(null); setSingleType(''); setSingleData({}); setSelectedDocId(''); }}>
+            {t('placeNewOrder:back')}
           </button>
 
           <section className="split panel-wrapper">
@@ -597,30 +606,26 @@ export default function PlaceNewOrder() {
               {/* Document library */}
               {docs.length > 0 && (
                 <div className="box">
-                  <h3 className="doc-library__heading">Use a file from your library</h3>
-                  <p className="doc-library__help">
-                    Select a saved file to use as your print file, or upload a new one below.
-                  </p>
+                  <h3 className="doc-library__heading">{t('placeNewOrder:library.title')}</h3>
+                  <p className="doc-library__help">{t('placeNewOrder:library.helpSingle')}</p>
                   <div className="doc-list">
                     {docs.map(doc => {
                       const isSelected = doc.id === selectedDocId;
                       return (
-                        <div
-                          key={doc.id}
-                          onClick={() => setSelectedDocId(isSelected ? '' : doc.id)}
-                          className={`doc-list__item ${isSelected ? 'doc-list__item--selected' : ''}`}
-                        >
-                          <div
-                            className="doc-list__badge"
-                            style={{ background: docTypeColor(doc.type) }}
-                          >
+                        <div key={doc.id} onClick={() => setSelectedDocId(isSelected ? '' : doc.id)}
+                          className={`doc-list__item ${isSelected ? 'doc-list__item--selected' : ''}`}>
+                          <div className="doc-list__badge" style={{ background: docTypeColor(doc.type) }}>
                             {doc.type}
                           </div>
                           <div className="doc-list__info">
                             <div className="doc-list__name">{doc.name}</div>
                             <div className="doc-list__meta">
                               {doc.fileName}&nbsp;·&nbsp;{fmtSize(doc.sizeKB)}
-                              {doc.reorderCount > 0 && <span className="doc-list__reorder">Ordered {doc.reorderCount}×</span>}
+                              {(doc.reorderCount ?? 0) > 0 && (
+                                <span className="doc-list__reorder">
+                                  {t('placeNewOrder:library.orderedCount', { count: doc.reorderCount })}
+                                </span>
+                              )}
                             </div>
                           </div>
                           {isSelected && <div className="doc-list__check">✓</div>}
@@ -633,20 +638,17 @@ export default function PlaceNewOrder() {
 
               {/* Product type + specs */}
               <div className="box">
-                <h3 className="single-type-heading">What would you like to print?</h3>
-                <p className="single-type-help">Pick a product type to configure your order.</p>
+                <h3 className="single-type-heading">{t('placeNewOrder:singleType.title')}</h3>
+                <p className="single-type-help">{t('placeNewOrder:singleType.help')}</p>
 
                 <div className="item-type-grid single-type-grid">
-                  {ITEM_TYPES.map(t => {
-                    const active = singleType === t.id;
+                  {ITEM_TYPES.map(itemType => {
+                    const active = singleType === itemType.id;
                     return (
-                      <button
-                        key={t.id}
-                        onClick={() => { setSingleType(t.id as ItemType); setSingleData({}); }}
-                        className={`item-type-btn ${active ? 'item-type-btn--active' : ''}`}
-                      >
-                        <span className="item-type-icon">{t.icon}</span>
-                        <span className="item-type-label">{t.label}</span>
+                      <button key={itemType.id} onClick={() => { setSingleType(itemType.id as ItemType); setSingleData({}); }}
+                        className={`item-type-btn ${active ? 'item-type-btn--active' : ''}`}>
+                        <span className="item-type-icon">{itemType.icon}</span>
+                        <span className="item-type-label">{t(`placeNewOrder:itemTypes.${itemType.id}`)}</span>
                       </button>
                     );
                   })}
@@ -655,116 +657,175 @@ export default function PlaceNewOrder() {
                 {singleType && (
                   <>
                     <div className="line line--compact" />
-                    <p className="spec-section-label">File & Quantity</p>
-                    <FileField
-                      label="Print File (PDF)"
-                      value={singleData.pdf ?? null}
+                    <p className="spec-section-label">{t('placeNewOrder:itemEditor.fileAndQty')}</p>
+                    <FileField label={t('placeNewOrder:itemEditor.printFile')} value={singleData.pdf ?? null}
                       onChange={f => setSingleData(d => ({ ...d, pdf: f }))}
                       libraryDoc={selectedDoc}
                       onClearLibrary={() => setSelectedDocId('')}
-                      onFilePreview={handleSingleFilePreview}
-                    />
+                      onFilePreview={handleSingleFilePreview} />
                     <div className="field mb-4">
-                      <label className="field-label">Quantity</label>
-                      <input
-                        className="input"
-                        type="number"
-                        min={1}
-                        placeholder="e.g. 500"
-                        value={singleData.qty ?? ''}
-                        onChange={e => setSingleData(d => ({ ...d, qty: e.target.value }))}
-                      />
+                      <label className="field-label">{t('placeNewOrder:itemEditor.quantity')}</label>
+                      <input className="input" type="number" min={1} placeholder={t('placeNewOrder:itemEditor.qtyPlaceholderSingle')}
+                        value={singleData.qty ?? ''} onChange={e => setSingleData(d => ({ ...d, qty: e.target.value }))} />
                     </div>
 
-                    {/* Per-type specs – same as ItemEditor */}
                     {singleType === 'book' && (
                       <>
                         <div className="line line--compact" />
-                        <p className="spec-section-label">Book Specifications</p>
-                        <FileField
-                          label="Cover File"
-                          value={singleData.cover ?? null}
+                        <p className="spec-section-label">{t('placeNewOrder:itemEditor.specs.book')}</p>
+                        <FileField label={t('placeNewOrder:fields.coverFile')} value={singleData.cover ?? null}
                           onChange={f => setSingleData(d => ({ ...d, cover: f }))}
-                          onFilePreview={handleCoverFilePreview}
-                        />
+                          onFilePreview={handleCoverFilePreview} />
                         {localCoverFile && (
-                          <PdfPreviewPanel
-                            doc={{
-                              id: 'single-cover',
-                              name: localCoverFile.name,
-                              fileName: localCoverFile.name,
-                              type: (localCoverFile.name.split('.').pop() ?? 'PDF').toUpperCase(),
-                              sizeKB: Math.round(localCoverFile.size / 1024),
-                              uploadedDate: new Date().toLocaleDateString(),
-                              url: localCoverUrl!,
-                            }}
-                            height={200}
-                          />
+                          <PdfPreviewPanel doc={{
+                            id: 'single-cover', name: localCoverFile.name, fileName: localCoverFile.name,
+                            type: (localCoverFile.name.split('.').pop() ?? 'PDF').toUpperCase(),
+                            sizeKB: Math.round(localCoverFile.size / 1024),
+                            uploadedDate: new Date().toLocaleDateString(),
+                            url: localCoverUrl!, reorderCount: 0,
+                          }} height={200} />
                         )}
                         <div className="form-grid-2 mt-1">
-                          <SelectField label="Cover Finish" options={['Matte', 'Shiny', 'Transparent']} value={singleData.coverFinish ?? 'Matte'} onChange={v => setSingleData(d => ({ ...d, coverFinish: v }))} />
-                          <SelectField label="Colors" options={['B&W', 'Colors']} value={singleData.colors ?? 'Colors'} onChange={v => setSingleData(d => ({ ...d, colors: v }))} />
-                          <SelectField label="Size" options={['A4', 'A5']} value={singleData.size ?? 'A4'} onChange={v => setSingleData(d => ({ ...d, size: v }))} />
-                          <SelectField label="Print Type" options={['Front', 'Front & Back']} value={singleData.printType ?? 'Front & Back'} onChange={v => setSingleData(d => ({ ...d, printType: v }))} />
-                          <SelectField label="Binding" options={['Softcover', 'Hardcover', 'Spiral']} value={singleData.casing ?? 'Softcover'} onChange={v => setSingleData(d => ({ ...d, casing: v }))} />
+                          <SelectField label={t('placeNewOrder:fields.coverFinish')} options={['Matte', 'Shiny', 'Transparent']} value={singleData.coverFinish ?? 'Matte'} onChange={v => setSingleData(d => ({ ...d, coverFinish: v }))} />
+                          <SelectField label={t('placeNewOrder:fields.colors')} options={['B&W', 'Colors']} value={singleData.colors ?? 'Colors'} onChange={v => setSingleData(d => ({ ...d, colors: v }))} />
+                          <SelectField label={t('placeNewOrder:fields.size')} options={['A4', 'A5']} value={singleData.size ?? 'A4'} onChange={v => setSingleData(d => ({ ...d, size: v }))} />
+                          <SelectField label={t('placeNewOrder:fields.printType')} options={['Front', 'Front & Back']} value={singleData.printType ?? 'Front & Back'} onChange={v => setSingleData(d => ({ ...d, printType: v }))} />
+                          <SelectField label={t('placeNewOrder:fields.binding')} options={['Softcover', 'Hardcover', 'Spiral']} value={singleData.casing ?? 'Softcover'} onChange={v => setSingleData(d => ({ ...d, casing: v }))} />
                         </div>
                       </>
                     )}
-                    {/* (other types follow same pattern, omitted for brevity) */}
-                    {/* ... rest of spec blocks ... */}
+                    {singleType === 'booklet' && (
+                      <>
+                        <div className="line line--compact" />
+                        <p className="spec-section-label">{t('placeNewOrder:itemEditor.specs.booklet')}</p>
+                        <div className="form-grid-2">
+                          <SelectField label={t('placeNewOrder:fields.paperWeight')} options={['150g', '200g', '300g']} value={singleData.weight ?? '150g'} onChange={v => setSingleData(d => ({ ...d, weight: v }))} />
+                          <SelectField label={t('placeNewOrder:fields.size')} options={['A4', 'A3 (Centerfold)']} value={singleData.size ?? 'A4'} onChange={v => setSingleData(d => ({ ...d, size: v }))} />
+                          <SelectField label={t('placeNewOrder:fields.colors')} options={['B&W', 'Colors']} value={singleData.colors ?? 'Colors'} onChange={v => setSingleData(d => ({ ...d, colors: v }))} />
+                          <SelectField label={t('placeNewOrder:fields.printType')} options={['Front', 'Front & Back']} value={singleData.printType ?? 'Front & Back'} onChange={v => setSingleData(d => ({ ...d, printType: v }))} />
+                          <SelectField label={t('placeNewOrder:fields.binding')} options={['Staple', 'Glue']} value={singleData.casing ?? 'Staple'} onChange={v => setSingleData(d => ({ ...d, casing: v }))} />
+                        </div>
+                      </>
+                    )}
+                    {singleType === 'card' && (
+                      <>
+                        <div className="line line--compact" />
+                        <p className="spec-section-label">{t('placeNewOrder:itemEditor.specs.card')}</p>
+                        <div className="form-grid-2">
+                          <SelectField label={t('placeNewOrder:fields.paperWeight')} options={['200g', '300g', '400g']} value={singleData.weight ?? '300g'} onChange={v => setSingleData(d => ({ ...d, weight: v }))} />
+                          <SelectField label={t('placeNewOrder:fields.size')} options={['6×9 cm', '3×6 cm', 'A5', 'A4 ÷ 8']} value={singleData.size ?? '6×9 cm'} onChange={v => setSingleData(d => ({ ...d, size: v }))} />
+                          <SelectField label={t('placeNewOrder:fields.finish')} options={['Matte', 'Glossy', 'UV']} value={singleData.finish ?? 'Matte'} onChange={v => setSingleData(d => ({ ...d, finish: v }))} />
+                          <SelectField label={t('placeNewOrder:fields.printType')} options={['Front', 'Front & Back']} value={singleData.printType ?? 'Front & Back'} onChange={v => setSingleData(d => ({ ...d, printType: v }))} />
+                        </div>
+                      </>
+                    )}
+                    {singleType === 'sticker' && (
+                      <>
+                        <div className="line line--compact" />
+                        <p className="spec-section-label">{t('placeNewOrder:itemEditor.specs.sticker')}</p>
+                        <div className="form-grid-2">
+                          <SelectField label={t('placeNewOrder:fields.material')} options={['Vinyl', 'Paper', 'Clear']} value={singleData.material ?? 'Vinyl'} onChange={v => setSingleData(d => ({ ...d, material: v }))} />
+                          <SelectField label={t('placeNewOrder:fields.shape')} options={['Rectangle', 'Circle', 'Custom']} value={singleData.shape ?? 'Rectangle'} onChange={v => setSingleData(d => ({ ...d, shape: v }))} />
+                          <SelectField label={t('placeNewOrder:fields.finish')} options={['Glossy', 'Matte']} value={singleData.finish ?? 'Glossy'} onChange={v => setSingleData(d => ({ ...d, finish: v }))} />
+                        </div>
+                      </>
+                    )}
+                    {singleType === 'poster' && (
+                      <>
+                        <div className="line line--compact" />
+                        <p className="spec-section-label">{t('placeNewOrder:itemEditor.specs.poster')}</p>
+                        <div className="form-grid-2">
+                          <SelectField label={t('placeNewOrder:fields.size')} options={['A3', 'A2', 'A1', 'A0']} value={singleData.size ?? 'A3'} onChange={v => setSingleData(d => ({ ...d, size: v }))} />
+                          <SelectField label={t('placeNewOrder:fields.paperWeight')} options={['150g', '200g', '300g']} value={singleData.weight ?? '200g'} onChange={v => setSingleData(d => ({ ...d, weight: v }))} />
+                          <SelectField label={t('placeNewOrder:fields.finish')} options={['Matte', 'Glossy']} value={singleData.finish ?? 'Matte'} onChange={v => setSingleData(d => ({ ...d, finish: v }))} />
+                          <SelectField label={t('placeNewOrder:fields.printType')} options={['Front', 'Front & Back']} value={singleData.printType ?? 'Front'} onChange={v => setSingleData(d => ({ ...d, printType: v }))} />
+                        </div>
+                      </>
+                    )}
+
+                    {localSingleFile && (
+                      <PdfPreviewPanel doc={{
+                        id: 'single-main', name: localSingleFile.name, fileName: localSingleFile.name,
+                        type: (localSingleFile.name.split('.').pop() ?? 'PDF').toUpperCase(),
+                        sizeKB: Math.round(localSingleFile.size / 1024),
+                        uploadedDate: new Date().toLocaleDateString(),
+                        url: localSingleUrl!, reorderCount: 0,
+                      }} height={200} />
+                    )}
                   </>
                 )}
               </div>
 
               {singleType && (
                 <div className="box">
-                  <h3 className="notes-heading">Additional Notes</h3>
-                  <textarea
-                    className="input textarea"
-                    rows={3}
-                    placeholder="Special instructions, finishing details…"
-                    value={notes}
-                    onChange={e => setNotes(e.target.value)}
-                  />
+                  <h3 className="notes-heading">{t('placeNewOrder:notes.title')}</h3>
+                  <textarea className="input textarea" rows={3} placeholder={t('placeNewOrder:notes.placeholder')}
+                    value={notes} onChange={e => setNotes(e.target.value)} />
                 </div>
               )}
             </div>
 
             {/* Right sidebar */}
             <aside className="sticky-panel box">
-              <h3 className="summary__heading">Order Summary</h3>
+              <h3 className="summary__heading">{t('placeNewOrder:summary.title')}</h3>
               <div className="summary-rows">
                 <div className="summary-row">
-                  <span className="summary-row__label">Type</span>
+                  <span className="summary-row__label">{t('placeNewOrder:summary.type')}</span>
                   {singleType ? (
                     <span className="summary-badge">
-                      {ITEM_TYPES.find(t => t.id === singleType)?.icon}&nbsp;
-                      {ITEM_TYPES.find(t => t.id === singleType)?.label}
+                      {ITEM_TYPES.find(itemType => itemType.id === singleType)?.icon}&nbsp;
+                      {t(`placeNewOrder:itemTypes.${singleType}`)}
                     </span>
                   ) : <span className="muted">—</span>}
                 </div>
                 <div className="summary-row summary-row--file">
-                  <span className="summary-row__label">File</span>
+                  <span className="summary-row__label">{t('placeNewOrder:summary.file')}</span>
                   <span className="summary-row__file-value">
                     {selectedDoc ? selectedDoc.name : localSingleFile ? localSingleFile.name : '—'}
                   </span>
                 </div>
                 <div className="summary-row">
-                  <span className="summary-row__label">Quantity</span>
+                  <span className="summary-row__label">{t('placeNewOrder:summary.quantity')}</span>
                   <span className="summary-row__value">
-                    {singleData.qty ? Number(singleData.qty).toLocaleString() + ' pcs' : '—'}
+                    {singleData.qty ? t('placeNewOrder:summary.pcs', { count: Number(singleData.qty).toLocaleString() }) : '—'}
                   </span>
                 </div>
               </div>
               <div className="summary-footer">
-                <p className="summary-footer__text">A price quote will be sent to you after submission.</p>
+                <p className="summary-footer__text">{t('placeNewOrder:summary.priceNote')}</p>
               </div>
-              <button
-                className="btn primary block"
-                disabled={!singleType}
-                onClick={() => setSubmitted(true)}
-              >
-                Submit Order
+              <button className="btn primary block" disabled={!singleType || submitting}
+                onClick={async () => {
+                  setSubmitting(true);
+                  setError(null);
+                  try {
+                    if (singleData.pdf instanceof File) {
+                      await createUpload({ file: singleData.pdf, file_type: 'content' });
+                    }
+                    if (singleData.cover instanceof File) {
+                      await createUpload({ file: singleData.cover, file_type: 'cover' });
+                    }
+                    const qty = Number(singleData.qty) || 1;
+                    await createOrder({
+                      status: 'UNPRICED_PENDING',
+                      quantity: qty,
+                      total_price: 0,
+                      order_items: [
+                        {
+                          item_type: getItemLabelEn(singleType),
+                          quantity: qty,
+                          notes: buildOrderItemNotes(singleData, notes),
+                        },
+                      ],
+                    });
+                    setSubmitted(true);
+                  } catch {
+                    setError(t('placeNewOrder:errors.submitFailed'));
+                  } finally {
+                    setSubmitting(false);
+                  }
+                }}>
+                {submitting ? t('placeNewOrder:submit.submitting') : t('placeNewOrder:submit.single')}
               </button>
             </aside>
           </section>

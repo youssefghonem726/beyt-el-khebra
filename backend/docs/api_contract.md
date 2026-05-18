@@ -178,3 +178,204 @@ Matches by supabase_uid
 Adds user_role to JWT claims
 Works with Supabase login
 Does not block token generation
+///////////////////////////////////////////
+---
+
+# Dashboard Statistics
+
+## Get Dashboard Statistics
+
+```txt
+GET /api/dashboard/stats/
+```
+
+Authentication required.
+
+Access:
+- owner
+- staff
+
+Clients are not allowed to access dashboard statistics.
+
+---
+
+## Purpose
+
+This endpoint returns live dashboard statistics calculated dynamically from the database.
+
+No `dashboard_statistics` table is used.
+
+All statistics are generated from:
+- orders
+- order_items
+- quotes
+- quote_items
+- order_status_history
+
+This ensures dashboard values are always accurate and up to date.
+
+---
+
+## Statistics Included
+
+### Orders
+
+```txt
+total_orders
+unpriced_orders
+confirmed_orders
+in_progress_orders
+completed_orders
+cancelled_orders
+```
+
+### Payments
+
+```txt
+total_order_value
+total_paid_amount
+total_remaining_amount
+unpaid_orders
+partial_paid_orders
+paid_orders
+```
+
+### Production
+
+```txt
+total_items
+total_quantity
+total_completed_quantity
+overall_progress_percentage
+items_in_printing
+items_in_packaging
+items_ready
+```
+
+### Quotes
+
+```txt
+total_quotes
+pending_quotes
+approved_quotes
+rejected_quotes
+```
+
+### Recent Activity
+
+```txt
+latest_orders
+latest_quotes
+latest_status_updates
+```
+
+---
+
+## Example Response
+
+```json
+{
+  "success": true,
+  "message": "Dashboard statistics fetched successfully",
+  "data": {
+    "orders": {
+      "total_orders": 3,
+      "unpriced_orders": 2,
+      "confirmed_orders": 1,
+      "in_progress_orders": 0,
+      "completed_orders": 0,
+      "cancelled_orders": 0
+    },
+    "payments": {
+      "total_order_value": 15000.0,
+      "total_paid_amount": 2000.0,
+      "total_remaining_amount": 13000.0,
+      "unpaid_orders": 2,
+      "partial_paid_orders": 1,
+      "paid_orders": 0
+    },
+    "production": {
+      "total_items": 6,
+      "total_quantity": 4500,
+      "total_completed_quantity": 1750,
+      "overall_progress_percentage": 38,
+      "items_in_printing": 3,
+      "items_in_packaging": 1,
+      "items_ready": 0
+    },
+    "quotes": {
+      "total_quotes": 0,
+      "pending_quotes": 0,
+      "approved_quotes": 0,
+      "rejected_quotes": 0
+    },
+    "recent_activity": {
+      "latest_orders": [],
+      "latest_quotes": [],
+      "latest_status_updates": []
+    }
+  }
+}
+```
+
+---
+
+## Dynamic Calculations
+
+### Remaining Revenue
+
+```txt
+total_remaining_amount =
+sum(total_price) - sum(paid_amount)
+```
+
+### Overall Production Progress
+
+```txt
+overall_progress_percentage =
+sum(completed_quantity) / sum(quantity)
+```
+
+### Items In Production Steps
+
+Calculated dynamically from:
+
+```txt
+order_items.current_step
+```
+
+Examples:
+- printing
+- packaging
+- ready
+
+---
+
+## Permission Rules
+
+```txt
+owner  -> allowed
+staff  -> allowed
+client -> forbidden
+```
+
+Clients receive:
+
+```txt
+403 Forbidden
+```
+
+if they try to access dashboard statistics.
+
+---
+
+## Testing Status
+
+Tested successfully:
+- dashboard authentication
+- owner/staff role protection
+- dynamic orders statistics
+- dynamic payments statistics
+- production progress calculations
+- quotes statistics
+- recent activity retrieval

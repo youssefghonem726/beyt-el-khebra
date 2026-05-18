@@ -1,130 +1,257 @@
-import { useState, useEffect } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import AppShell from '../../components/AppShell';
 import StatusBadge from '../../components/StatusBadge';
 import { useNavigation } from '../../context/NavigationContext';
 import DocumentSection from '../../components/DocumentSection';
+import { getOrders } from '../../lib/api/ordersQuotesService';
+import { getClients } from '../../lib/api/invoicesClientsSettingsService';
+import { getPricingByUser, updatePricingByUser } from '../../lib/api/pricingService';
+import type { Client } from '../../lib/api/invoicesClientsSettingsService';
+import type { PricingRow } from '../../lib/api/pricingService';
 
-// ── Types ──────────────────────────────────────────────────────────────────
+const DASH = '-';
 
-interface BasePricingRow {
-  id: string;
-  product: string;
-  size: string;
-  paper: string;
-  pricePerUnit: number;
-  minQty: number;
-  active: boolean;
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
+
+type ClientOrder = {
+  id: number;
+  status?: string;
+  customer?: number | string | null;
+  customer_id?: number | string | null;
+  client_id?: number | string | null;
+  total_price?: number | string | null;
+  created_at?: string | null;
+  product_summary?: string | null;
+  item_details?: Array<{
+    item_type?: string | null;
+    quantity?: number | string | null;
+  }>;
+  upload?: {
+    file_name?: string | null;
+  } | null;
+};
+
+const PRICING_LABELS: { key: keyof PricingRow; labelKey: string }[] = [
+  { key: 'front', labelKey: 'front' },
+  { key: 'front_and_back', labelKey: 'front_and_back' },
+  { key: 'digital_cover_300g', labelKey: 'digital_cover_300g' },
+  { key: 'digital_cover_200g', labelKey: 'digital_cover_200g' },
+  { key: 'offset_cover_200g', labelKey: 'offset_cover_200g' },
+  { key: 'offset_cover_300g', labelKey: 'offset_cover_300g' },
+  { key: 'coil_size_10', labelKey: 'coil_size_10' },
+  { key: 'coil_size_12', labelKey: 'coil_size_12' },
+  { key: 'coil_size_14', labelKey: 'coil_size_14' },
+  { key: 'coil_size_16', labelKey: 'coil_size_16' },
+  { key: 'coil_size_18', labelKey: 'coil_size_18' },
+  { key: 'coil_size_20', labelKey: 'coil_size_20' },
+  { key: 'coil_size_22', labelKey: 'coil_size_22' },
+  { key: 'coil_size_25', labelKey: 'coil_size_25' },
+  { key: 'coil_size_28', labelKey: 'coil_size_28' },
+  { key: 'coil_size_30', labelKey: 'coil_size_30' },
+  { key: 'coil_size_32', labelKey: 'coil_size_32' },
+  { key: 'coil_size_35', labelKey: 'coil_size_35' },
+];
+
+function unwrapList<T>(value: unknown): T[] {
+  if (Array.isArray(value)) return value as T[];
+  if (value && typeof value === 'object' && Array.isArray((value as any).results)) {
+    return (value as any).results as T[];
+  }
+  return [];
 }
 
-interface ClientPricingOverride {
-  id: string;
-  pricePerUnit: number;
-  active: boolean;
+function toNumber(value: unknown): number {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  if (typeof value === 'string') {
+    const parsed = Number(value.replace(/,/g, '').trim());
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
 }
 
-interface ClientDetail {
-  id: string;
-  name: string;
-  phone: string;
-  address: string;
-  email: string;
-  stats: { label: string; value: string }[];
-  pricingOverrides?: ClientPricingOverride[];
-  orders: {
-    id: string;
-    product: string;
-    status: string;
-    date: string;
-    total: string;
-  }[];
+function formatDate(isoDate: string | null | undefined): string {
+  if (!isoDate) return DASH;
+  const date = new Date(isoDate);
+  if (Number.isNaN(date.getTime())) return DASH;
+  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-interface MergedPricingRow extends BasePricingRow {
-  pricePerUnit: number;
-  active: boolean;
+function formatAmount(amount: number): string {
+  return `EGP ${amount.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-// ── Helper ─────────────────────────────────────────────────────────────────
+function formatCustomerSinceT(since: string | null, t: TFn): string {
+  if (!since) return DASH;
+  const start = new Date(since);
+  if (Number.isNaN(start.getTime())) return DASH;
 
-function fmt(n: number) {
-  return n.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const now = new Date();
+  let months = (now.getFullYear() - start.getFullYear()) * 12 + now.getMonth() - start.getMonth();
+  if (now.getDate() < start.getDate()) months -= 1;
+  months = Math.max(months, 0);
+
+  const years = Math.floor(months / 12);
+  const remainingMonths = months % 12;
+
+  if (years > 0) {
+    return t('clientManagement:detail.stats.customerSinceFmt', { years, months: remainingMonths });
+  }
+  return t('clientManagement:detail.stats.customerSinceMonths', { months: remainingMonths });
 }
 
-// ── Component ──────────────────────────────────────────────────────────────
+function getOrderClientId(order: ClientOrder): number {
+  return toNumber(order.customer ?? order.customer_id ?? order.client_id);
+}
+
+function getProductSummary(order: ClientOrder, t: TFn): string {
+  const summary = (order.product_summary || '').trim();
+  if (summary && summary !== `Order #${order.id}`) return summary;
+
+  if (Array.isArray(order.item_details) && order.item_details.length > 0) {
+    return order.item_details
+      .map(item => {
+        const name = (item.item_type || 'Order Item').trim();
+        const quantity = toNumber(item.quantity) || 1;
+        return `${name} (${t('clientManagement:detail.orders.pcs', { count: quantity })})`;
+      })
+      .join(', ');
+  }
+
+  const uploadName = order.upload?.file_name?.trim();
+  return uploadName || `Order #${order.id}`;
+}
 
 export default function ClientDetail() {
-  const { id: clientId = 'client-detail-ahmed' } = useParams<{ id: string }>();
+  return (
+    <Suspense fallback={null}>
+      <ClientDetailInner />
+    </Suspense>
+  );
+}
+
+function ClientDetailInner() {
+  const { t } = useTranslation(['common', 'clientManagement']);
+  const { id: clientId = '0' } = useParams<{ id: string }>();
   const { navigateTopLevel } = useNavigation();
 
-  const [client, setClient]         = useState<ClientDetail | null>(null);
-  const [pricing, setPricing]       = useState<MergedPricingRow[]>([]);
-  const [loading, setLoading]       = useState(true);
-  const [error, setError]           = useState<string | null>(null);
-  const [editId, setEditId]         = useState<string | null>(null);
-  const [editPrice, setEditPrice]   = useState('');
-  const [editMinQty, setEditMinQty] = useState('');
-  const [toast, setToast]           = useState<string | null>(null);
+  const [client, setClient] = useState<Client | null>(null);
+  const [orders, setOrders] = useState<ClientOrder[]>([]);
+  const [pricing, setPricing] = useState<PricingRow | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [editingField, setEditingField] = useState<keyof PricingRow | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    Promise.all([
-      fetch('/data/pricing.json').then(r => { if (!r.ok) throw new Error(); return r.json() as Promise<BasePricingRow[]>; }),
-      fetch('/data/clients-detail.json').then(r => { if (!r.ok) throw new Error(); return r.json() as Promise<ClientDetail[]>; }),
-    ])
-      .then(([basePricing, clients]) => {
-        const found = clients.find(c => c.id === clientId);
-        if (!found) { setError(`Client with ID "${clientId}" not found.`); setLoading(false); return; }
+    let isMounted = true;
 
-        const merged: MergedPricingRow[] = basePricing.map(base => {
-          const override = found.pricingOverrides?.find(o => o.id === base.id);
-          return override
-            ? { ...base, pricePerUnit: override.pricePerUnit, active: override.active }
-            : { ...base };
-        });
+    async function fetchData() {
+      setLoading(true);
+      setError(null);
 
-        setClient(found);
-        setPricing(merged);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error('Failed to load data:', err);
-        setError('Could not load client data. Please try again later.');
-        setLoading(false);
-      });
+      try {
+        const numericClientId = Number(clientId);
+
+        const [clientsRes, ordersRes, pricingRes] = await Promise.all([
+          getClients(),
+          getOrders(),
+          getPricingByUser(numericClientId).catch(() => null),
+        ]);
+
+        if (!isMounted) return;
+
+        const clients = unwrapList<Client>(clientsRes.data.data);
+        const allOrders = unwrapList<ClientOrder>(ordersRes.data.data);
+        const foundClient = clients.find(item => Number(item.id) === numericClientId);
+
+        if (!foundClient) {
+          setError(t('clientManagement:detail.notFound', { id: clientId }));
+          return;
+        }
+
+        setClient(foundClient);
+        setOrders(allOrders.filter(order => getOrderClientId(order) === numericClientId));
+        setPricing(pricingRes?.data?.data ?? null);
+      } catch (err) {
+        console.error('Failed to load client detail:', err);
+        if (isMounted) setError(t('clientManagement:detail.error'));
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+
+    fetchData();
+
+    return () => {
+      isMounted = false;
+    };
   }, [clientId]);
 
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 2500);
-    return () => clearTimeout(t);
-  }, [toast]);
+  const stats = useMemo(() => {
+    const totalOrders = orders.length;
+    const totalSpent = orders.reduce((sum, order) => sum + toNumber(order.total_price), 0);
+    const billableOrders = orders.filter(order => toNumber(order.total_price) > 0).length;
+    const averageOrderPrice = billableOrders > 0 ? totalSpent / billableOrders : 0;
 
-  const startEdit = (row: MergedPricingRow) => {
-    setEditId(row.id);
-    setEditPrice(String(row.pricePerUnit));
-    setEditMinQty(String(row.minQty));
+    return [
+      { labelKey: 'totalOrders', value: String(totalOrders) },
+      { labelKey: 'avgPrice', value: formatAmount(averageOrderPrice) },
+      { labelKey: 'customerSince', value: formatCustomerSinceT(client?.since ?? null, t as TFn) },
+      { labelKey: 'totalSpent', value: formatAmount(totalSpent) },
+    ];
+  }, [client?.since, orders, t]);
+
+  const pastOrders = useMemo(
+    () =>
+      orders.map(order => ({
+        id: `#${order.id}`,
+        fullId: String(order.id),
+        product: getProductSummary(order, t as TFn),
+        status: order.status || 'UNPRICED_PENDING',
+        date: formatDate(order.created_at),
+        total: formatAmount(toNumber(order.total_price)),
+      })),
+    [orders, t]
+  );
+
+  const startEdit = (field: keyof PricingRow, currentValue: unknown) => {
+    setEditingField(field);
+    setEditValue(String(toNumber(currentValue)));
   };
 
-  const saveEdit = (rowId: string) => {
-    const price = parseFloat(editPrice);
-    const qty   = parseInt(editMinQty, 10);
-    if (isNaN(price) || price <= 0 || isNaN(qty) || qty <= 0) return;
-    setPricing(ps => ps.map(p => p.id === rowId ? { ...p, pricePerUnit: price, minQty: qty } : p));
-    setEditId(null);
-    setToast('Price updated.');
+  const cancelEdit = () => {
+    setEditingField(null);
+    setEditValue('');
   };
 
-  const toggleActive = (rowId: string) => {
-    setPricing(ps => ps.map(p => p.id === rowId ? { ...p, active: !p.active } : p));
-  };
+  const saveEdit = async (field: keyof PricingRow) => {
+    const value = toNumber(editValue);
+    if (value < 0 || !Number.isFinite(value)) return;
 
-  // ── Loading / error states ─────────────────────────────────────────────
+    setSaving(true);
+
+    try {
+      const res = await updatePricingByUser(Number(clientId), {
+        [field]: value,
+      } as Partial<PricingRow>);
+
+      setPricing(res.data.data);
+      cancelEdit();
+    } catch (err) {
+      console.error('Failed to update pricing:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (loading) {
     return (
       <AppShell role="owner" activePage="client-management">
-        <header className="topbar"><h1>Client Details</h1></header>
-        <section className="box"><div className="loading-state">Loading client details...</div></section>
+        <header className="topbar"><h1>{t('clientManagement:detail.title')}</h1></header>
+        <section className="box"><div className="loading-state">{t('clientManagement:detail.loading')}</div></section>
       </AppShell>
     );
   }
@@ -132,193 +259,161 @@ export default function ClientDetail() {
   if (error || !client) {
     return (
       <AppShell role="owner" activePage="client-management">
-        <header className="topbar"><h1>Client Details</h1></header>
-        <section className="box"><div className="error-state">{error || 'Client data unavailable.'}</div></section>
+        <header className="topbar"><h1>{t('clientManagement:detail.title')}</h1></header>
+        <section className="box">
+          <div className="error-state">{error || t('clientManagement:detail.unavailable')}</div>
+        </section>
       </AppShell>
     );
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────
-
   return (
     <AppShell role="owner" activePage="client-management">
       <header className="topbar">
-        <h1>Client Details - {client.name}</h1>
+        <h1>{t('clientManagement:detail.titleWithName', { name: client.name })}</h1>
         <button className="btn" onClick={() => navigateTopLevel('client-management')}>
-          Back to Client Management
+          {t('clientManagement:detail.back')}
         </button>
       </header>
 
-      {/* ── Info ── */}
       <section className="box">
         <div className="form-grid-2">
-          <p><strong>Name:</strong> {client.name}</p>
-          <p><strong>Phone Number:</strong> {client.phone}</p>
-          <p><strong>Address:</strong> {client.address}</p>
-          <p><strong>Email:</strong> {client.email}</p>
+          <p><strong>{t('clientManagement:detail.name')}:</strong> {client.name}</p>
+          <p><strong>{t('clientManagement:detail.phone')}:</strong> {client.phone || DASH}</p>
+          <p><strong>{t('clientManagement:detail.address')}:</strong> {client.address || DASH}</p>
+          <p><strong>{t('clientManagement:detail.email')}:</strong> {client.email}</p>
         </div>
         <div className="line" />
         <div className="stats-grid">
-          {client.stats.map(s => (
-            <div key={s.label} className="stat-item">
-              <p>{s.label}</p>
-              <h4>{s.value}</h4>
+          {stats.map(item => (
+            <div key={item.labelKey} className="stat-item">
+              <p>{t(`clientManagement:detail.stats.${item.labelKey}`)}</p>
+              <h4>{item.value}</h4>
             </div>
           ))}
         </div>
       </section>
 
-      {/* ── Documents ── */}
       <section className="box" style={{ marginTop: 14 }}>
         <div className="table-head" style={{ marginBottom: 14 }}>
-          <h3>Documents</h3>
+          <h3>{t('clientManagement:detail.pricing.title')}</h3>
           <p style={{ fontSize: 13, color: 'var(--muted)' }}>
-            Click a document to expand its preview. Rename, download, or remove files below.
+            {pricing?.source === 'custom'
+              ? t('clientManagement:detail.pricing.custom')
+              : t('clientManagement:detail.pricing.default')}
           </p>
         </div>
-        <DocumentSection clientId={clientId} />
-      </section>
 
-      {/* ── Client Pricing ── */}
-      <section className="box" style={{ marginTop: 14 }}>
-        <div className="table-head" style={{ marginBottom: 14 }}>
-          <h3>Client Pricing</h3>
-          <p style={{ fontSize: 13, color: 'var(--muted)' }}>
-            Overrides default pricing for this client. Click Edit to change a row.
-          </p>
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Product</th>
-              <th>Size</th>
-              <th>Paper / Material</th>
-              <th style={{ textAlign: 'right' }}>Price / Unit (EGP)</th>
-              <th style={{ textAlign: 'center' }}>Min Qty</th>
-              <th style={{ textAlign: 'center' }}>Status</th>
-              <th style={{ textAlign: 'center' }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pricing.map(row => (
-              <tr key={row.id} style={{ opacity: row.active ? 1 : 0.5 }}>
-                <td style={{ fontWeight: 500 }}>{row.product}</td>
-                <td>{row.size}</td>
-                <td>{row.paper}</td>
+        {!pricing ? (
+          <p className="no-results">{t('clientManagement:detail.pricing.empty')}</p>
+        ) : (
+          <table className="orders-table">
+            <thead>
+              <tr>
+                <th>{t('clientManagement:detail.pricing.colItem')}</th>
+                <th style={{ textAlign: 'right' }}>{t('clientManagement:detail.pricing.colPrice')}</th>
+                <th style={{ textAlign: 'center' }}>{t('clientManagement:detail.pricing.colActions')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {PRICING_LABELS.map(({ key, labelKey }) => {
+                const currentValue = pricing[key];
+                const isEditing = editingField === key;
 
-                {editId === row.id ? (
-                  <>
-                    <td style={{ textAlign: 'right' }}>
-                      <input
-                        className="input"
-                        type="number"
-                        min="0.01"
-                        step="0.01"
-                        value={editPrice}
-                        onChange={e => setEditPrice(e.target.value)}
-                        style={{ width: 90, textAlign: 'right', padding: '4px 8px' }}
-                      />
+                return (
+                  <tr key={String(key)}>
+                    <td style={{ fontWeight: 500 }}>{t(`clientManagement:detail.pricing.items.${labelKey}`)}</td>
+                    <td style={{ textAlign: 'right', fontWeight: 600 }}>
+                      {isEditing ? (
+                        <input
+                          className="input"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={editValue}
+                          onChange={event => setEditValue(event.target.value)}
+                          style={{ width: 110, textAlign: 'right', padding: '4px 8px' }}
+                        />
+                      ) : (
+                        toNumber(currentValue).toFixed(2)
+                      )}
                     </td>
                     <td style={{ textAlign: 'center' }}>
-                      <input
-                        className="input"
-                        type="number"
-                        min="1"
-                        value={editMinQty}
-                        onChange={e => setEditMinQty(e.target.value)}
-                        style={{ width: 70, textAlign: 'center', padding: '4px 8px' }}
-                      />
+                      {isEditing ? (
+                        <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+                          <button
+                            className="btn primary"
+                            style={{ padding: '4px 12px', fontSize: 12 }}
+                            disabled={saving}
+                            onClick={() => saveEdit(key)}
+                          >
+                            {saving ? t('clientManagement:detail.pricing.saving') : t('clientManagement:detail.pricing.save')}
+                          </button>
+                          <button
+                            className="btn"
+                            style={{ padding: '4px 12px', fontSize: 12 }}
+                            onClick={cancelEdit}
+                          >
+                            {t('clientManagement:detail.pricing.cancel')}
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          className="btn"
+                          style={{ padding: '4px 12px', fontSize: 12 }}
+                          onClick={() => startEdit(key, currentValue)}
+                        >
+                          {t('clientManagement:detail.pricing.edit')}
+                        </button>
+                      )}
                     </td>
-                  </>
-                ) : (
-                  <>
-                    <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(row.pricePerUnit)}</td>
-                    <td style={{ textAlign: 'center' }}>{row.minQty}</td>
-                  </>
-                )}
-
-                <td style={{ textAlign: 'center' }}>
-                  <span
-                    className={`status ${row.active ? 'done' : 'canceled'}`}
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => toggleActive(row.id)}
-                    title="Click to toggle"
-                  >
-                    {row.active ? 'Active' : 'Inactive'}
-                  </span>
-                </td>
-
-                <td style={{ textAlign: 'center' }}>
-                  {editId === row.id ? (
-                    <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
-                      <button
-                        className="btn primary"
-                        style={{ padding: '4px 12px', fontSize: 12 }}
-                        onClick={() => saveEdit(row.id)}
-                      >
-                        Save
-                      </button>
-                      <button
-                        className="btn"
-                        style={{ padding: '4px 12px', fontSize: 12 }}
-                        onClick={() => setEditId(null)}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      className="btn"
-                      style={{ padding: '4px 12px', fontSize: 12 }}
-                      onClick={() => startEdit(row)}
-                    >
-                      Edit
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
       </section>
 
-      {/* ── Past Orders ── */}
+      <section className="box" style={{ marginTop: 14 }}>
+        <div className="table-head" style={{ marginBottom: 14 }}>
+          <h3>{t('clientManagement:detail.docs.title')}</h3>
+          <p style={{ fontSize: 13, color: 'var(--muted)' }}>
+            {t('clientManagement:detail.docs.sub')}
+          </p>
+        </div>
+        <DocumentSection clientId={client.id} />
+      </section>
+
       <section className="table-wrap" style={{ marginTop: 14 }}>
-        <h3>Past Orders</h3>
-        <table>
+        <h3>{t('clientManagement:detail.orders.title')}</h3>
+        <table className="orders-table">
           <thead>
             <tr>
-              <th>Order ID</th>
-              <th>Product</th>
-              <th>Status</th>
-              <th>Date</th>
-              <th>Total</th>
+              <th>{t('clientManagement:detail.orders.colId')}</th>
+              <th>{t('clientManagement:detail.orders.colProduct')}</th>
+              <th>{t('clientManagement:detail.orders.colStatus')}</th>
+              <th>{t('clientManagement:detail.orders.colDate')}</th>
+              <th>{t('clientManagement:detail.orders.colTotal')}</th>
             </tr>
           </thead>
           <tbody>
-            {client.orders.map(o => (
-              <tr key={o.id}>
-                <td>{o.id}</td>
-                <td>{o.product}</td>
-                <td><StatusBadge status={o.status} /></td>
-                <td>{o.date}</td>
-                <td>{o.total}</td>
-              </tr>
-            ))}
+            {pastOrders.length === 0 ? (
+              <tr><td colSpan={5} className="no-results">{t('clientManagement:detail.orders.empty')}</td></tr>
+            ) : (
+              pastOrders.map(order => (
+                <tr key={order.fullId}>
+                  <td>{order.id}</td>
+                  <td>{order.product}</td>
+                  <td><StatusBadge status={order.status} /></td>
+                  <td>{order.date}</td>
+                  <td>{order.total}</td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </section>
-
-      {/* ── Toast ── */}
-      {toast && (
-        <div style={{
-          position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
-          background: '#2f3640', color: '#fff', padding: '10px 20px', borderRadius: 8,
-          fontSize: 13, zIndex: 1000, boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-        }}>
-          {toast}
-        </div>
-      )}
     </AppShell>
   );
 }

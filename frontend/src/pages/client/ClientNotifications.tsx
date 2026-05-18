@@ -1,9 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useTranslation } from 'react-i18next';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import { useNavigation } from '../../context/NavigationContext';
+import { getNotifications } from '../../lib/api/notificationsService';
+import type { Notification as BackendNotification } from '../../lib/api/notificationsService';
 
-interface Notification {
+interface DisplayNotification {
   id: number;
   title: string;
   time: string;
@@ -15,29 +18,72 @@ interface Notification {
   };
 }
 
+function translateActionLabel(label: string, t: (key: string) => string): string {
+  const keyPath = `actions.${label}`;
+  const translated = t(`clientNotifications:${keyPath}`);
+  return translated === keyPath ? label : translated;
+}
+
+function formatTime(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 export default function ClientNotifications() {
+  return (
+    <Suspense fallback={null}>
+      <ClientNotificationsInner />
+    </Suspense>
+  );
+}
+
+function ClientNotificationsInner() {
+  const { t } = useTranslation(['common', 'clientNotifications']);
   const { navigateTopLevel } = useNavigation();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<DisplayNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch('/data/notifications-client.json')
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+    const fetchNotifications = async () => {
+      try {
+        const res = await getNotifications();
+        const backendNotifs: BackendNotification[] = res.data.data;
+
+        setNotifications(backendNotifs.map((n) => ({
+          id: n.id,
+          title: n.title,
+          time: formatTime(n.created_at),
+          body: n.body,
+          unread: n.unread,
+          action: {
+            label: n.action_label || '',
+            page: n.action_page || '/',
+          },
+        })));
+      } catch (err: any) {
+        if (
+          err?.response?.status === 404 ||
+          (err?.response?.data && typeof err.response.data !== 'object')
+        ) {
+          setNotifications([]);
+        } else {
+          console.error('Failed to load notifications:', err);
+          setError(t('clientNotifications:error'));
         }
-        return response.json();
-      })
-      .then((data: Notification[]) => {
-        setNotifications(data);
+      } finally {
         setLoading(false);
-      })
-      .catch((err) => {
-        console.error('Failed to load notifications:', err);
-        setError('Could not load your notifications. Please try again later.');
-        setLoading(false);
-      });
+      }
+    };
+
+    fetchNotifications();
   }, []);
 
   const dismiss = (id: number) =>
@@ -46,8 +92,8 @@ export default function ClientNotifications() {
   if (loading) {
     return (
       <AppShell role="client" activePage="client-notifications">
-        <Topbar title="Notifications" />
-        <div className="loading-state">Loading notifications...</div>
+        <Topbar title={t('clientNotifications:title')} />
+        <div className="loading-state">{t('clientNotifications:loading')}</div>
       </AppShell>
     );
   }
@@ -55,7 +101,7 @@ export default function ClientNotifications() {
   if (error) {
     return (
       <AppShell role="client" activePage="client-notifications">
-        <Topbar title="Notifications" />
+        <Topbar title={t('clientNotifications:title')} />
         <div className="error-state">{error}</div>
       </AppShell>
     );
@@ -63,11 +109,11 @@ export default function ClientNotifications() {
 
   return (
     <AppShell role="client" activePage="client-notifications">
-      <Topbar title="Notifications" />
+      <Topbar title={t('clientNotifications:title')} />
       <section className="stack notifications-stack">
         {notifications.length === 0 && (
           <div className="box" style={{ textAlign: 'center', color: 'var(--muted)', padding: 48 }}>
-            No notifications.
+            {t('clientNotifications:empty')}
           </div>
         )}
         {notifications.map((n) => (
@@ -80,14 +126,16 @@ export default function ClientNotifications() {
             </div>
             <p>{n.body}</p>
             <div className="notification-actions" style={{ marginTop: 10, display: 'flex', gap: 8 }}>
-              <button
-                className={`btn btn-sm${n.unread ? ' primary' : ''}`}
-                onClick={() => navigateTopLevel(n.action.page)}
-              >
-                {n.action.label}
-              </button>
+              {n.action.label && (
+                <button
+                  className={`btn btn-sm${n.unread ? ' primary' : ''}`}
+                  onClick={() => navigateTopLevel(n.action.page)}
+                >
+                  {translateActionLabel(n.action.label, t)}
+                </button>
+              )}
               <button className="btn btn-sm btn-outline" onClick={() => dismiss(n.id)}>
-                Dismiss
+                {t('clientNotifications:dismiss')}
               </button>
             </div>
           </article>
