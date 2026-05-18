@@ -1,0 +1,7 @@
+{
+  "title": "Notifications",
+  "loading": "Loading notifications...",
+  "error": "Could not load your notifications. Please try again later.",
+  "empty": "No notifications.",
+  "dismiss": "Dismiss"
+}
