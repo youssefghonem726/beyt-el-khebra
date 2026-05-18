@@ -1,0 +1,68 @@
+{
+  "title": "Delivery Tracking",
+  "loading": "Loading deliveries...",
+  "error": "Could not load delivery data. Please try again later.",
+  "stats": {
+    "total": "Total Deliveries",
+    "totalSub": "All active deliveries",
+    "onTime": "On Time",
+    "onTimeSub": "Running as scheduled",
+    "delayed": "Delayed",
+    "delayedSub": "Behind schedule",
+    "lost": "Lost in Transit",
+    "lostSub": "Needs immediate action"
+  },
+  "table": {
+    "title": "All Deliveries",
+    "searchPlaceholder": "Search by order, client or driver…",
+    "empty": "No matching deliveries.",
+    "filter": {
+      "label": "Status",
+      "all": "All",
+      "onTime": "On Time",
+      "delayed": "Delayed",
+      "lost": "Lost in Transit",
+      "apply": "Apply"
+    }
+  },
+  "card": {
+    "client": "Client",
+    "driver": "Driver",
+    "address": "Address",
+    "progress": "{{percent}}% delivered"
+  },
+  "detail": {
+    "heading": "Delivery Details",
+    "trackingId": "Tracking ID",
+    "address": "Address",
+    "driver": "Driver",
+    "company": "Company",
+    "phone": "Phone",
+    "progress": "Progress",
+    "progressPct": "{{percent}}% complete",
+    "lostWarning": "More than 2 days delayed",
+    "actions": "Actions",
+    "deliveredClosed": "✓ Delivery completed.",
+    "cancelledClosed": "✕ Delivery cancelled.",
+    "markDelivered": "Mark as Delivered",
+    "reschedule": "Reschedule",
+    "cancelReschedule": "Cancel Reschedule",
+    "rescheduleLabel": "New delivery date",
+    "save": "Save",
+    "cancel": "Cancel",
+    "changeAddress": "Change Address",
+    "cancelAddressChange": "Cancel Address Change",
+    "newAddressLabel": "New delivery address",
+    "cancelDelivery": "Cancel Delivery",
+    "keepDelivery": "Keep Delivery",
+    "cancelConfirm": "Cancel delivery {{order}} for {{client}}? This cannot be undone.",
+    "yesCancel": "Yes, Cancel",
+    "keep": "Keep"
+  },
+  "toast": {
+    "delivered": "✓ {{order}} marked as delivered.",
+    "rescheduled": "↻ {{order}} rescheduled to {{date}}.",
+    "addressUpdated": "📍 {{order}} address updated.",
+    "cancelled": "✕ {{order}} delivery cancelled."
+  }
+}

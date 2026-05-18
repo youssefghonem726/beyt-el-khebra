@@ -1,0 +1,46 @@
+{
+  "title": "Unpriced Queue",
+  "loading": "Loading jobs...",
+  "error": "Could not load unpriced jobs. Please try again later.",
+  "submitError": "Could not submit quote. Please check the price and try again.",
+  "stats": {
+    "totalUnpriced": "Total Unpriced",
+    "totalSub": "Jobs waiting for pricing",
+    "dueSoon": "Due Soon",
+    "dueSoonSub": "Due within 3 days",
+    "overdue": "Overdue",
+    "overdueNone": "No overdue jobs",
+    "overdueSome": "Past due date",
+    "avgProcessing": "Average Processing",
+    "avgSub": "Average queue age"
+  },
+  "table": {
+    "title": "Unpriced Jobs",
+    "empty": "All jobs have been priced."
+  },
+  "job": {
+    "badge": "UNPRICED",
+    "client": "Client",
+    "product": "Product",
+    "products": "Products",
+    "pcs": "{{count}} pcs",
+    "quantity": "Quantity",
+    "deadline": "Deadline"
+  },
+  "pricing": {
+    "panelTitle": "Set Price for {{id}}",
+    "unitPrice": "Unit Price (EGP)",
+    "unitPricePlaceholder": "e.g. 2.50",
+    "vatRate": "VAT Rate (%)",
+    "vatPlaceholder": "14",
+    "subtotal": "Subtotal ({{qty}} × EGP {{price}})",
+    "vat": "VAT ({{rate}}%)",
+    "total": "Total",
+    "notes": "Notes (optional)",
+    "notesPlaceholder": "Any special pricing notes or conditions…",
+    "submit": "Submit Quote",
+    "submitting": "Submitting...",
+    "cancel": "Cancel",
+    "priceThisJob": "Price This Job"
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "title": "لوحة الإنتاج",
+  "loading": "جاري تحميل بيانات الإنتاج...",
+  "error": "تعذّر تحميل بيانات الإنتاج. يرجى المحاولة مجدداً.",
+  "updateError": "تعذّر تحديث مهمة الإنتاج.",
+  "stats": {
+    "activeJobs": "المهام النشطة",
+    "activeSub": "عناصر مؤكدة/قيد التنفيذ",
+    "ready": "جاهزة",
+    "readySub": "لم تبدأ بعد",
+    "inProgress": "قيد التنفيذ",
+    "inProgressSub": "يجري العمل عليها",
+    "completed": "مكتملة",
+    "completedSub": "عناصر جاهزة في طلبات نشطة"
+  },
+  "steps": {
+    "pending": "جاهز للإنتاج",
+    "design": "التصميم",
+    "printing": "الطباعة",
+    "cutting": "القطع",
+    "packaging": "التعبئة",
+    "ready": "جاهز"
+  },
+  "table": {
+    "title": "جميع المهام",
+    "searchPlaceholder": "ابحث برقم المهمة، الطلب، العميل أو المنتج...",
+    "empty": "لا توجد مهام إنتاج.",
+    "filter": {
+      "label": "الحالة",
+      "all": "الكل",
+      "apply": "تطبيق"
+    }
+  },
+  "card": {
+    "order": "الطلب",
+    "client": "العميل",
+    "product": "المنتج",
+    "step": "المرحلة",
+    "pcs": "{{count}} قطعة",
+    "completedOf": "{{completed}} / {{total}} مكتمل ({{percent}}%)",
+    "openWorkView": "فتح عرض العمل"
+  },
+  "detail": {
+    "jobDetails": "تفاصيل المهمة",
+    "product": "المنتج",
+    "quantity": "الكمية",
+    "orderStatus": "حالة الطلب",
+    "dueDate": "تاريخ الاستحقاق",
+    "progress": "التقدم",
+    "completedOf": "{{completed}} / {{total}} ({{percent}}%) مكتمل",
+    "updateStep": "تحديث المرحلة",
+    "openWorkView": "فتح عرض العمل"
+  },
+  "workView": {
+    "title": "عرض العمل - {{id}}",
+    "close": "إغلاق",
+    "progressTitle": "تقدم العمل - {{id}}",
+    "completedOf": "{{completed}} / {{total}} مكتمل ({{percent}}%)",
+    "stageCol": "المرحلة",
+    "statusCol": "الحالة",
+    "jobInfo": "معلومات المهمة",
+    "client": "العميل",
+    "order": "الطلب",
+    "product": "المنتج",
+    "quantity": "الكمية",
+    "status": "الحالة",
+    "currentStep": "المرحلة الحالية",
+    "deadline": "الموعد النهائي",
+    "notes": "ملاحظات"
+  }
+}

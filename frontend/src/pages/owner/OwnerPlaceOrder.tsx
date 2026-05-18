@@ -1,22 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useTranslation } from 'react-i18next';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
+// ─── API imports ──────────────────────────────────────────────────────────
+import { getClients, createClientUser } from '../../lib/api/invoicesClientsSettingsService';
+import { createOrder } from '../../lib/api/ordersQuotesService';
+import { createUpload } from '../../lib/api/documentsProductionService';
+import { getDocuments } from '../../lib/api';
 
-interface Client {
-  name: string;
-  email: string;
-  phone: string;
-  page: string;
-}
+// ── Types (unchanged) ────────────────────────────────────────────────────
+type ItemType = 'book' | 'booklet' | 'card' | 'sticker' | 'poster';
 
-interface PricingRow {
+interface PackageItem {
   id: string;
-  product: string;
-  size: string;
-  paper: string;
-  pricePerUnit: number;
-  minQty: number;
-  active: boolean;
+  type: ItemType;
+  data: Record<string, any>;
 }
 
 interface ClientDocument {
@@ -26,388 +24,676 @@ interface ClientDocument {
   type: string;
   sizeKB: number;
   uploadedDate: string;
+  reorderCount?: number;
+  url?: string;
+  ownerType: 'client' | 'template' | 'order';
+  ownerId: string;
 }
 
-function fileTypeColor(type: string): string {
-  switch (type.toUpperCase()) {
-    case 'PDF': return '#e74c3c';
-    case 'AI':  return '#f47d01';
-    case 'PSD': return '#3498db';
-    case 'PNG':
-    case 'JPG': return '#27ae60';
-    default:    return '#7f8c8d';
-  }
+interface Client {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  taxId: string;
+  since: string | null;
+  stats: {
+    totalOrders: number;
+    totalSpent: number;
+  };
 }
 
-function fmtSize(kb: number): string {
-  if (kb >= 1024) return (kb / 1024).toFixed(1) + ' MB';
-  return kb + ' KB';
-}
+// English labels kept intentionally — used for backend API calls via getItemLabel
+const ITEM_TYPES: { id: ItemType; labelEn: string; icon: string }[] = [
+  { id: 'book',    labelEn: 'Book',          icon: '📚' },
+  { id: 'booklet', labelEn: 'Booklet',       icon: '📖' },
+  { id: 'card',    labelEn: 'Business Card', icon: '🃏' },
+  { id: 'sticker', labelEn: 'Sticker',       icon: '🏷️' },
+  { id: 'poster',  labelEn: 'Poster',        icon: '🖼️' },
+];
 
-function fmtCurrency(n: number): string {
-  return n.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
+const getItemLabel = (type: string): string =>
+  ITEM_TYPES.find(t => t.id === type)?.labelEn ?? type;
+
+const buildOrderItemNotes = (data: Record<string, any>, extraNotes = ''): string => {
+  const specs = Object.entries(data)
+    .filter(([, value]) => value !== undefined && value !== null && value !== '' && !(value instanceof File))
+    .map(([key, value]) => `${key}: ${String(value)}`);
+
+  return [...specs, extraNotes.trim()].filter(Boolean).join('\n');
+};
+
+import { DocLibrary } from '../../components/DocLibrary';
+import { ItemEditor } from '../../components/ItemEditor';
+import { FileField, SelectField } from '../../components/fields';
+import { PdfPreviewPanel } from '../../components/PdfPreviewPanel';
+import { PackageOrderSummary, SingleOrderSummary } from '../../components/OrderSummary';
+
+type OrderType = 'package' | 'single' | null;
 
 export default function OwnerPlaceOrder() {
-  const [clients, setClients]       = useState<Client[]>([]);
-  const [products, setProducts]     = useState<PricingRow[]>([]);
-  const [allDocs, setAllDocs]       = useState<Record<string, ClientDocument[]>>({});
+  return (
+    <Suspense fallback={null}>
+      <OwnerPlaceOrderInner />
+    </Suspense>
+  );
+}
 
-  const [selectedClient, setSelectedClient]   = useState('');
-  const [selectedProduct, setSelectedProduct] = useState('');
-  const [quantity, setQuantity]               = useState('');
-  const [selectedDocId, setSelectedDocId]     = useState('');
-  const [notes, setNotes]                     = useState('');
-  const [submitted, setSubmitted]             = useState(false);
-  const [toast, setToast]                     = useState<string | null>(null);
+function OwnerPlaceOrderInner() {
+  const { t } = useTranslation(['common', 'ownerPlaceOrder']);
+
+  const [clients, setClients]               = useState<Client[]>([]);
+  const [selectedClientId, setSelectedClientId] = useState('');
+  const [orderType, setOrderType]           = useState<OrderType>(null);
+  const [items, setItems]                   = useState<PackageItem[]>([]);
+  const [singleType, setSingleType]         = useState<ItemType | ''>('');
+  const [singleData, setSingleData]         = useState<Record<string, any>>({});
+  const [allDocs, setAllDocs]               = useState<ClientDocument[]>([]);
+  const [selectedDocId, setSelectedDocId]   = useState('');
+  const [notes, setNotes]                   = useState('');
+  const [submitted, setSubmitted]           = useState(false);
+
+  const [showNewClientForm, setShowNewClientForm] = useState(false);
+  const [newClientName, setNewClientName]         = useState('');
+  const [newClientEmail, setNewClientEmail]       = useState('');
+  const [newClientPhone, setNewClientPhone]       = useState('');
+
+  const [submitting, setSubmitting]                   = useState(false);
+  const [creatingClient, setCreatingClient]           = useState(false);
+  const [error, setError]                             = useState<string | null>(null);
+
+  const [localPreviewFile, setLocalPreviewFile]       = useState<File | null>(null);
+  const [localPreviewUrl, setLocalPreviewUrl]         = useState<string | null>(null);
+  const [localCoverPreviewFile, setLocalCoverPreviewFile] = useState<File | null>(null);
+  const [localCoverPreviewUrl, setLocalCoverPreviewUrl]   = useState<string | null>(null);
+
+  const [docItemType, setDocItemType] = useState<ItemType>('card');
+
+  const handleLocalFilePreview = useCallback((file: File | null) => {
+    if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setLocalPreviewUrl(url);
+      setLocalPreviewFile(file);
+    } else {
+      setLocalPreviewUrl(null);
+      setLocalPreviewFile(null);
+    }
+  }, [localPreviewUrl]);
+
+  const handleLocalCoverPreview = useCallback((file: File | null) => {
+    if (localCoverPreviewUrl) URL.revokeObjectURL(localCoverPreviewUrl);
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setLocalCoverPreviewUrl(url);
+      setLocalCoverPreviewFile(file);
+    } else {
+      setLocalCoverPreviewUrl(null);
+      setLocalCoverPreviewFile(null);
+    }
+  }, [localCoverPreviewUrl]);
 
   useEffect(() => {
-    fetch('/data/clients.json')
-      .then(r => r.json())
-      .then(setClients)
-      .catch(() => {});
+    return () => {
+      if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
+      if (localCoverPreviewUrl) URL.revokeObjectURL(localCoverPreviewUrl);
+    };
+  }, [localPreviewUrl, localCoverPreviewUrl]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await getClients();
+        setClients(res.data.data.results);
+      } catch (err) {
+        console.error('Failed to load clients:', err);
+        setError(t('ownerPlaceOrder:errors.loadClients'));
+      }
+    })();
   }, []);
 
   useEffect(() => {
-    fetch('/data/pricing.json')
-      .then(r => r.json())
-      .then((data: PricingRow[]) => setProducts(data.filter(p => p.active)))
-      .catch(() => {});
+    (async () => {
+      try {
+        const res = await getDocuments();
+        setAllDocs(res.data.data.map(doc => ({
+          ...doc,
+          ownerId: doc.ownerId ?? '',
+        })));
+      } catch (err) {
+        console.error('Failed to load documents:', err);
+      }
+    })();
   }, []);
 
-  useEffect(() => {
-    fetch('/data/client-documents.json')
-      .then(r => r.json())
-      .then(setAllDocs)
-      .catch(() => {});
-  }, []);
+  const selectedClient = clients.find(c => c.id === selectedClientId);
+  const clientDocs = allDocs.filter(doc => doc.ownerType === 'client' && doc.ownerId === selectedClientId);
+  const selectedDoc = clientDocs.find(d => d.id === selectedDocId) ?? null;
 
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 2500);
-    return () => clearTimeout(t);
-  }, [toast]);
-
-  const effectiveClient = selectedClient.trim();
-
-  // Only show client info card if the typed name exactly matches a known client
-  const chosenClient = clients.find(c => c.name === selectedClient);
-
-  const clientDocs: ClientDocument[] = chosenClient
-    ? (allDocs[selectedClient] ?? [])
-    : [];
-
-  const activeProducts = products.filter(p => p.active);
-  const chosenProduct  = activeProducts.find(p => p.id === selectedProduct);
-  const chosenDoc      = clientDocs.find(d => d.id === selectedDocId);
-
-  const qty      = parseInt(quantity, 10);
-  const subtotal = chosenProduct && !isNaN(qty) && qty > 0
-    ? chosenProduct.pricePerUnit * qty
-    : 0;
-
-  // Document required only when a known client with docs is selected
-  const docRequirementMet = !chosenClient || clientDocs.length === 0 || !!selectedDocId;
-
-  const canSubmit =
-    !!effectiveClient &&
-    !!selectedProduct &&
-    !isNaN(qty) && qty > 0 &&
-    docRequirementMet;
-
-  function handleSubmit() {
-    if (!canSubmit) return;
-    setSubmitted(true);
-  }
-
-  function resetForm() {
-    setSelectedClient('');
-    setSelectedProduct('');
-    setQuantity('');
+  function resetOrder() {
+    setOrderType(null);
+    setItems([]);
+    setSingleType('');
+    setSingleData({});
     setSelectedDocId('');
     setNotes('');
+    setLocalPreviewFile(null);
+    if (localPreviewUrl) { URL.revokeObjectURL(localPreviewUrl); setLocalPreviewUrl(null); }
+    setLocalCoverPreviewFile(null);
+    if (localCoverPreviewUrl) { URL.revokeObjectURL(localCoverPreviewUrl); setLocalCoverPreviewUrl(null); }
+    setDocItemType('card');
+  }
+
+  function resetAll() {
+    setSelectedClientId('');
+    resetOrder();
     setSubmitted(false);
   }
 
+  const addItem    = (type: ItemType) => setItems(p => [...p, { id: crypto.randomUUID(), type, data: {} }]);
+  const updateItem = (id: string, data: Record<string, any>) => setItems(p => p.map(i => i.id === id ? { ...i, data } : i));
+  const removeItem = (id: string) => setItems(p => p.filter(i => i.id !== id));
+
+  const handleAddDocumentAsItem = () => {
+    if (!selectedDoc) return;
+    const newItem: PackageItem = {
+      id: crypto.randomUUID(),
+      type: docItemType,
+      data: {
+        docId: selectedDoc.id,
+        docName: selectedDoc.name,
+        docFileName: selectedDoc.fileName,
+      },
+    };
+    setItems(prev => [...prev, newItem]);
+  };
+
+  const handleClientNameChange = (name: string) => {
+    const found = clients.find(c => c.name === name);
+    if (found) {
+      setSelectedClientId(found.id);
+      resetOrder();
+      setShowNewClientForm(false);
+      setNewClientName('');
+      setNewClientEmail('');
+      setNewClientPhone('');
+    } else {
+      setSelectedClientId('');
+      setNewClientName(name);
+      setShowNewClientForm(true);
+    }
+  };
+
+  const createNewClient = async () => {
+    if (!newClientName.trim()) return;
+
+    const parts = newClientName.trim().split(' ');
+    const first_name = parts[0];
+    const last_name = parts.slice(1).join(' ');
+
+    setCreatingClient(true);
+    setError(null);
+    try {
+      const res = await createClientUser({
+        first_name,
+        last_name: last_name || '',
+        email: newClientEmail,
+        phone: newClientPhone || undefined,
+      });
+      const u = res.data.data;
+      const newClient: Client = {
+        id: String(u.id),
+        name: `${u.first_name} ${u.last_name}`.trim(),
+        email: u.email,
+        phone: u.phone ?? '',
+        address: '',
+        taxId: '',
+        since: null,
+        stats: { totalOrders: 0, totalSpent: 0 },
+      };
+      setClients(prev => [...prev, newClient]);
+      setSelectedClientId(newClient.id);
+      resetOrder();
+      setShowNewClientForm(false);
+      setNewClientName('');
+      setNewClientEmail('');
+      setNewClientPhone('');
+    } catch (err) {
+      console.error('Failed to create client:', err);
+      setError(t('ownerPlaceOrder:errors.createClient'));
+    } finally {
+      setCreatingClient(false);
+    }
+  };
+
+  const handlePackageSubmit = async (pkgItems: PackageItem[], _doc: ClientDocument | null, _clientName: string) => {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const totalQty = pkgItems.reduce((sum, item) => sum + (Number(item.data.qty) || 1), 0);
+      await createOrder({
+        status: 'UNPRICED_PENDING',
+        quantity: totalQty || 1,
+        total_price: 0,
+        customer_id: Number(selectedClientId),
+        order_items: pkgItems.map(item => ({
+          item_type: getItemLabel(item.type),
+          quantity: Number(item.data.qty) || 1,
+          notes: buildOrderItemNotes(item.data, notes),
+        })),
+      });
+      setSubmitted(true);
+    } catch (err) {
+      console.error('Failed to create order:', err);
+      setError(t('ownerPlaceOrder:errors.placeOrder'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSingleSubmit = async (
+    _itemType: string,
+    data: Record<string, any>,
+    _doc: ClientDocument | null,
+    previewFile: File | null,
+    _clientName: string
+  ) => {
+    setSubmitting(true);
+    setError(null);
+    try {
+      if (previewFile) {
+        await createUpload({ file: previewFile, file_type: 'content' });
+      }
+      if (data.cover instanceof File) {
+        await createUpload({ file: data.cover, file_type: 'cover' });
+      }
+
+      const qty = Number(data.qty) || 1;
+      await createOrder({
+        status: 'UNPRICED_PENDING',
+        quantity: qty,
+        total_price: 0,
+        customer_id: Number(selectedClientId),
+        order_items: [
+          {
+            item_type: getItemLabel(_itemType),
+            quantity: qty,
+            notes: buildOrderItemNotes(data, notes),
+          },
+        ],
+      });
+      setSubmitted(true);
+    } catch (err) {
+      console.error('Failed to create order:', err);
+      setError(t('ownerPlaceOrder:errors.placeOrder'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ── Submission success view ─────────────────────────────────────────────
   if (submitted) {
+    const packageSummary = items.length === 1
+      ? t('ownerPlaceOrder:success.packageItemSingular', { count: 1 })
+      : t('ownerPlaceOrder:success.packageItemPlural', { count: items.length });
+
+    const singleSummary = singleType
+      ? `${t(`ownerPlaceOrder:itemTypes.${singleType}`)} · ${singleData.qty
+          ? t('ownerPlaceOrder:success.pcs', { count: Number(singleData.qty).toLocaleString() })
+          : '—'}`
+      : '';
+
     return (
       <AppShell role="owner" activePage="owner-place-order">
-        <Topbar title="Place Order" />
-        <section className="box" style={{ maxWidth: 520, margin: '40px auto', textAlign: 'center', padding: '48px 32px' }}>
-          <div style={{ fontSize: 48, marginBottom: 12, color: 'var(--primary)' }}>✓</div>
-          <h2 style={{ marginBottom: 8 }}>Order Placed!</h2>
-          <p style={{ color: 'var(--muted)', marginBottom: 6, fontSize: 14 }}>
-            Order assigned to <strong>{effectiveClient}</strong>
+        <Topbar title={t('ownerPlaceOrder:title')} />
+        <section className="box success-message">
+          <div className="success-icon">✓</div>
+          <h2>{t('ownerPlaceOrder:success.title')}</h2>
+          <p className="success-subtext">
+            {t('ownerPlaceOrder:success.assignedTo', { name: selectedClient?.name ?? 'Client' })}
           </p>
-          <p style={{ color: 'var(--muted)', marginBottom: 24, fontSize: 14 }}>
-            Product: <strong>{chosenProduct?.product}</strong> &nbsp;·&nbsp; Qty: <strong>{quantity}</strong>
+          <p className="success-subtext">
+            {orderType === 'package' ? packageSummary : singleSummary}
           </p>
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
-            <button className="btn primary" onClick={resetForm}>Place Another Order</button>
-          </div>
+          <button className="btn primary" onClick={resetAll}>
+            {t('ownerPlaceOrder:success.placeAnother')}
+          </button>
         </section>
       </AppShell>
     );
   }
 
+  // ── Main UI ─────────────────────────────────────────────────────────────
   return (
     <AppShell role="owner" activePage="owner-place-order">
-      <Topbar title="Place Order" />
+      <Topbar title={t('ownerPlaceOrder:title')} />
 
-      <div className="split" style={{ alignItems: 'flex-start' }}>
+      {error && (
+        <div className="box" style={{ background: '#fff0f0', color: '#c0392b', marginBottom: 12 }}>
+          {error}
+        </div>
+      )}
 
-        {/* ── Left: Form ── */}
-        <div style={{ display: 'grid', gap: 16 }}>
+      {/* Client selector */}
+      <section className="box mb-5">
+        <h3 className="section-heading">{t('ownerPlaceOrder:client.sectionTitle')}</h3>
+        <div className="client-selector">
+          <div className="client-search">
+            <label className="field-label">{t('ownerPlaceOrder:client.label')}</label>
+            <input
+              className="input"
+              type="text"
+              list="owner-clients-list"
+              placeholder={t('ownerPlaceOrder:client.placeholder')}
+              value={selectedClient?.name ?? ''}
+              onChange={e => handleClientNameChange(e.target.value)}
+              autoComplete="off"
+            />
+            <datalist id="owner-clients-list">
+              {clients.map(c => <option key={c.id} value={c.name} />)}
+            </datalist>
+          </div>
+          {selectedClient && (
+            <div className="client-card-mini">
+              <span className="client-card-mini__name">{selectedClient.name}</span>
+              <span className="client-card-mini__detail">{selectedClient.email}</span>
+              <span className="client-card-mini__detail">{selectedClient.phone}</span>
+            </div>
+          )}
+          {showNewClientForm && (
+            <div className="box mt-3 p-3" style={{ background: '#f8f9ff' }}>
+              <h4 style={{ marginTop: 0 }}>{t('ownerPlaceOrder:client.newClientForm.title')}</h4>
+              <div className="form-grid-2">
+                <div className="field">
+                  <label className="field-label">{t('ownerPlaceOrder:client.newClientForm.fullName')}</label>
+                  <input className="input" type="text" value={newClientName} onChange={e => setNewClientName(e.target.value)} placeholder={t('ownerPlaceOrder:client.newClientForm.namePlaceholder')} />
+                </div>
+                <div className="field">
+                  <label className="field-label">{t('ownerPlaceOrder:client.newClientForm.email')}</label>
+                  <input className="input" type="email" value={newClientEmail} onChange={e => setNewClientEmail(e.target.value)} placeholder={t('ownerPlaceOrder:client.newClientForm.emailPlaceholder')} />
+                </div>
+                <div className="field">
+                  <label className="field-label">{t('ownerPlaceOrder:client.newClientForm.phone')}</label>
+                  <input className="input" type="text" value={newClientPhone} onChange={e => setNewClientPhone(e.target.value)} placeholder={t('ownerPlaceOrder:client.newClientForm.phonePlaceholder')} />
+                </div>
+              </div>
+              <div style={{ marginTop: 10, display: 'flex', gap: 10 }}>
+                <button className="btn primary" onClick={createNewClient} disabled={creatingClient}>
+                  {creatingClient ? t('ownerPlaceOrder:client.newClientForm.creating') : t('ownerPlaceOrder:client.newClientForm.createAndSelect')}
+                </button>
+                <button className="btn" onClick={() => { setShowNewClientForm(false); setNewClientName(''); }}>
+                  {t('ownerPlaceOrder:client.newClientForm.cancel')}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
 
-          {/* Step 1 — Client */}
-          <section className="box">
-            <h3 style={{ marginBottom: 14 }}>1. Select Client</h3>
+      {/* Order type picker */}
+      {selectedClient && !orderType && (
+        <section className="order-type-picker">
+          <p className="picker-intro">
+            {t('ownerPlaceOrder:picker.intro', { name: selectedClient.name })}
+          </p>
+          <div className="grid-2">
+            <div className="box picker-card" onClick={() => setOrderType('package')}>
+              <h3>{t('ownerPlaceOrder:picker.package.title')}</h3>
+              <p>{t('ownerPlaceOrder:picker.package.description')}</p>
+            </div>
+            <div className="box picker-card" onClick={() => setOrderType('single')}>
+              <h3>{t('ownerPlaceOrder:picker.single.title')}</h3>
+              <p>{t('ownerPlaceOrder:picker.single.description')}</p>
+            </div>
+          </div>
+        </section>
+      )}
 
-            <div className="field" style={{ marginBottom: 0 }}>
-              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>
-                Client
-              </label>
-              <input
-                className="input"
-                type="text"
-                list="clients-list"
-                placeholder="Type or search for a client…"
-                value={selectedClient}
-                onChange={e => { setSelectedClient(e.target.value); setSelectedDocId(''); }}
-                style={{ width: '100%' }}
-                autoComplete="off"
-              />
-              <datalist id="clients-list">
-                {clients.map(c => (
-                  <option key={c.name} value={c.name} />
-                ))}
-              </datalist>
-              {selectedClient && !chosenClient && (
-                <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4, fontStyle: 'italic' }}>
-                  New client — no existing record found.
-                </p>
+      {/* Package order UI */}
+      {orderType === 'package' && selectedClient && (
+        <>
+          <button className="global-back-btn" onClick={resetOrder}>{t('ownerPlaceOrder:back')}</button>
+          <section className="split panel-wrapper">
+            <div className="panel-left">
+              <DocLibrary docs={clientDocs} selectedDocId={selectedDocId} onSelect={setSelectedDocId} />
+
+              {selectedDocId && selectedDoc && (
+                <div className="box" style={{ marginTop: 12 }}>
+                  <h4 style={{ marginTop: 0 }}>{t('ownerPlaceOrder:addDocAsItem.title')}</h4>
+                  <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 14, fontWeight: 500 }}>{selectedDoc.name}</span>
+                    <select
+                      className="select"
+                      value={docItemType}
+                      onChange={e => setDocItemType(e.target.value as ItemType)}
+                      style={{ width: 160 }}
+                    >
+                      {ITEM_TYPES.map(itemType => (
+                        <option key={itemType.id} value={itemType.id}>
+                          {itemType.icon} {t(`ownerPlaceOrder:itemTypes.${itemType.id}`)}
+                        </option>
+                      ))}
+                    </select>
+                    <button className="btn primary" onClick={handleAddDocumentAsItem}>
+                      {t('ownerPlaceOrder:addDocAsItem.addButton')}
+                    </button>
+                  </div>
+                  <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>
+                    {t('ownerPlaceOrder:addDocAsItem.hint', { type: t(`ownerPlaceOrder:itemTypes.${docItemType}`) })}
+                  </p>
+                </div>
+              )}
+
+              <div className="box">
+                <h3 className="add-items-heading">{t('ownerPlaceOrder:addItems.title')}</h3>
+                <p className="add-items-help">{t('ownerPlaceOrder:addItems.help')}</p>
+                <div className="item-type-grid">
+                  {ITEM_TYPES.map(itemType => (
+                    <button key={itemType.id} onClick={() => addItem(itemType.id)} className="item-type-btn">
+                      <span className="item-type-icon">{itemType.icon}</span>
+                      <span className="item-type-label">{t(`ownerPlaceOrder:itemTypes.${itemType.id}`)}</span>
+                    </button>
+                  ))}
+                </div>
+                {items.length === 0 && (
+                  <p className="no-items-hint">{t('ownerPlaceOrder:addItems.empty')}</p>
+                )}
+              </div>
+
+              {items.map((item, idx) => (
+                <ItemEditor
+                  key={item.id}
+                  item={item}
+                  onChange={data => updateItem(item.id, data)}
+                  onRemove={() => removeItem(item.id)}
+                  libraryDoc={idx === 0 ? selectedDoc : null}
+                  onClearLibraryDoc={() => setSelectedDocId('')}
+                />
+              ))}
+
+              {items.length > 0 && (
+                <div className="box">
+                  <h3 className="notes-heading">{t('ownerPlaceOrder:notes.title')}</h3>
+                  <textarea className="input textarea" rows={3} placeholder={t('ownerPlaceOrder:notes.placeholder')} value={notes} onChange={e => setNotes(e.target.value)} />
+                </div>
               )}
             </div>
 
-            {chosenClient && (
-              <div style={{
-                marginTop: 12, padding: '10px 14px',
-                background: 'var(--primary-soft)', borderRadius: 8,
-                fontSize: 13, display: 'grid', gap: 3,
-              }}>
-                <span style={{ fontWeight: 600, color: 'var(--primary-dark)' }}>{chosenClient.name}</span>
-                <span style={{ color: 'var(--muted)' }}>{chosenClient.email}</span>
-                <span style={{ color: 'var(--muted)' }}>{chosenClient.phone}</span>
-              </div>
-            )}
+            <aside className="sticky-panel">
+              <PackageOrderSummary
+                selectedClient={selectedClient.name}
+                items={items}
+                selectedDoc={selectedDoc}
+                onSubmit={() => { if (!submitting) handlePackageSubmit(items, selectedDoc, selectedClient.name); }}
+              />
+            </aside>
           </section>
+        </>
+      )}
 
-          {/* Step 2 — Client Documents (only for known clients with docs) */}
-          {chosenClient && (
-            <section className="box">
-              <h3 style={{ marginBottom: 4 }}>2. Choose Client Document</h3>
-              <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 14 }}>
-                Select the file this order should be printed from.
-              </p>
+      {/* Individual order UI */}
+      {orderType === 'single' && selectedClient && (
+        <>
+          <button className="global-back-btn" onClick={resetOrder}>{t('ownerPlaceOrder:back')}</button>
+          <section className="split panel-wrapper">
+            <div className="panel-left">
+              <DocLibrary docs={clientDocs} selectedDocId={selectedDocId} onSelect={setSelectedDocId} />
 
-              {clientDocs.length === 0 ? (
-                <p style={{ fontSize: 13, color: 'var(--muted)', fontStyle: 'italic' }}>
-                  No documents uploaded by this client yet.
-                </p>
-              ) : (
-                <div style={{ display: 'grid', gap: 10 }}>
-                  {clientDocs.map(doc => {
-                    const selected = doc.id === selectedDocId;
+              <div className="box">
+                <h3 className="single-type-heading">{t('ownerPlaceOrder:singleType.title')}</h3>
+                <p className="single-type-help">{t('ownerPlaceOrder:singleType.help')}</p>
+
+                <div className="item-type-grid single-type-grid">
+                  {ITEM_TYPES.map(itemType => {
+                    const active = singleType === itemType.id;
                     return (
-                      <div
-                        key={doc.id}
-                        onClick={() => setSelectedDocId(doc.id)}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 14,
-                          padding: '12px 14px', borderRadius: 8, cursor: 'pointer',
-                          border: `2px solid ${selected ? 'var(--primary)' : 'var(--border)'}`,
-                          background: selected ? 'var(--primary-soft)' : 'var(--surface)',
-                          transition: 'border-color .15s, background .15s',
-                        }}
+                      <button
+                        key={itemType.id}
+                        onClick={() => { setSingleType(itemType.id as ItemType); setSingleData({}); }}
+                        className={`item-type-btn ${active ? 'item-type-btn--active' : ''}`}
                       >
-                        <div style={{
-                          width: 42, height: 42, borderRadius: 8, flexShrink: 0,
-                          background: fileTypeColor(doc.type),
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: 11, fontWeight: 700, color: '#fff', letterSpacing: 0.5,
-                        }}>
-                          {doc.type}
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {doc.name}
-                          </div>
-                          <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                            {doc.fileName} &nbsp;·&nbsp; {fmtSize(doc.sizeKB)} &nbsp;·&nbsp; {doc.uploadedDate}
-                          </div>
-                        </div>
-                        {selected && (
-                          <div style={{
-                            width: 22, height: 22, borderRadius: '50%',
-                            background: 'var(--primary)', flexShrink: 0,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            color: '#fff', fontSize: 13, fontWeight: 700,
-                          }}>
-                            ✓
-                          </div>
-                        )}
-                      </div>
+                        <span className="item-type-icon">{itemType.icon}</span>
+                        <span className="item-type-label">{t(`ownerPlaceOrder:itemTypes.${itemType.id}`)}</span>
+                      </button>
                     );
                   })}
                 </div>
-              )}
-            </section>
-          )}
 
-          {/* Step 3 — Product & Quantity */}
-          <section className="box">
-            <h3 style={{ marginBottom: 14 }}>
-              {chosenClient ? '3.' : '2.'} Order Details
-            </h3>
+                {singleType && (
+                  <>
+                    <div className="line line--compact" />
+                    <p className="spec-section-label">{t('ownerPlaceOrder:shared.fileAndQty')}</p>
+                    <FileField
+                      label={t('ownerPlaceOrder:shared.printFile')}
+                      value={singleData.pdf ?? null}
+                      onChange={f => setSingleData(d => ({ ...d, pdf: f }))}
+                      libraryDoc={selectedDoc}
+                      onClearLibrary={() => setSelectedDocId('')}
+                      onFilePreview={handleLocalFilePreview}
+                    />
+                    <div className="field mb-4">
+                      <label className="field-label">{t('ownerPlaceOrder:shared.quantity')}</label>
+                      <input className="input" type="number" min={1} placeholder={t('ownerPlaceOrder:shared.qtyPlaceholderSingle')} value={singleData.qty ?? ''} onChange={e => setSingleData(d => ({ ...d, qty: e.target.value }))} />
+                    </div>
 
-            <div className="field" style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Product</label>
-              <select
-                className="select"
-                value={selectedProduct}
-                onChange={e => setSelectedProduct(e.target.value)}
-              >
-                <option value="">— Choose a product —</option>
-                {activeProducts.map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.product} — {p.size} / {p.paper}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {chosenProduct && (
-              <div style={{
-                marginBottom: 14, padding: '10px 14px',
-                background: 'var(--surface-soft)', borderRadius: 8,
-                fontSize: 13, display: 'flex', gap: 20,
-                border: '1px solid var(--border)',
-              }}>
-                <span><strong>Size:</strong> {chosenProduct.size}</span>
-                <span><strong>Paper:</strong> {chosenProduct.paper}</span>
-                <span><strong>Unit price:</strong> EGP {fmtCurrency(chosenProduct.pricePerUnit)}</span>
-                <span><strong>Min qty:</strong> {chosenProduct.minQty}</span>
+                    {singleType === 'book' && (
+                      <>
+                        <div className="line line--compact" />
+                        <p className="spec-section-label">{t('ownerPlaceOrder:shared.specs.book')}</p>
+                        <FileField label={t('ownerPlaceOrder:shared.fields.coverFile')} value={singleData.cover ?? null} onChange={f => setSingleData(d => ({ ...d, cover: f }))} onFilePreview={handleLocalCoverPreview} />
+                        {localCoverPreviewFile && (
+                          <PdfPreviewPanel
+                            doc={{
+                              id: 'single-cover-preview',
+                              name: localCoverPreviewFile.name,
+                              fileName: localCoverPreviewFile.name,
+                              type: (localCoverPreviewFile.name.split('.').pop() ?? 'PDF').toUpperCase(),
+                              sizeKB: Math.round(localCoverPreviewFile.size / 1024),
+                              uploadedDate: new Date().toLocaleDateString(),
+                              url: localCoverPreviewUrl!,
+                            }}
+                            height={200}
+                          />
+                        )}
+                        <div className="form-grid-2 mt-1">
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.coverFinish')} options={['Matte', 'Shiny', 'Transparent']} value={singleData.coverFinish ?? 'Matte'} onChange={v => setSingleData(d => ({ ...d, coverFinish: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.colors')}      options={['B&W', 'Colors']}                 value={singleData.colors ?? 'Colors'}      onChange={v => setSingleData(d => ({ ...d, colors: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.size')}        options={['A4', 'A5']}                       value={singleData.size ?? 'A4'}            onChange={v => setSingleData(d => ({ ...d, size: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.printType')}   options={['Front', 'Front & Back']}          value={singleData.printType ?? 'Front & Back'} onChange={v => setSingleData(d => ({ ...d, printType: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.binding')}     options={['Softcover', 'Hardcover', 'Spiral']} value={singleData.casing ?? 'Softcover'} onChange={v => setSingleData(d => ({ ...d, casing: v }))} />
+                        </div>
+                      </>
+                    )}
+                    {singleType === 'booklet' && (
+                      <>
+                        <div className="line line--compact" />
+                        <p className="spec-section-label">{t('ownerPlaceOrder:shared.specs.booklet')}</p>
+                        <div className="form-grid-2">
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.paperWeight')} options={['150g', '200g', '300g']}         value={singleData.weight ?? '150g'}        onChange={v => setSingleData(d => ({ ...d, weight: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.size')}        options={['A4', 'A3 (Centerfold)']}         value={singleData.size ?? 'A4'}            onChange={v => setSingleData(d => ({ ...d, size: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.colors')}      options={['B&W', 'Colors']}                 value={singleData.colors ?? 'Colors'}      onChange={v => setSingleData(d => ({ ...d, colors: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.printType')}   options={['Front', 'Front & Back']}          value={singleData.printType ?? 'Front & Back'} onChange={v => setSingleData(d => ({ ...d, printType: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.binding')}     options={['Staple', 'Glue']}                 value={singleData.casing ?? 'Staple'}     onChange={v => setSingleData(d => ({ ...d, casing: v }))} />
+                        </div>
+                      </>
+                    )}
+                    {singleType === 'card' && (
+                      <>
+                        <div className="line line--compact" />
+                        <p className="spec-section-label">{t('ownerPlaceOrder:shared.specs.card')}</p>
+                        <div className="form-grid-2">
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.paperWeight')} options={['200g', '300g', '400g']}          value={singleData.weight ?? '300g'}        onChange={v => setSingleData(d => ({ ...d, weight: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.size')}        options={['6×9 cm', '3×6 cm', 'A5', 'A4 ÷ 8']} value={singleData.size ?? '6×9 cm'}   onChange={v => setSingleData(d => ({ ...d, size: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.finish')}      options={['Matte', 'Glossy', 'UV']}          value={singleData.finish ?? 'Matte'}      onChange={v => setSingleData(d => ({ ...d, finish: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.printType')}   options={['Front', 'Front & Back']}          value={singleData.printType ?? 'Front & Back'} onChange={v => setSingleData(d => ({ ...d, printType: v }))} />
+                        </div>
+                      </>
+                    )}
+                    {singleType === 'sticker' && (
+                      <>
+                        <div className="line line--compact" />
+                        <p className="spec-section-label">{t('ownerPlaceOrder:shared.specs.sticker')}</p>
+                        <div className="form-grid-2">
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.material')} options={['Vinyl', 'Paper', 'Clear']}            value={singleData.material ?? 'Vinyl'}    onChange={v => setSingleData(d => ({ ...d, material: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.shape')}    options={['Rectangle', 'Circle', 'Custom']}      value={singleData.shape ?? 'Rectangle'}   onChange={v => setSingleData(d => ({ ...d, shape: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.finish')}   options={['Glossy', 'Matte']}                    value={singleData.finish ?? 'Glossy'}     onChange={v => setSingleData(d => ({ ...d, finish: v }))} />
+                        </div>
+                      </>
+                    )}
+                    {singleType === 'poster' && (
+                      <>
+                        <div className="line line--compact" />
+                        <p className="spec-section-label">{t('ownerPlaceOrder:shared.specs.poster')}</p>
+                        <div className="form-grid-2">
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.size')}        options={['A3', 'A2', 'A1', 'A0']}          value={singleData.size ?? 'A3'}           onChange={v => setSingleData(d => ({ ...d, size: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.paperWeight')} options={['150g', '200g', '300g']}           value={singleData.weight ?? '200g'}       onChange={v => setSingleData(d => ({ ...d, weight: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.finish')}      options={['Matte', 'Glossy']}                value={singleData.finish ?? 'Matte'}      onChange={v => setSingleData(d => ({ ...d, finish: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.printType')}   options={['Front', 'Front & Back']}          value={singleData.printType ?? 'Front'}   onChange={v => setSingleData(d => ({ ...d, printType: v }))} />
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
               </div>
-            )}
 
-            <div className="field" style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Quantity</label>
-              <input
-                className="input"
-                type="number"
-                min={chosenProduct?.minQty ?? 1}
-                placeholder={chosenProduct ? `Min ${chosenProduct.minQty}` : 'e.g. 500'}
-                value={quantity}
-                onChange={e => setQuantity(e.target.value)}
-                style={{ width: 160 }}
-              />
-              {chosenProduct && !isNaN(qty) && qty > 0 && qty < chosenProduct.minQty && (
-                <p style={{ fontSize: 12, color: '#e74c3c', marginTop: 4 }}>
-                  Minimum quantity for this product is {chosenProduct.minQty}.
-                </p>
+              {singleType && (
+                <div className="box">
+                  <h3 className="notes-heading">{t('ownerPlaceOrder:notes.title')}</h3>
+                  <textarea className="input textarea" rows={3} placeholder={t('ownerPlaceOrder:notes.placeholder')} value={notes} onChange={e => setNotes(e.target.value)} />
+                </div>
               )}
             </div>
 
-            <div className="field" style={{ marginBottom: 0 }}>
-              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Notes (optional)</label>
-              <textarea
-                className="input"
-                rows={3}
-                placeholder="Special instructions, finishing details…"
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
-                style={{ resize: 'vertical', width: '100%' }}
+            <aside className="sticky-panel">
+              <SingleOrderSummary
+                selectedClient={selectedClient.name}
+                singleType={singleType}
+                singleData={singleData}
+                selectedDoc={selectedDoc}
+                localPreviewFile={localPreviewFile}
+                onSubmit={() => { if (!submitting) handleSingleSubmit(singleType, singleData, selectedDoc, localPreviewFile, selectedClient.name); }}
               />
-            </div>
+              {(selectedDoc || localPreviewFile) && (
+                <PdfPreviewPanel
+                  doc={
+                    selectedDoc
+                      ? selectedDoc
+                      : {
+                          id: 'local-preview',
+                          name: localPreviewFile!.name,
+                          fileName: localPreviewFile!.name,
+                          type: (localPreviewFile!.name.split('.').pop() ?? 'PDF').toUpperCase(),
+                          sizeKB: Math.round(localPreviewFile!.size / 1024),
+                          uploadedDate: new Date().toLocaleDateString(),
+                          url: localPreviewUrl!,
+                        }
+                  }
+                />
+              )}
+            </aside>
           </section>
-        </div>
-
-        {/* ── Right: Summary sidebar ── */}
-        <aside className="box" style={{ position: 'sticky', top: 18, alignSelf: 'flex-start', minWidth: 260 }}>
-          <h3 style={{ marginBottom: 16 }}>Order Summary</h3>
-
-          <div style={{ display: 'grid', gap: 10, fontSize: 13, marginBottom: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--muted)' }}>Client</span>
-              <span style={{ fontWeight: 600 }}>{effectiveClient || '—'}</span>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--muted)' }}>Product</span>
-              <span style={{ fontWeight: 600, textAlign: 'right', maxWidth: 160 }}>
-                {chosenProduct ? chosenProduct.product : '—'}
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--muted)' }}>Quantity</span>
-              <span style={{ fontWeight: 600 }}>
-                {!isNaN(qty) && qty > 0 ? qty.toLocaleString() : '—'}
-              </span>
-            </div>
-
-            {chosenDoc && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <span style={{ color: 'var(--muted)' }}>Document</span>
-                <span style={{ fontWeight: 600, textAlign: 'right', maxWidth: 160 }}>{chosenDoc.name}</span>
-              </div>
-            )}
-
-            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 10, display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--muted)' }}>Est. Total</span>
-              <span style={{ fontWeight: 700, fontSize: 15, color: subtotal > 0 ? 'var(--text)' : 'var(--muted)' }}>
-                {subtotal > 0 ? `EGP ${fmtCurrency(subtotal)}` : '—'}
-              </span>
-            </div>
-          </div>
-
-          {/* Validation hints */}
-          {!canSubmit && (
-            <ul style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 14, paddingLeft: 16 }}>
-              {!effectiveClient && <li>Enter or select a client</li>}
-              {chosenClient && clientDocs.length > 0 && !selectedDocId && (
-                <li>Choose a document</li>
-              )}
-              {!selectedProduct  && <li>Choose a product</li>}
-              {(!quantity || isNaN(qty) || qty <= 0) && <li>Enter a valid quantity</li>}
-              {chosenProduct && !isNaN(qty) && qty > 0 && qty < chosenProduct.minQty && (
-                <li>Quantity below minimum ({chosenProduct.minQty})</li>
-              )}
-            </ul>
-          )}
-
-          <button
-            className="btn primary block"
-            disabled={!canSubmit || (!!chosenProduct && !isNaN(qty) && qty > 0 && qty < chosenProduct.minQty)}
-            onClick={handleSubmit}
-          >
-            Place Order
-          </button>
-
-          <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 10, textAlign: 'center' }}>
-            Order will be sent to the Unpriced Queue for pricing.
-          </p>
-        </aside>
-      </div>
-
-      {toast && (
-        <div style={{
-          position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
-          background: '#2f3640', color: '#fff', padding: '10px 20px', borderRadius: 8,
-          fontSize: 13, zIndex: 1000, boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-        }}>
-          {toast}
-        </div>
+        </>
       )}
     </AppShell>
   );

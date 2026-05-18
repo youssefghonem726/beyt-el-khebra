@@ -1,0 +1,22 @@
+{
+  "title": "My Orders",
+  "loading": "Loading orders...",
+  "error": "Could not load your orders. Please try again later.",
+  "allOrders": "All Orders",
+  "searchPlaceholder": "Batch lookup by code, order ID, or product...",
+  "newOrder": "New Order",
+  "noResults": "No matching results",
+  "table": {
+    "order": "Order",
+    "batchCode": "Batch Code",
+    "product": "Product",
+    "status": "Status",
+    "deliveryProgress": "Delivery Progress",
+    "date": "Date",
+    "total": "Total",
+    "paymentMethod": "Payment Method",
+    "paidAmount": "Paid Amount",
+    "action": "Action",
+    "view": "View"
+  }
+}

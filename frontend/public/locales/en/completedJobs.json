@@ -1,0 +1,29 @@
+{
+  "title": "Completed Jobs",
+  "loading": "Loading completed jobs...",
+  "error": "Could not load completed jobs data. Please try again later.",
+  "empty": "No completed jobs yet.",
+  "progress": {
+    "title": "Work Progress - {{id}}",
+    "completed": "completed",
+    "table": {
+      "stage": "Stage",
+      "status": "Status",
+      "updatedAt": "Updated At",
+      "noStages": "No stage details"
+    }
+  },
+  "info": {
+    "title": "Job Info",
+    "client": "Client Name",
+    "batch": "Batch Code",
+    "product": "Product",
+    "quantity": "Quantity",
+    "status": "Status",
+    "priority": "Priority",
+    "deadline": "Deadline",
+    "assignedTo": "Assigned To",
+    "completionDate": "Completion Date",
+    "notes": "Notes"
+  }
+}

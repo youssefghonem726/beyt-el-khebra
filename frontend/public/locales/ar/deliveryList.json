@@ -1,0 +1,34 @@
+{
+  "title": "التوصيلات",
+  "loading": "جاري تحميل التوصيلات...",
+  "error": "تعذّر تحميل بيانات التوصيل. يرجى المحاولة مجدداً.",
+  "allDeliveries": "جميع التوصيلات",
+  "table": {
+    "delivery": "التوصيل",
+    "order": "الطلب",
+    "client": "العميل",
+    "address": "العنوان",
+    "scheduled": "الموعد المحدد",
+    "status": "الحالة",
+    "actions": "إجراءات"
+  },
+  "actions": {
+    "delivered": "تم التسليم",
+    "cancelled": "ملغي",
+    "markDelivered": "تعليم كمُسلَّم",
+    "reschedule": "إعادة جدولة",
+    "changeAddress": "تغيير العنوان",
+    "cancel": "إلغاء"
+  },
+  "reschedule": {
+    "label": "تاريخ التوصيل الجديد",
+    "save": "حفظ",
+    "cancel": "إلغاء"
+  },
+  "address": {
+    "label": "العنوان الجديد",
+    "placeholder": "أدخل عنوان التوصيل المحدّث",
+    "save": "حفظ",
+    "cancel": "إلغاء"
+  }
+}

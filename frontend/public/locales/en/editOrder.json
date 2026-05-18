@@ -1,0 +1,29 @@
+{
+  "loading": "Loading order details...",
+  "title": "Edit Order #{{orderId}}",
+  "errors": {
+    "noId": "No order ID provided.",
+    "loadFailed": "Could not load order details.",
+    "saveFailed": "Failed to save changes. Please try again."
+  },
+  "fields": {
+    "client": "Client Name",
+    "status": "Status",
+    "product": "Product",
+    "qty": "Quantity",
+    "deadline": "Deadline",
+    "priority": "Priority",
+    "assignedTo": "Assigned To",
+    "notes": "Notes"
+  },
+  "priority": {
+    "Normal": "Normal",
+    "High": "High",
+    "Urgent": "Urgent"
+  },
+  "actions": {
+    "save": "Save Changes",
+    "saving": "Saving…",
+    "cancel": "Cancel"
+  }
+}

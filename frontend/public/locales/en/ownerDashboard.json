@@ -1,0 +1,64 @@
+{
+  "title": "Owner Dashboard",
+  "welcome": {
+    "heading": "Operations snapshot",
+    "subtext": "Monitor order flow, production load, and accounting status."
+  },
+  "loading": "Loading dashboard data...",
+  "error": "Could not load dashboard data. Please try again later.",
+  "stats": {
+    "unpricedOrders": "Unpriced Orders",
+    "unpricedOrdersSub": "Need manager pricing",
+    "activeJobs": "Active Jobs",
+    "activeJobsSub": "Production in progress",
+    "revenueSnapshot": "Revenue Snapshot",
+    "revenueSnapshotSub": "Total paid amount",
+    "accountingItems": "Accounting Items",
+    "accountingItemsSub": "Unpaid orders needing follow-up"
+  },
+  "quickLists": {
+    "title": "Manager Quick Lists",
+    "columns": {
+      "list": "List",
+      "count": "Count",
+      "status": "Status",
+      "ownerAction": "Owner Action",
+      "action": "Action"
+    },
+    "open": "Open",
+    "openManagerOrders": "Open Manager Orders",
+    "goToAccounting": "Go to Accounting",
+    "pending": {
+      "label": "Pending Orders",
+      "action": "Review and price urgent batches"
+    },
+    "working": {
+      "label": "Working Orders",
+      "action": "Track production progress"
+    },
+    "completed": {
+      "label": "Completed Orders",
+      "action": "Validate completion and billing"
+    }
+  },
+  "quickActions": {
+    "title": "Quick Actions",
+    "openManagerOrders": "Open Manager Orders",
+    "batchLookup": "Batch Lookup and Export",
+    "updateRoles": "Update Roles & Notifications"
+  },
+  "accountingInfo": {
+    "title": "Accounting",
+    "item1": "Revenue section links directly to the accounting page.",
+    "item2": "Invoices are managed under accounting records.",
+    "item3": "Owner dashboard is now focused on operations and finance routing."
+  },
+  "panels": {
+    "accounting": "Accounting",
+    "batchLookup": "Batch Lookup & Export",
+    "rolesNotifications": "Roles & Notifications",
+    "production": "Production Overview",
+    "managerOrders": "Manager Orders",
+    "close": "✕ Close"
+  }
+}

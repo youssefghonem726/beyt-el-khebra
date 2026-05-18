@@ -1,0 +1,64 @@
+{
+  "title": "Invoices",
+  "loading": "Loading invoices...",
+  "error": "Could not load your invoices. Please try again later.",
+  "myInvoices": "My Invoices",
+  "empty": "No invoices found.",
+  "table": {
+    "id": "Invoice ID",
+    "order": "Order",
+    "status": "Status",
+    "amount": "Amount",
+    "dueDate": "Due Date",
+    "action": "Action",
+    "view": "View"
+  },
+  "detail": {
+    "title": "Invoice Detail",
+    "loading": "Loading invoice...",
+    "noId": "No invoice ID provided.",
+    "error": "Could not load invoice details.",
+    "notFound": "Invoice not found.",
+    "backLabel": "Invoices",
+    "invoiceId": "Invoice #{{id}}",
+    "billedTo": "Billed to",
+    "address": "Address",
+    "taxId": "Tax ID",
+    "invoiceDetails": "Invoice details",
+    "linkedOrder": "Linked order",
+    "issueDate": "Issue date",
+    "dueDate": "Due date",
+    "paymentDate": "Payment date",
+    "table": {
+      "item": "Item",
+      "qty": "Qty",
+      "unitPrice": "Unit price (EGP)",
+      "total": "Total (EGP)",
+      "noItems": "Line items not available yet"
+    },
+    "subtotal": "Subtotal",
+    "vat": "VAT ({{rate}}%)",
+    "grandTotal": "Total",
+    "payNow": "Pay Now",
+    "paymentConfirmed": "✓ Payment confirmed",
+    "print": "Print",
+    "download": "Download PDF",
+    "payment": {
+      "title": "Payment Details",
+      "cardNumber": "Card Number",
+      "cardNumberPlaceholder": "1234 5678 9012 3456",
+      "expiry": "Expiry",
+      "expiryPlaceholder": "MM / YY",
+      "cvv": "CVV",
+      "cvvPlaceholder": "•••",
+      "cardholderName": "Cardholder Name",
+      "cardholderPlaceholder": "Name on card",
+      "confirm": "Confirm Payment",
+      "cancel": "Cancel"
+    },
+    "support": {
+      "message": "Issue with this invoice? Our support team is here to help.",
+      "contact": "Contact Support"
+    }
+  }
+}

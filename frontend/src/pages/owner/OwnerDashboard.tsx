@@ -1,72 +1,126 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useTranslation } from 'react-i18next';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatCard from '../../components/StatCard';
 import StatusBadge from '../../components/StatusBadge';
-import { BatchLookupPanel, AccountingPanel, SettingsPanel, ProductionPanel, CompletedJobsPanel, ManagerOrdersPanel } from './OwnerPanels';
+import { BatchLookupPanel, AccountingPanel, SettingsPanel, ProductionPanel, ManagerOrdersPanel } from './OwnerPanels';
+import type { ManagerOrdersFilter } from './OwnerPanels';
+import { getDashboardStats } from '../../lib/api/dashboardService';
+import { getAccountingOverview } from '../../lib/api/invoicesService';
+import { getOrders } from '../../lib/api';
 
 interface Stat {
-  label: string;
+  labelKey: string;
   value: string | number;
-  sub: string;
+  subKey: string;
 }
 
 interface QuickList {
-  list: string;
+  listKey: 'pending' | 'working' | 'completed';
   count: number;
   status: string;
-  action: string;
   page: string;
 }
 
-type FloatingView = 'accounting' | 'batch-lookup' | 'settings' | 'production' | 'completed-jobs' | 'manager-orders';
-
+type FloatingView = 'accounting' | 'batch-lookup' | 'settings' | 'production' | 'manager-orders';
 
 export default function OwnerDashboard() {
+  return (
+    <Suspense fallback={null}>
+      <OwnerDashboardInner />
+    </Suspense>
+  );
+}
+
+function OwnerDashboardInner() {
+  const { t } = useTranslation(['common', 'ownerDashboard']);
   const [stats, setStats] = useState<Stat[]>([]);
   const [quickLists, setQuickLists] = useState<QuickList[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [floatingView, setFloatingView] = useState<FloatingView | null>(null);
+  const [managerOrdersFilter, setManagerOrdersFilter] = useState<ManagerOrdersFilter>('all');
 
   useEffect(() => {
-    Promise.all([
-      fetch('/data/dashboard-stats.json').then(res => {
-        if (!res.ok) throw new Error(`Stats HTTP ${res.status}`);
-        return res.json();
-      }),
-      fetch('/data/quick-lists.json').then(res => {
-        if (!res.ok) throw new Error(`Quick lists HTTP ${res.status}`);
-        return res.json();
-      })
-    ])
-      .then(([statsData, quickListsData]) => {
-        setStats(statsData);
-        setQuickLists(quickListsData);
-        setLoading(false);
-      })
-      .catch((err) => {
+    const fetchData = async () => {
+      try {
+        const [statsRes, ordersRes, accountingRes] = await Promise.all([
+          getDashboardStats(),
+          getOrders(),
+          getAccountingOverview(),
+        ]);
+        const dashboardStats = statsRes.data.data;
+        console.log('Dashboard stats response:', dashboardStats);
+        const orders = ordersRes.data.data;
+        const accountingStats = accountingRes.data.data?.stats ?? {};
+
+        const pendingOrders = orders.filter((order: any) =>
+          ['UNPRICED_PENDING', 'PRICED_PENDING_CONFIRMATION'].includes(String(order.status ?? '').toUpperCase())
+        ).length;
+        const unpricedOrders = dashboardStats.orders?.unpriced_orders ?? 0;
+        const activeJobs = dashboardStats.production?.total_items ?? 0;
+        const totalRevenue = accountingStats.revenue_snapshot ?? dashboardStats.payments?.total_paid_amount ?? 0;
+        const accountingItems = accountingStats.unpaid_orders ?? dashboardStats.payments?.unpaid_orders ?? 0;
+
+        const revenueFormatted = totalRevenue >= 1000
+          ? `EGP ${(totalRevenue / 1000).toFixed(0)}K`
+          : `EGP ${totalRevenue.toFixed(0)}`;
+
+        setStats([
+          { labelKey: 'unpricedOrders', value: unpricedOrders, subKey: 'unpricedOrdersSub' },
+          { labelKey: 'activeJobs', value: activeJobs, subKey: 'activeJobsSub' },
+          { labelKey: 'revenueSnapshot', value: revenueFormatted, subKey: 'revenueSnapshotSub' },
+          { labelKey: 'accountingItems', value: accountingItems, subKey: 'accountingItemsSub' },
+        ]);
+
+        const workingOrders = dashboardStats.production?.total_items ?? 0;
+        const completedOrders = dashboardStats.orders?.completed_orders ?? 0;
+
+        setQuickLists([
+          { listKey: 'pending', count: pendingOrders, status: 'awaiting_work', page: 'owner-manager-orders' },
+          { listKey: 'working', count: workingOrders, status: 'in_production', page: 'owner-production' },
+          { listKey: 'completed', count: completedOrders, status: 'ready_for_archive', page: 'owner-completed-jobs' },
+        ]);
+      } catch (err) {
         console.error('Failed to load dashboard data:', err);
-        setError('Could not load dashboard data. Please try again later.');
+        setError(t('ownerDashboard:error'));
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+
+    fetchData();
   }, []);
 
   const handleQuickListOpen = (page: string) => {
-    if (page === 'owner-manager-orders') { setFloatingView('manager-orders'); return; }
+    if (page === 'owner-manager-orders') {
+      setManagerOrdersFilter('pending');
+      setFloatingView('manager-orders');
+      return;
+    }
     if (page === 'owner-production')     { setFloatingView('production'); return; }
-    if (page === 'owner-completed-jobs') { setFloatingView('completed-jobs'); return; }
+    if (page === 'owner-completed-jobs') {
+      setManagerOrdersFilter('completed');
+      setFloatingView('manager-orders');
+      return;
+    }
+  };
+
+  const openManagerOrders = (filter: ManagerOrdersFilter = 'all') => {
+    setManagerOrdersFilter(filter);
+    setFloatingView('manager-orders');
   };
 
   if (loading) {
     return (
       <AppShell role="owner" activePage="owner-dashboard">
-        <Topbar title="Owner Dashboard" />
+        <Topbar title={t('ownerDashboard:title')} />
         <section className="welcome">
-          <h2>Operations snapshot</h2>
-          <p>Monitor order flow, production load, and accounting status.</p>
+          <h2>{t('ownerDashboard:welcome.heading')}</h2>
+          <p>{t('ownerDashboard:welcome.subtext')}</p>
         </section>
-        <div className="loading-state">Loading dashboard data...</div>
+        <div className="loading-state">{t('ownerDashboard:loading')}</div>
       </AppShell>
     );
   }
@@ -74,10 +128,10 @@ export default function OwnerDashboard() {
   if (error) {
     return (
       <AppShell role="owner" activePage="owner-dashboard">
-        <Topbar title="Owner Dashboard" />
+        <Topbar title={t('ownerDashboard:title')} />
         <section className="welcome">
-          <h2>Operations snapshot</h2>
-          <p>Monitor order flow, production load, and accounting status.</p>
+          <h2>{t('ownerDashboard:welcome.heading')}</h2>
+          <p>{t('ownerDashboard:welcome.subtext')}</p>
         </section>
         <div className="error-state">{error}</div>
       </AppShell>
@@ -86,51 +140,59 @@ export default function OwnerDashboard() {
 
   return (
     <AppShell role="owner" activePage="owner-dashboard">
-      <Topbar title="Owner Dashboard" />
+      <Topbar title={t('ownerDashboard:title')} />
 
       <section className="welcome">
-        <h2>Operations snapshot</h2>
-        <p>Monitor order flow, production load, and accounting status.</p>
+        <h2>{t('ownerDashboard:welcome.heading')}</h2>
+        <p>{t('ownerDashboard:welcome.subtext')}</p>
       </section>
 
       <section className="grid-4">
         {stats.map((stat, idx) => (
-          <StatCard key={idx} label={stat.label} value={stat.value} sub={stat.sub} />
+          <StatCard
+            key={idx}
+            label={t(`ownerDashboard:stats.${stat.labelKey}`)}
+            value={stat.value}
+            sub={t(`ownerDashboard:stats.${stat.subKey}`)}
+          />
         ))}
       </section>
 
       <section className="content">
         <article className="table-wrap">
           <div className="table-head">
-            <h3>Manager Quick Lists</h3>
+            <h3>{t('ownerDashboard:quickLists.title')}</h3>
             <div className="actions-inline">
-              <button
-                className="btn"
-                onClick={() => setFloatingView('manager-orders')}
-              >
-                Open Manager Orders
+              <button className="btn" onClick={() => openManagerOrders('all')}>
+                {t('ownerDashboard:quickLists.openManagerOrders')}
               </button>
-              <button className="btn primary" onClick={() => setFloatingView('accounting')}>Go to Accounting</button>
+              <button className="btn primary" onClick={() => setFloatingView('accounting')}>
+                {t('ownerDashboard:quickLists.goToAccounting')}
+              </button>
             </div>
           </div>
-          <table>
+          <table className="orders-table">
             <thead>
               <tr>
-                <th>List</th>
-                <th>Count</th>
-                <th>Status</th>
-                <th>Owner Action</th>
-                <th>Action</th>
+                <th>{t('ownerDashboard:quickLists.columns.list')}</th>
+                <th>{t('ownerDashboard:quickLists.columns.count')}</th>
+                <th>{t('ownerDashboard:quickLists.columns.status')}</th>
+                <th>{t('ownerDashboard:quickLists.columns.ownerAction')}</th>
+                <th>{t('ownerDashboard:quickLists.columns.action')}</th>
               </tr>
             </thead>
             <tbody>
               {quickLists.map((r) => (
-                <tr key={r.list}>
-                  <td>{r.list}</td>
+                <tr key={r.listKey}>
+                  <td>{t(`ownerDashboard:quickLists.${r.listKey}.label`)}</td>
                   <td>{r.count}</td>
                   <td><StatusBadge status={r.status} /></td>
-                  <td>{r.action}</td>
-                  <td><button className="btn" onClick={() => handleQuickListOpen(r.page)}>Open</button></td>
+                  <td>{t(`ownerDashboard:quickLists.${r.listKey}.action`)}</td>
+                  <td>
+                    <button className="btn" onClick={() => handleQuickListOpen(r.page)}>
+                      {t('ownerDashboard:quickLists.open')}
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -139,22 +201,23 @@ export default function OwnerDashboard() {
 
         <div className="stack">
           <section className="box">
-            <h3>Quick Actions</h3>
-            <button
-              className="btn block"
-              onClick={() => setFloatingView('manager-orders')}
-            >
-              Open Order Details
+            <h3>{t('ownerDashboard:quickActions.title')}</h3>
+            <button className="btn block" onClick={() => openManagerOrders('all')}>
+              {t('ownerDashboard:quickActions.openManagerOrders')}
             </button>
-            <button className="btn block" style={{ marginTop: 8 }} onClick={() => setFloatingView('batch-lookup')}>Batch Lookup and Export</button>
-            <button className="btn block" style={{ marginTop: 8 }} onClick={() => setFloatingView('settings')}>Update Roles &amp; Notifications</button>
+            <button className="btn block" style={{ marginTop: 8 }} onClick={() => setFloatingView('batch-lookup')}>
+              {t('ownerDashboard:quickActions.batchLookup')}
+            </button>
+            <button className="btn block" style={{ marginTop: 8 }} onClick={() => setFloatingView('settings')}>
+              {t('ownerDashboard:quickActions.updateRoles')}
+            </button>
           </section>
           <section className="box">
-            <h3>Accounting</h3>
+            <h3>{t('ownerDashboard:accountingInfo.title')}</h3>
             <ul>
-              <li>Revenue section links directly to the accounting page.</li>
-              <li>Invoices are managed under accounting records.</li>
-              <li>Owner dashboard is now focused on operations and finance routing.</li>
+              <li>{t('ownerDashboard:accountingInfo.item1')}</li>
+              <li>{t('ownerDashboard:accountingInfo.item2')}</li>
+              <li>{t('ownerDashboard:accountingInfo.item3')}</li>
             </ul>
           </section>
         </div>
@@ -195,12 +258,11 @@ export default function OwnerDashboard() {
               zIndex: 1,
             }}>
               <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>
-                {floatingView === 'accounting'     && 'Accounting'}
-                {floatingView === 'batch-lookup'   && 'Batch Lookup & Export'}
-                {floatingView === 'settings'       && 'Roles & Notifications'}
-                {floatingView === 'production'     && 'Production Overview'}
-                {floatingView === 'completed-jobs' && 'Completed Jobs'}
-                {floatingView === 'manager-orders' && 'Manager Orders'}
+                {floatingView === 'accounting'     && t('ownerDashboard:panels.accounting')}
+                {floatingView === 'batch-lookup'   && t('ownerDashboard:panels.batchLookup')}
+                {floatingView === 'settings'       && t('ownerDashboard:panels.rolesNotifications')}
+                {floatingView === 'production'     && t('ownerDashboard:panels.production')}
+                {floatingView === 'manager-orders' && t('ownerDashboard:panels.managerOrders')}
               </h2>
               <button
                 onClick={() => setFloatingView(null)}
@@ -215,7 +277,7 @@ export default function OwnerDashboard() {
                   fontSize: 13,
                 }}
               >
-                ✕ Close
+                {t('ownerDashboard:panels.close')}
               </button>
             </div>
             <div style={{ padding: 20 }}>
@@ -223,8 +285,7 @@ export default function OwnerDashboard() {
               {floatingView === 'batch-lookup'   && <BatchLookupPanel />}
               {floatingView === 'settings'       && <SettingsPanel />}
               {floatingView === 'production'     && <ProductionPanel />}
-              {floatingView === 'completed-jobs' && <CompletedJobsPanel />}
-              {floatingView === 'manager-orders' && <ManagerOrdersPanel />}
+              {floatingView === 'manager-orders' && <ManagerOrdersPanel initialFilter={managerOrdersFilter} />}
             </div>
           </div>
         </div>

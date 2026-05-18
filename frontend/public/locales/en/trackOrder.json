@@ -1,0 +1,55 @@
+{
+  "title": "Track Order",
+  "search": {
+    "heading": "Track Your Order",
+    "subtitle": "Enter your order ID to see live tracking updates.",
+    "placeholder": "Enter Order ID (e.g. 1021)",
+    "button": "Track Order",
+    "searching": "Searching...",
+    "notFound": "No order found for \"{{id}}\". Please check the ID and try again."
+  },
+  "result": {
+    "ordered": "Ordered:",
+    "estDelivery": "Est. Delivery:",
+    "total": "Total:",
+    "complete": "complete",
+    "now": "← now"
+  },
+  "statusLabels": {
+    "canceled": "This order was canceled.",
+    "completed": "Order completed and delivered.",
+    "unpricedPending": "Your order is being reviewed for pricing.",
+    "pricedPendingConfirmation": "Awaiting your confirmation to begin production.",
+    "inProgress": "Your order is currently being produced.",
+    "almostReady": "Almost ready – final quality check.",
+    "unknown": "Order status unknown."
+  },
+  "steps": {
+    "orderPlaced": "Order Placed",
+    "pricing": "Pricing",
+    "production": "Production",
+    "qualityCheck": "Quality Check",
+    "delivered": "Delivered"
+  },
+  "updates": {
+    "title": "Tracking Updates",
+    "noUpdates": "No updates yet.",
+    "orderSubmitted": "Order submitted.",
+    "quoteSent": "Quote sent – total {{total}}. Awaiting confirmation.",
+    "orderCanceled": "Order canceled."
+  },
+  "details": {
+    "title": "Order Details",
+    "product": "Product",
+    "quantity": "Quantity",
+    "orderDate": "Order Date",
+    "dueDate": "Due Date",
+    "paymentMethod": "Payment Method",
+    "notes": "Notes"
+  },
+  "help": {
+    "title": "Need help with this order?",
+    "viewInvoice": "View Invoice",
+    "contactSupport": "Contact Support"
+  }
+}

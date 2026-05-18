@@ -1,0 +1,55 @@
+{
+  "title": "تتبع الطلب",
+  "search": {
+    "heading": "تتبع طلبك",
+    "subtitle": "أدخل معرف الطلب لمشاهدة آخر التحديثات.",
+    "placeholder": "أدخل رقم الطلب (مثل: 1021)",
+    "button": "تتبع الطلب",
+    "searching": "جاري البحث...",
+    "notFound": "لم يُعثر على طلب برقم \"{{id}}\". يرجى التحقق من الرقم والمحاولة مجدداً."
+  },
+  "result": {
+    "ordered": "تاريخ الطلب:",
+    "estDelivery": "التسليم المتوقع:",
+    "total": "الإجمالي:",
+    "complete": "مكتمل",
+    "now": "← الآن"
+  },
+  "statusLabels": {
+    "canceled": "تم إلغاء هذا الطلب.",
+    "completed": "تم اكتمال الطلب وتسليمه.",
+    "unpricedPending": "يجري مراجعة طلبك لتحديد السعر.",
+    "pricedPendingConfirmation": "في انتظار تأكيدك لبدء الإنتاج.",
+    "inProgress": "طلبك قيد الإنتاج حالياً.",
+    "almostReady": "شبه جاهز – مرحلة فحص الجودة الأخيرة.",
+    "unknown": "حالة الطلب غير معروفة."
+  },
+  "steps": {
+    "orderPlaced": "تم تقديم الطلب",
+    "pricing": "التسعير",
+    "production": "الإنتاج",
+    "qualityCheck": "فحص الجودة",
+    "delivered": "تم التسليم"
+  },
+  "updates": {
+    "title": "تحديثات التتبع",
+    "noUpdates": "لا توجد تحديثات بعد.",
+    "orderSubmitted": "تم تقديم الطلب.",
+    "quoteSent": "تم إرسال عرض السعر – الإجمالي {{total}}. في انتظار التأكيد.",
+    "orderCanceled": "تم إلغاء الطلب."
+  },
+  "details": {
+    "title": "تفاصيل الطلب",
+    "product": "المنتج",
+    "quantity": "الكمية",
+    "orderDate": "تاريخ الطلب",
+    "dueDate": "تاريخ الاستحقاق",
+    "paymentMethod": "طريقة الدفع",
+    "notes": "ملاحظات"
+  },
+  "help": {
+    "title": "هل تحتاج مساعدة في هذا الطلب؟",
+    "viewInvoice": "عرض الفاتورة",
+    "contactSupport": "التواصل مع الدعم"
+  }
+}
