@@ -24,18 +24,18 @@ import { getAccountingOverview } from '../../lib/api/invoicesService';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatDate(isoDate: string | null): string {
+function formatDate(isoDate: string | null, lang: string): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function formatDateTime(isoDate: string | null): string {
+function formatDateTime(isoDate: string | null, lang: string): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleString('en-GB', {
+  return d.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-GB', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
@@ -49,8 +49,8 @@ function getShortOrderId(orderId: string): string {
   return match ? `#${match[1]}` : orderId;
 }
 
-function formatAmount(amount: number): string {
-  return `EGP ${amount.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+function formatAmount(amount: number, lang: string): string {
+  return `EGP ${amount.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function normalizeStatus(status: unknown): string {
@@ -118,7 +118,7 @@ type PanelView =
   | { kind: 'work-view'; id: string; displayId: string; client: string; product: string; qty: number; progress: number; paper: string };
 
 export function ManagerOrdersPanel({ initialFilter = 'all' }: { initialFilter?: ManagerOrdersFilter }) {
-  const { t } = useTranslation(['common', 'managerOrders']);
+  const { t, i18n } = useTranslation(['common', 'managerOrders']);
   const [view, setView] = useState<PanelView | null>(null);
   const [pending, setPending] = useState<OrderBrief[]>([]);
   const [working, setWorking] = useState<WorkOrder[]>([]);
@@ -174,7 +174,7 @@ export function ManagerOrdersPanel({ initialFilter = 'all' }: { initialFilter?: 
           .filter((o: any) => COMPLETED_ORDER_STATUSES.has(normalizeStatus(o.status)))
           .map((o: any) => ({
             ...buildBrief(o),
-            completedAt: formatDate(o.completed_at || o.updated_at || o.created_at),
+            completedAt: formatDate(o.completed_at || o.updated_at || o.created_at, i18n.language),
           }));
 
         const details: Record<string, OrderDetail> = {};
@@ -194,7 +194,7 @@ export function ManagerOrdersPanel({ initialFilter = 'all' }: { initialFilter?: 
             stagesMap[String(batch.orderId)] = batch.stages.map((s: any) => ({
               stage: s.stage,
               status: s.status,
-              updated: formatDateTime(s.updatedAt),
+              updated: formatDateTime(s.updatedAt, i18n.language),
             }));
           }
         });
@@ -418,7 +418,7 @@ interface BatchView {
 }
 
 export function BatchLookupPanel() {
-  const { t } = useTranslation(['common', 'batchLookup']);
+  const { t, i18n } = useTranslation(['common', 'batchLookup']);
   const [query, setQuery] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [selected, setSelected] = useState<BatchView | null>(null);
@@ -449,7 +449,7 @@ export function BatchLookupPanel() {
             order: order ? getShortOrderId(String(order.id)) : orderId,
             client: order ? getClientName(clientsMap, getOrderClientId(order)) : 'Unknown',
             status: b.status,
-            date: formatDate(b.created_at || b.updated_at || order?.orderDate || order?.created_at || null),
+            date: formatDate(b.created_at || b.updated_at || order?.orderDate || order?.created_at || null, i18n.language),
           };
         });
         setBatches(views);
@@ -564,7 +564,7 @@ export function BatchLookupPanel() {
 // ─── Accounting Panel ─────────────────────────────────────────────────────────
 
 export function AccountingPanel() {
-  const { t } = useTranslation(['common', 'accounting']);
+  const { t, i18n } = useTranslation(['common', 'accounting']);
   const [invoices, setInvoices] = useState<any[]>([]);
   const [stats, setStats] = useState<{ label: string; value: string | number; sub: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -581,7 +581,7 @@ export function AccountingPanel() {
           id: inv.id,
           order: getShortOrderId(String(inv.orderId ?? inv.order_id ?? inv.order ?? '-')),
           client: inv.client_name || 'Unknown',
-          total: formatAmount(inv.total ?? inv.total_amount ?? 0),
+          total: formatAmount(inv.total ?? inv.total_amount ?? 0, i18n.language),
           status: inv.payment_status || inv.status || 'unpaid',
         }));
 
@@ -970,7 +970,7 @@ interface ProductionJob {
 }
 
 export function ProductionPanel() {
-  const { t } = useTranslation(['common', 'production']);
+  const { t, i18n } = useTranslation(['common', 'production']);
   const [jobs, setJobs] = useState<ProductionJob[]>([]);
   const [productionStats, setProductionStats] = useState({
     active: 0,
@@ -1009,7 +1009,7 @@ export function ProductionPanel() {
               completedQty: Number(job.completed_quantity || 0),
               status: job.status || 'ready_for_production',
               progress: Number(job.completed_quantity || 0),
-              dueDate: formatDate(job.due_date),
+              dueDate: formatDate(job.due_date, i18n.language),
               paper: order?.specs?.paper || b.paper || '—',
             };
           });
@@ -1081,7 +1081,7 @@ export function ProductionPanel() {
 // ─── Completed Jobs Panel ─────────────────────────────────────────────────────
 
 export function CompletedJobsPanel() {
-  const { t } = useTranslation(['common', 'completedJobs']);
+  const { t, i18n } = useTranslation(['common', 'completedJobs']);
   const [jobs, setJobs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1112,14 +1112,14 @@ export function CompletedJobsPanel() {
             stages: b.stages.map((s: any) => ({
               stage: s.stage,
               status: s.status,
-              updated: formatDateTime(s.updatedAt),
+              updated: formatDateTime(s.updatedAt, i18n.language),
             })),
             info: {
               client: clientName,
               batch: b.id,
               product: b.product,
               qty: b.qty,
-              completion: formatDate(b.deadline || order?.deliveryDate),
+              completion: formatDate(b.deadline || order?.deliveryDate, i18n.language),
             },
           };
         });

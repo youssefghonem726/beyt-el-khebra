@@ -243,7 +243,7 @@ function UnpricedQueueInner() {
   };
 
   const fmt = (n: number) =>
-    n.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    n.toLocaleString(i18n.language === 'ar' ? 'ar-EG' : 'en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const now = new Date();
   const dueSoon = jobs.filter((job) => {

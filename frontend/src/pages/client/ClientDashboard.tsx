@@ -33,16 +33,16 @@ interface DisplayOrder {
   total: string;
 }
 
-function formatDate(isoDate: string | null): string {
+function formatDate(isoDate: string | null, lang: string): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function formatTotal(amount: number | null): string {
+function formatTotal(amount: number | null, lang: string): string {
   if (amount === null || amount === undefined) return '—';
-  return `EGP ${amount.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `EGP ${amount.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export default function ClientDashboard() {
@@ -54,7 +54,7 @@ export default function ClientDashboard() {
 }
 
 function ClientDashboardInner() {
-  const { t } = useTranslation(['common', 'clientDashboard']);
+  const { t, i18n } = useTranslation(['common', 'clientDashboard']);
   const { navigateTopLevel } = useNavigation();
 
   const [clientName, setClientName] = useState<string>('');
@@ -92,9 +92,9 @@ function ClientDashboardInner() {
           id: String(o.id),
           product: o.upload?.file_name || `Order #${o.id}`,
           status: o.status,
-          orderDate: formatDate(o.created_at),
-          deliveryDate: formatDate(o.due_date || null),
-          total: formatTotal(o.total_price),
+          orderDate: formatDate(o.created_at, i18n.language),
+          deliveryDate: formatDate(o.due_date || null, i18n.language),
+          total: formatTotal(o.total_price, i18n.language),
         }));
 
         setOrders(displayOrders);

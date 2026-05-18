@@ -36,18 +36,18 @@ interface Job {
   info: JobInfo;
 }
 
-function formatDate(isoDate: string | null): string {
+function formatDate(isoDate: string | null, lang: string): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function formatDateTime(isoDate: string | null): string {
+function formatDateTime(isoDate: string | null, lang: string): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 export default function ManagerOrderDetails() {
@@ -59,7 +59,7 @@ export default function ManagerOrderDetails() {
 }
 
 function ManagerOrderDetailsInner() {
-  const { t } = useTranslation(['common', 'managerOrderDetails']);
+  const { t, i18n } = useTranslation(['common', 'managerOrderDetails']);
   const { id: orderId } = useParams<{ id: string }>();
   const { navigateTopLevel } = useNavigation();
   const [job, setJob] = useState<Job | null>(null);
@@ -114,7 +114,7 @@ function ManagerOrderDetailsInner() {
         const stages = (batch?.stages || []).map((s: any) => ({
           stage: s.stage,
           status: s.status,
-          updated: s.updatedAt ? formatDateTime(s.updatedAt) : '—',
+          updated: s.updatedAt ? formatDateTime(s.updatedAt, i18n.language) : '—',
         }));
 
         const jobInfo: JobInfo = {
@@ -124,7 +124,7 @@ function ManagerOrderDetailsInner() {
           qty,
           status: order.status,
           priority: order.Priority || batch?.priority || 'Normal',
-          deadline: order.due_date ? formatDate(order.due_date) : (batch?.deadline ? formatDate(batch.deadline) : '—'),
+          deadline: order.due_date ? formatDate(order.due_date, i18n.language) : (batch?.deadline ? formatDate(batch.deadline, i18n.language) : '—'),
           team: batch?.assignedTo || 'Unassigned',
           notes: order.Notes || batch?.notes || '—',
         };

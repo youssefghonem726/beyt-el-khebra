@@ -45,9 +45,9 @@ interface InvoiceCandidate {
   status?: string;
 }
 
-function formatAmount(amount: number | null | undefined): string {
+function formatAmount(amount: number | null | undefined, lang: string): string {
   if (amount === null || amount === undefined) return '-';
-  return `EGP ${amount.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `EGP ${amount.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function formatLarge(num: number): string {
@@ -61,19 +61,19 @@ function getShortOrderId(orderId: number | string | null | undefined): string {
   return `#${orderId}`;
 }
 
-function formatDate(value?: string): string {
+function formatDate(value: string | undefined, lang: string): string {
   if (!value) return '-';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleDateString('en-EG', { year: 'numeric', month: 'short', day: 'numeric' });
+  return date.toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-EG', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-function buildInvoiceLines(invoice: DisplayInvoice, t: TFn): string[] {
+function buildInvoiceLines(invoice: DisplayInvoice, t: TFn, lang: string): string[] {
   return [
     `${t('accounting:download.invoice')}: ${invoice.id}`,
     `${t('accounting:download.order')}: ${invoice.order}`,
     `${t('accounting:download.client')}: ${invoice.client}`,
-    `${t('accounting:download.date')}: ${formatDate(invoice.createdAt)}`,
+    `${t('accounting:download.date')}: ${formatDate(invoice.createdAt, lang)}`,
     `${t('accounting:download.items')}: ${invoice.itemSummary}`,
     `${t('accounting:download.total')}: ${invoice.total}`,
     `${t('accounting:download.paid')}: ${invoice.paidAmount}`,
@@ -91,7 +91,7 @@ export default function Accounting() {
 }
 
 function AccountingInner() {
-  const { t } = useTranslation(['common', 'accounting']);
+  const { t, i18n } = useTranslation(['common', 'accounting']);
 
   const [invoices, setInvoices] = useState<DisplayInvoice[]>([]);
   const [filteredInvoices, setFilteredInvoices] = useState<DisplayInvoice[]>([]);
@@ -122,9 +122,9 @@ function AccountingInner() {
           id: String(inv.id),
           order: getShortOrderId(inv.orderId ?? inv.order_id ?? inv.order),
           client: inv.client_name || 'Unknown',
-          total: formatAmount(totalAmountValue),
-          paidAmount: formatAmount(paidAmountValue),
-          remainingAmount: formatAmount(remainingAmountValue),
+          total: formatAmount(totalAmountValue, i18n.language),
+          paidAmount: formatAmount(paidAmountValue, i18n.language),
+          remainingAmount: formatAmount(remainingAmountValue, i18n.language),
           status: inv.payment_status || 'unpaid',
           totalAmountValue,
           paidAmountValue,
@@ -296,9 +296,9 @@ function AccountingInner() {
                 <tr key={order.order_id}>
                   <td>{getShortOrderId(order.order_id)}</td>
                   <td>{order.client_name}</td>
-                  <td>{formatAmount(order.total)}</td>
-                  <td>{formatAmount(order.paid_amount)}</td>
-                  <td>{formatAmount(order.remaining_amount)}</td>
+                  <td>{formatAmount(order.total, i18n.language)}</td>
+                  <td>{formatAmount(order.paid_amount, i18n.language)}</td>
+                  <td>{formatAmount(order.remaining_amount, i18n.language)}</td>
                   <td><StatusBadge status={order.status || 'CONFIRMED'} /></td>
                   <td><StatusBadge status={order.payment_status} /></td>
                   <td>
@@ -408,7 +408,7 @@ function AccountingInner() {
                 <div><strong>{t('accounting:preview.invoiceNum')}</strong><br />{previewInvoice.id}</div>
                 <div><strong>{t('accounting:preview.order')}</strong><br />{previewInvoice.order}</div>
                 <div><strong>{t('accounting:preview.client')}</strong><br />{previewInvoice.client}</div>
-                <div><strong>{t('accounting:preview.date')}</strong><br />{formatDate(previewInvoice.createdAt)}</div>
+                <div><strong>{t('accounting:preview.date')}</strong><br />{formatDate(previewInvoice.createdAt, i18n.language)}</div>
               </div>
               <div>
                 <strong>{t('accounting:preview.items')}</strong>
@@ -427,7 +427,7 @@ function AccountingInner() {
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
               <button
                 className="btn"
-                onClick={() => downloadText(`invoice-${previewInvoice.id}.txt`, buildInvoiceLines(previewInvoice, t as TFn))}
+                onClick={() => downloadText(`invoice-${previewInvoice.id}.txt`, buildInvoiceLines(previewInvoice, t as TFn, i18n.language))}
               >
                 {t('accounting:preview.download')}
               </button>
