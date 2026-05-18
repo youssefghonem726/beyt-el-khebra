@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+
 const STATUS_CLASS_MAP: Record<string, string> = {
   unpriced_pending:            'unpriced',
   unpriced:                    'unpriced',
@@ -37,6 +39,11 @@ interface Props {
 }
 
 export default function StatusBadge({ status }: Props) {
-  const cls = STATUS_CLASS_MAP[status] ?? 'pending';
-  return <span className={`status ${cls}`}>{status}</span>;
+  const { t } = useTranslation('common');
+  const normalized = status.toLowerCase();
+  const cls = STATUS_CLASS_MAP[normalized] ?? STATUS_CLASS_MAP[status] ?? 'pending';
+  const labelKey = `statusLabels.${status}`;
+  const translated = t(labelKey);
+  const label = translated === labelKey ? status : translated;
+  return <span className={`status ${cls}`}>{label}</span>;
 }

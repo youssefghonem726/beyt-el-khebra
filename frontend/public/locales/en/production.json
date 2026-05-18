@@ -11,7 +11,9 @@
     "inProgress": "In Progress",
     "inProgressSub": "Being worked on",
     "completed": "Completed",
-    "completedSub": "Ready items still in active orders"
+    "completedSub": "Ready items still in active orders",
+    "onHold": "On Hold",
+    "onHoldSub": "No backend hold source yet"
   },
   "steps": {
     "pending": "Ready for production",
@@ -38,7 +40,10 @@
     "step": "Step",
     "pcs": "{{count}} pcs",
     "completedOf": "{{completed}} / {{total}} completed ({{percent}}%)",
-    "openWorkView": "Open Work View"
+    "openWorkView": "Open Work View",
+    "due": "Due",
+    "printed": "printed",
+    "pcsUnit": "pcs"
   },
   "detail": {
     "jobDetails": "Job Details",

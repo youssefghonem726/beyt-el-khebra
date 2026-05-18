@@ -5,6 +5,30 @@ import Topbar from '../../components/Topbar';
 import StatCard from '../../components/StatCard';
 import { getUnpricedQueue, submitQuoteForOrder, updateOrder } from '../../lib/api/ordersQuotesService';
 import { getClients } from '../../lib/api/invoicesClientsSettingsService';
+import { getDefaultPricing, type PricingRow } from '../../lib/api/pricingService';
+
+type PricingKey = Exclude<keyof PricingRow, 'id' | 'created_at' | 'user' | 'source'>;
+
+const PRICING_OPTIONS: Array<{ key: PricingKey; label: string }> = [
+  { key: 'front', label: 'Front' },
+  { key: 'front_and_back', label: 'Front & Back' },
+  { key: 'digital_cover_300g', label: 'Digital Cover 300g' },
+  { key: 'digital_cover_200g', label: 'Digital Cover 200g' },
+  { key: 'offset_cover_200g', label: 'Offset Cover 200g' },
+  { key: 'offset_cover_300g', label: 'Offset Cover 300g' },
+  { key: 'coil_size_10', label: 'Coil Size 10' },
+  { key: 'coil_size_12', label: 'Coil Size 12' },
+  { key: 'coil_size_14', label: 'Coil Size 14' },
+  { key: 'coil_size_16', label: 'Coil Size 16' },
+  { key: 'coil_size_18', label: 'Coil Size 18' },
+  { key: 'coil_size_20', label: 'Coil Size 20' },
+  { key: 'coil_size_22', label: 'Coil Size 22' },
+  { key: 'coil_size_25', label: 'Coil Size 25' },
+  { key: 'coil_size_28', label: 'Coil Size 28' },
+  { key: 'coil_size_30', label: 'Coil Size 30' },
+  { key: 'coil_size_32', label: 'Coil Size 32' },
+  { key: 'coil_size_35', label: 'Coil Size 35' },
+];
 
 interface UnpricedItem {
   id: number | string;
@@ -44,11 +68,11 @@ interface PricingState {
   notes: string;
 }
 
-function formatDate(isoDate: string | null): string {
-  if (!isoDate) return 'Not provided';
+function formatDate(isoDate: string | null, lang: string, fallback: string): string {
+  if (!isoDate) return fallback;
   const d = new Date(isoDate);
-  if (Number.isNaN(d.getTime())) return 'Not provided';
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  if (Number.isNaN(d.getTime())) return fallback;
+  return d.toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 function getShortOrderId(id: number | string): string {
@@ -60,8 +84,8 @@ function getProductFallback(order: any): string {
   return order.product_summary || order.upload?.file_name || `Order #${order.id}`;
 }
 
-function showValue(value: unknown): string {
-  if (value === null || value === undefined || value === '') return 'Not provided';
+function showValue(value: unknown, fallback: string): string {
+  if (value === null || value === undefined || value === '') return fallback;
   return String(value);
 }
 
@@ -82,13 +106,16 @@ export default function UnpricedQueue() {
 }
 
 function UnpricedQueueInner() {
-  const { t } = useTranslation(['common', 'unpricedQueue']);
+  const { t, i18n } = useTranslation(['common', 'unpricedQueue']);
 
   const [jobs, setJobs] = useState<UnpricedJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pricingId, setPricingId] = useState<string | null>(null);
   const [pricing, setPricing] = useState<PricingState>({ unitPrice: '', vatRate: '14', notes: '' });
+  const [selectedPricingKey, setSelectedPricingKey] = useState<string>('');
+  const [customPriceMode, setCustomPriceMode] = useState(false);
+  const [pricingTable, setPricingTable] = useState<PricingRow | null>(null);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
 
@@ -96,10 +123,12 @@ function UnpricedQueueInner() {
     try {
       setLoading(true);
       setError(null);
-      const [ordersRes, clientsRes] = await Promise.all([
+      const [ordersRes, clientsRes, pricingRes] = await Promise.all([
         getUnpricedQueue(),
         getClients(),
+        getDefaultPricing().catch(() => null),
       ]);
+      setPricingTable(pricingRes?.data?.data ?? null);
 
       const orders = ordersRes.data.data;
       const clients = clientsRes.data.data.results;
@@ -125,7 +154,7 @@ function UnpricedQueueInner() {
           id: String(order.id),
           displayId: getShortOrderId(order.id),
           client: clientName,
-          clientEmail: order.customer_email || mappedClient?.email || 'Not provided',
+          clientEmail: order.customer_email || mappedClient?.email || t('unpricedQueue:notProvided'),
           product: getProductFallback(order),
           items: items.map((item: any) => ({
             id: item.id,
@@ -144,7 +173,7 @@ function UnpricedQueueInner() {
             coil: item.coil ?? null,
           })),
           qty,
-          deadline: formatDate(deadlineIso),
+          deadline: formatDate(deadlineIso, i18n.language, t('unpricedQueue:notProvided')),
           dueDate: deadlineIso,
           createdAt: order.created_at ?? null,
           notes: order.notes ?? null,
@@ -168,10 +197,12 @@ function UnpricedQueueInner() {
   const openPricing = (id: string) => {
     setPricingId(id === pricingId ? null : id);
     setPricing({ unitPrice: '', vatRate: '14', notes: '' });
+    setSelectedPricingKey('');
+    setCustomPriceMode(false);
   };
 
   const cancelOrder = async (job: UnpricedJob) => {
-    const confirmed = window.confirm(`Cancel order ${job.displayId}? It will be removed from the unpriced queue.`);
+    const confirmed = window.confirm(t('unpricedQueue:cancelConfirm', { id: job.displayId }));
     if (!confirmed) return;
 
     setCancellingId(job.id);
@@ -182,7 +213,7 @@ function UnpricedQueueInner() {
       await fetchData();
     } catch (err) {
       console.error('Failed to cancel order:', err);
-      setError('Could not cancel this order. Please try again.');
+      setError(t('unpricedQueue:cancelError'));
     } finally {
       setCancellingId(null);
     }
@@ -243,7 +274,7 @@ function UnpricedQueueInner() {
   };
 
   const fmt = (n: number) =>
-    n.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    n.toLocaleString(i18n.language === 'ar' ? 'ar-EG' : 'en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const now = new Date();
   const dueSoon = jobs.filter((job) => {
@@ -369,7 +400,7 @@ function UnpricedQueueInner() {
                       <tbody>
                         <tr><th>{t('unpricedQueue:pricing.details.orderId')}</th><td>{j.displayId}</td><th>{t('unpricedQueue:pricing.details.client')}</th><td>{j.client}</td></tr>
                         <tr><th>{t('unpricedQueue:pricing.details.email')}</th><td>{j.clientEmail}</td><th>{t('unpricedQueue:pricing.details.dueDate')}</th><td>{j.deadline}</td></tr>
-                        <tr><th>{t('unpricedQueue:pricing.details.uploadedFiles')}</th><td>{showValue(j.uploadLabel)}</td><th>{t('unpricedQueue:pricing.details.orderNotes')}</th><td>{showValue(j.notes)}</td></tr>
+                        <tr><th>{t('unpricedQueue:pricing.details.uploadedFiles')}</th><td>{showValue(j.uploadLabel, t('unpricedQueue:notProvided'))}</td><th>{t('unpricedQueue:pricing.details.orderNotes')}</th><td>{showValue(j.notes, t('unpricedQueue:notProvided'))}</td></tr>
                       </tbody>
                     </table>
                   </div>
@@ -396,13 +427,13 @@ function UnpricedQueueInner() {
                           <tr key={item.id}>
                             <td>{item.item_type}</td>
                             <td>{item.quantity}</td>
-                            <td>{showValue(item.page_count ?? item.pages)}</td>
-                            <td>{showValue(item.size)}</td>
-                            <td>{showValue(item.paper ?? item.material)}</td>
-                            <td>{showValue(item.color_mode)}</td>
-                            <td>{showValue(item.cover)}</td>
-                            <td>{showValue(item.binding ?? item.coil)}</td>
-                            <td>{showValue(item.notes)}</td>
+                            <td>{showValue(item.page_count ?? item.pages, t('unpricedQueue:pricing.notProvided'))}</td>
+                            <td>{showValue(item.size, t('unpricedQueue:pricing.notProvided'))}</td>
+                            <td>{showValue(item.paper ?? item.material, t('unpricedQueue:pricing.notProvided'))}</td>
+                            <td>{showValue(item.color_mode, t('unpricedQueue:pricing.notProvided'))}</td>
+                            <td>{showValue(item.cover, t('unpricedQueue:pricing.notProvided'))}</td>
+                            <td>{showValue(item.binding ?? item.coil, t('unpricedQueue:pricing.notProvided'))}</td>
+                            <td>{showValue(item.notes, t('unpricedQueue:pricing.notProvided'))}</td>
                           </tr>
                         )) : (
                           <tr>
@@ -416,11 +447,60 @@ function UnpricedQueueInner() {
                   </div>
 
                   {/* Set Price Section */}
-                  <h4 style={{ marginBottom: 14, fontSize: 14 }}>
-                    {t('unpricedQueue:pricing.setPrice', { id: j.displayId })}
-                  </h4>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-                    <div className="field" style={{ margin: 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                    <h4 style={{ margin: 0, fontSize: 14 }}>
+                      {t('unpricedQueue:pricing.setPrice', { id: j.displayId })}
+                    </h4>
+                    {pricingTable && PRICING_OPTIONS.some(opt => Number(pricingTable[opt.key]) > 0) && (
+                      <button
+                        className={`btn${customPriceMode ? ' primary' : ''}`}
+                        style={{ fontSize: 11, padding: '3px 10px' }}
+                        onClick={() => {
+                          setCustomPriceMode((v) => !v);
+                          setPricing((p) => ({ ...p, unitPrice: '' }));
+                          setSelectedPricingKey('');
+                        }}
+                      >
+                        {t('unpricedQueue:pricing.customPriceBtn')}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Dropdown mode (default) */}
+                  {!customPriceMode && pricingTable && PRICING_OPTIONS.some(opt => Number(pricingTable[opt.key]) > 0) && (
+                    <div className="field" style={{ margin: '0 0 12px' }}>
+                      <label>{t('unpricedQueue:pricing.priceTableLabel')}</label>
+                      <select
+                        className="input"
+                        value={selectedPricingKey}
+                        onChange={(e) => {
+                          const key = e.target.value as PricingKey;
+                          setSelectedPricingKey(key);
+                          if (key && pricingTable[key] != null) {
+                            setPricing((p) => ({ ...p, unitPrice: String(pricingTable[key]) }));
+                          } else {
+                            setPricing((p) => ({ ...p, unitPrice: '' }));
+                          }
+                        }}
+                      >
+                        <option value="">{t('unpricedQueue:pricing.selectPlaceholder')}</option>
+                        {PRICING_OPTIONS
+                          .filter(opt => Number(pricingTable[opt.key]) > 0)
+                          .map(opt => {
+                            const val = Number(pricingTable[opt.key]);
+                            return (
+                              <option key={opt.key} value={opt.key}>
+                                {opt.label} — EGP {fmt(val)}
+                              </option>
+                            );
+                          })}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Custom price input (only when custom mode is active, or no pricing table) */}
+                  {(customPriceMode || !pricingTable || !PRICING_OPTIONS.some(opt => Number(pricingTable[opt.key]) > 0)) && (
+                    <div className="field" style={{ margin: '0 0 12px' }}>
                       <label>{t('unpricedQueue:pricing.unitPrice')}</label>
                       <input
                         className="input"
@@ -432,18 +512,19 @@ function UnpricedQueueInner() {
                         onChange={(e) => setPricing((p) => ({ ...p, unitPrice: e.target.value }))}
                       />
                     </div>
-                    <div className="field" style={{ margin: 0 }}>
-                      <label>{t('unpricedQueue:pricing.vatRate')}</label>
-                      <input
-                        className="input"
-                        type="number"
-                        min="0"
-                        max="100"
-                        placeholder={t('unpricedQueue:pricing.vatPlaceholder')}
-                        value={pricing.vatRate}
-                        onChange={(e) => setPricing((p) => ({ ...p, vatRate: e.target.value }))}
-                      />
-                    </div>
+                  )}
+
+                  <div className="field" style={{ margin: '0 0 12px' }}>
+                    <label>{t('unpricedQueue:pricing.vatRate')}</label>
+                    <input
+                      className="input"
+                      type="number"
+                      min="0"
+                      max="100"
+                      placeholder={t('unpricedQueue:pricing.vatPlaceholder')}
+                      value={pricing.vatRate}
+                      onChange={(e) => setPricing((p) => ({ ...p, vatRate: e.target.value }))}
+                    />
                   </div>
 
                   {unitPrice > 0 && (

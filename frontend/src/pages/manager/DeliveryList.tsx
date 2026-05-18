@@ -20,11 +20,11 @@ interface Delivery {
 
 type ExpandKey = { id: string; action: 'reschedule' | 'address' } | null;
 
-function formatDate(isoDate: string | null): string {
+function formatDate(isoDate: string | null, lang: string): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 export default function DeliveryList() {
@@ -36,7 +36,7 @@ export default function DeliveryList() {
 }
 
 function DeliveryListInner() {
-  const { t } = useTranslation(['common', 'deliveryList']);
+  const { t, i18n } = useTranslation(['common', 'deliveryList']);
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +70,7 @@ function DeliveryListInner() {
             orderDisplayId: `#${d.orderId}`,
             client: clientName,
             address: d.address,
-            scheduledDate: formatDate(d.scheduledDate),
+            scheduledDate: formatDate(d.scheduledDate, i18n.language),
             status: d.status,
           };
         });

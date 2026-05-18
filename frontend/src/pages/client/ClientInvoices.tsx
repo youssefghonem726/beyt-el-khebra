@@ -7,16 +7,16 @@ import { useNavigation } from '../../context/NavigationContext';
 import { getInvoices } from '../../lib/api/invoicesClientsSettingsService';
 import type { Invoice } from '../../lib/api/types';
 
-function formatDate(value: string | null | undefined): string {
+function formatDate(value: string | null | undefined, lang: string): string {
   if (!value) return '—';
   const d = new Date(value);
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function formatEGP(amount: number | null | undefined): string {
+function formatEGP(amount: number | null | undefined, lang: string): string {
   if (amount == null) return '—';
-  return `EGP ${amount.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `EGP ${amount.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export default function ClientInvoices() {
@@ -28,7 +28,7 @@ export default function ClientInvoices() {
 }
 
 function ClientInvoicesInner() {
-  const { t } = useTranslation(['common', 'clientInvoices']);
+  const { t, i18n } = useTranslation(['common', 'clientInvoices']);
   const { navigateTopLevel } = useNavigation();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -100,8 +100,8 @@ function ClientInvoicesInner() {
                   <td><strong>#{inv.id}</strong></td>
                   <td>{inv.order_id ? `#${inv.order_id}` : inv.orderId || '—'}</td>
                   <td><StatusBadge status={inv.status} /></td>
-                  <td>{formatEGP(inv.total_amount ?? inv.amount)}</td>
-                  <td>{formatDate(inv.due_date ?? inv.due)}</td>
+                  <td>{formatEGP(inv.total_amount ?? inv.amount, i18n.language)}</td>
+                  <td>{formatDate(inv.due_date ?? inv.due, i18n.language)}</td>
                   <td>
                     <button className="btn" onClick={() => navigateTopLevel(`/client/invoices/${inv.id}`)}>
                       {t('clientInvoices:table.view')}

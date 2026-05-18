@@ -13,8 +13,8 @@ interface QuoteSummary {
   amount: number;
 }
 
-function fmt(n: number): string {
-  return n.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function fmt(n: number, lang: string): string {
+  return n.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function computeTotalFromItems(items: QuoteResponse['items']): number {
@@ -36,7 +36,7 @@ export default function QuoteDetail() {
 }
 
 function QuoteDetailInner() {
-  const { t } = useTranslation(['common', 'quotes']);
+  const { t, i18n } = useTranslation(['common', 'quotes']);
   const { navigateTopLevel } = useNavigation();
   const [quotes, setQuotes] = useState<QuoteSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -133,7 +133,7 @@ function QuoteDetailInner() {
                 <tr key={q.id}>
                   <td>#{q.id}</td>
                   <td><StatusBadge status={q.status} /></td>
-                  <td style={{ fontWeight: 600 }}>EGP {fmt(q.amount)}</td>
+                  <td style={{ fontWeight: 600 }}>EGP {fmt(q.amount, i18n.language)}</td>
                   <td>
                     <button
                       className="btn"

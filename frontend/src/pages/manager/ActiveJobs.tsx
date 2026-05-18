@@ -67,11 +67,11 @@ function currentStep(pct: number): number {
   return 5;
 }
 
-function formatDate(isoDate: string | null): string {
+function formatDate(isoDate: string | null, lang: string): string {
   if (!isoDate) return '—';
   const date = new Date(isoDate);
   if (isNaN(date.getTime())) return '—';
-  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  return date.toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 function normalizeStatus(batchStatus: string): string {
@@ -100,7 +100,7 @@ export default function ActiveJobs() {
 }
 
 function ActiveJobsInner() {
-  const { t } = useTranslation(['common', 'activeJobs']);
+  const { t, i18n } = useTranslation(['common', 'activeJobs']);
   const { navigateTopLevel: _nav } = useNavigation();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
@@ -140,7 +140,7 @@ function ActiveJobsInner() {
             qty: batch.qty,
             status: normalizeStatus(batch.status),
             progress: batch.progress,
-            dueDate: formatDate(batch.deadline ?? null),
+            dueDate: formatDate(batch.deadline ?? null, i18n.language),
             paper,
             batchCode: String(batch.id),
             priority: batch.priority,

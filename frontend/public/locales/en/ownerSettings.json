@@ -59,6 +59,8 @@
     "cancel": "Cancel",
     "edit": "Edit",
     "toastSaved": "User updated.",
-    "toastError": "Could not update user."
+    "toastError": "Could not update user.",
+    "colEmail": "Email",
+    "noUsers": "No users found."
   }
 }

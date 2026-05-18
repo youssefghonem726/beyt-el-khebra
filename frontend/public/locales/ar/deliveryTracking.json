@@ -7,14 +7,27 @@
     "totalSub": "جميع عمليات التوصيل النشطة",
     "onTime": "في الوقت المحدد",
     "onTimeSub": "تسير وفق الجدول الزمني",
+    "delivered": "تم التوصيل",
+    "deliveredSub": "عمليات تسليم مكتملة",
     "delayed": "متأخرة",
     "delayedSub": "متأخرة عن الموعد",
     "lost": "مفقودة في الطريق",
     "lostSub": "تحتاج إجراءً فورياً"
   },
+  "readyOrders": {
+    "title": "طلبات جاهزة للتوصيل",
+    "subtitle": "تبقى الطلبات المكتملة هنا حتى يختار المالك شركة الشحن. يمكن للطلبات التي تُستلم شخصياً أن تبقى مكتملة دون توصيل.",
+    "empty": "لا توجد طلبات مكتملة بانتظار إنشاء توصيل.",
+    "colOrder": "الطلب",
+    "colClient": "العميل",
+    "colProducts": "المنتجات",
+    "colCompleted": "أُنجز",
+    "colAction": "الإجراء",
+    "createDelivery": "إنشاء توصيل"
+  },
   "table": {
     "title": "جميع عمليات التوصيل",
-    "searchPlaceholder": "ابحث بالطلب أو العميل أو السائق…",
+    "searchPlaceholder": "ابحث بالطلب أو العميل أو الحالة…",
     "empty": "لا توجد عمليات توصيل مطابقة.",
     "filter": {
       "label": "الحالة",
@@ -22,14 +35,24 @@
       "onTime": "في الوقت المحدد",
       "delayed": "متأخرة",
       "lost": "مفقودة في الطريق",
+      "pending": "قيد الانتظار",
+      "out_for_delivery": "خارج للتوصيل",
+      "delivered": "تم التوصيل",
       "apply": "تطبيق"
     }
   },
   "card": {
     "client": "العميل",
     "driver": "السائق",
+    "company": "الشركة",
     "address": "العنوان",
-    "progress": "{{percent}}% تم التوصيل"
+    "scheduled": "الموعد المجدول",
+    "notes": "ملاحظات",
+    "progress": "{{percent}}% تم التوصيل",
+    "deliveryProgress": "{{percent}}% تقدم التوصيل",
+    "unassigned": "غير مُعيّن",
+    "noCompany": "بلا شركة",
+    "addressMissing": "العنوان غير متوفر"
   },
   "detail": {
     "heading": "تفاصيل التوصيل",
@@ -38,6 +61,9 @@
     "driver": "السائق",
     "company": "الشركة",
     "phone": "الهاتف",
+    "scheduled": "الموعد المجدول",
+    "deliveredAt": "تاريخ التسليم",
+    "notes": "ملاحظات",
     "progress": "التقدم",
     "progressPct": "{{percent}}% مكتمل",
     "lostWarning": "تأخير أكثر من يومين",
@@ -57,12 +83,59 @@
     "keepDelivery": "الإبقاء على التوصيل",
     "cancelConfirm": "إلغاء توصيل {{order}} للعميل {{client}}؟ لا يمكن التراجع عن هذا.",
     "yesCancel": "نعم، إلغاء",
-    "keep": "إبقاء"
+    "keep": "إبقاء",
+    "updateStatus": "تحديث الحالة",
+    "addressMissing": "العنوان غير متوفر",
+    "unassigned": "غير مُعيّن",
+    "noValue": "-",
+    "addressSection": {
+      "label": "العنوان",
+      "placeholder": "العنوان غير متوفر",
+      "save": "حفظ العنوان"
+    },
+    "notesSection": {
+      "label": "الملاحظات",
+      "placeholder": "أضف ملاحظات التوصيل...",
+      "save": "حفظ الملاحظات"
+    }
+  },
+  "statusOptions": {
+    "pending": "قيد الانتظار",
+    "out_for_delivery": "خارج للتوصيل",
+    "delivered": "تم التوصيل",
+    "delayed": "متأخر",
+    "lost": "مفقود"
+  },
+  "modal": {
+    "title": "إنشاء توصيل للطلب #{{orderId}}",
+    "close": "✕ إغلاق",
+    "address": "عنوان التوصيل",
+    "addressPlaceholder": "العنوان غير متوفر",
+    "scheduledDate": "تاريخ التوصيل المجدول",
+    "driver": "السائق",
+    "driverPlaceholder": "غير مُعيّن",
+    "company": "الشركة",
+    "companyPlaceholder": "اختياري",
+    "phone": "الهاتف",
+    "phonePlaceholder": "اختياري",
+    "notes": "ملاحظات",
+    "notesPlaceholder": "ملاحظات توصيل اختيارية",
+    "cancel": "إلغاء",
+    "creating": "جاري الإنشاء...",
+    "create": "إنشاء توصيل"
   },
   "toast": {
     "delivered": "✓ تم تسليم {{order}} بنجاح.",
     "rescheduled": "↻ تمت إعادة جدولة {{order}} إلى {{date}}.",
     "addressUpdated": "📍 تم تحديث عنوان {{order}}.",
-    "cancelled": "✕ تم إلغاء توصيل {{order}}."
+    "cancelled": "✕ تم إلغاء توصيل {{order}}.",
+    "statusUpdated": "تم تحديث توصيل الطلب #{{orderId}}.",
+    "addressSaved": "تم تحديث عنوان الطلب #{{orderId}}.",
+    "notesSaved": "تم تحديث ملاحظات الطلب #{{orderId}}.",
+    "created": "تم إنشاء توصيل للطلب #{{orderId}}.",
+    "updateError": "تعذّر تحديث التوصيل.",
+    "addressError": "تعذّر تحديث عنوان التوصيل.",
+    "notesError": "تعذّر تحديث ملاحظات التوصيل.",
+    "createError": "تعذّر إنشاء التوصيل لهذا الطلب."
   }
 }

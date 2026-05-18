@@ -57,18 +57,18 @@ interface Job {
   info: JobInfo;
 }
 
-function formatDate(isoDate: string | null): string {
+function formatDate(isoDate: string | null, lang: string): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function formatDateTime(isoDate: string | null): string {
+function formatDateTime(isoDate: string | null, lang: string): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 export default function CompletedJobs({ role = 'manager' }: Props) {
@@ -80,7 +80,7 @@ export default function CompletedJobs({ role = 'manager' }: Props) {
 }
 
 function CompletedJobsInner({ role = 'manager' }: Props) {
-  const { t } = useTranslation(['common', 'completedJobs']);
+  const { t, i18n } = useTranslation(['common', 'completedJobs']);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -107,13 +107,13 @@ function CompletedJobsInner({ role = 'manager' }: Props) {
           const order = orderMap.get(batch.orderId);
           const client = order ? clientMap.get(order.customer) : null;
           const completion = batch.deadline
-            ? formatDate(batch.deadline)
-            : order?.created_at ? formatDate(order.created_at) : '—';
+            ? formatDate(batch.deadline, i18n.language)
+            : order?.created_at ? formatDate(order.created_at, i18n.language) : '—';
 
           const stages: Stage[] = (batch.stages || []).map((s) => ({
             stage: s.stage,
             status: s.status,
-            updated: s.updatedAt ? formatDateTime(s.updatedAt) : '—',
+            updated: s.updatedAt ? formatDateTime(s.updatedAt, i18n.language) : '—',
           }));
 
           return {
@@ -128,7 +128,7 @@ function CompletedJobsInner({ role = 'manager' }: Props) {
               qty: batch.qty,
               status: 'completed',
               priority: batch.priority,
-              deadline: batch.deadline ? formatDate(batch.deadline) : '—',
+              deadline: batch.deadline ? formatDate(batch.deadline, i18n.language) : '—',
               team: batch.assignedTo || 'Unassigned',
               completion,
               notes: batch.notes || '—',

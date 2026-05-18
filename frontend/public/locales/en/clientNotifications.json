@@ -12,6 +12,31 @@
     "Open production": "Open Production",
     "View invoice": "View Invoice",
     "Open delivery": "Open Delivery",
-    "View client": "View Client"
+    "View client": "View Client",
+    "View orders": "View Orders",
+    "View delivery": "View Delivery"
+  },
+  "messages": {
+    "titles": {
+      "quoteReady": "Quote ready",
+      "orderCompleted": "Order completed",
+      "orderInProduction": "Order in production",
+      "deliveryCreated": "Delivery created",
+      "deliveryUpdated": "Delivery updated"
+    },
+    "bodies": {
+      "quoteReady": "Your quote is ready for Order #{{orderId}}.",
+      "orderCompleted": "Your order #{{orderId}} is completed.",
+      "orderInProduction": "Your order #{{orderId}} is now in production.",
+      "deliveryCreated": "Delivery was created for Order #{{orderId}}.",
+      "deliveryUpdated": "Delivery for Order #{{orderId}} is now {{status}}."
+    }
+  },
+  "deliveryStatusText": {
+    "out_for_delivery": "out for delivery",
+    "delivered": "delivered",
+    "delayed": "delayed",
+    "lost": "lost",
+    "pending": "pending"
   }
 }

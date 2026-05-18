@@ -47,23 +47,23 @@ interface TrackingData {
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────
-function formatDate(isoDate: string | null): string {
+function formatDate(isoDate: string | null, lang: string): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function formatDateTime(isoDate: string | null): string {
+function formatDateTime(isoDate: string | null, lang: string): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-function formatAmount(amount: number | null): string {
+function formatAmount(amount: number | null, lang: string): string {
   if (amount === null || amount === undefined) return '—';
-  return `EGP ${amount.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `EGP ${amount.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function getProgressColor(progress: number): 'green' | 'orange' | undefined {
@@ -106,12 +106,12 @@ function buildSteps(status: string, progress: number, stages?: any[]): TrackingS
   ];
 }
 
-function buildUpdates(order: any, stages?: any[]): TrackingUpdate[] {
+function buildUpdates(order: any, stages: any[] | undefined, lang: string): TrackingUpdate[] {
   const updates: TrackingUpdate[] = [];
 
   if (order.created_at) {
     updates.push({
-      time: formatDateTime(order.created_at),
+      time: formatDateTime(order.created_at, lang),
       message: 'trackOrder:updates.orderSubmitted',
       isKey: true,
       type: 'done',
@@ -121,7 +121,7 @@ function buildUpdates(order: any, stages?: any[]): TrackingUpdate[] {
   if (stages) {
     stages.forEach((s: any) => {
       updates.push({
-        time: formatDateTime(s.updated_at || s.updatedAt),
+        time: formatDateTime(s.updated_at || s.updatedAt, lang),
         message: `${s.stage || s.label}: ${s.status}`,
         isKey: false,
         type: s.status === 'completed' ? 'done' : 'info',
@@ -131,16 +131,16 @@ function buildUpdates(order: any, stages?: any[]): TrackingUpdate[] {
 
   if (order.status === 'PRICED_PENDING_CONFIRMATION') {
     updates.push({
-      time: formatDateTime(order.updated_at),
+      time: formatDateTime(order.updated_at, lang),
       message: 'trackOrder:updates.quoteSent',
       isKey: true,
-      messageParams: { total: formatAmount(order.total_price) },
+      messageParams: { total: formatAmount(order.total_price, lang) },
       type: 'info',
     });
   }
   if (order.status === 'CANCELED') {
     updates.push({
-      time: formatDateTime(order.updated_at),
+      time: formatDateTime(order.updated_at, lang),
       message: 'trackOrder:updates.orderCanceled',
       isKey: true,
       type: 'warn',
@@ -150,12 +150,12 @@ function buildUpdates(order: any, stages?: any[]): TrackingUpdate[] {
   return updates.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
 }
 
-function buildDetails(order: any, batch?: any): DetailRow[] {
+function buildDetails(order: any, batch: any | undefined, lang: string): DetailRow[] {
   return [
     { labelKey: 'trackOrder:details.product', value: order.upload?.file_name || `Order #${order.id}` },
     { labelKey: 'trackOrder:details.quantity', value: order.quantity ? `${order.quantity} pcs` : (batch?.qty ? `${batch.qty} pcs` : '—') },
-    { labelKey: 'trackOrder:details.orderDate', value: formatDate(order.created_at) },
-    { labelKey: 'trackOrder:details.dueDate', value: formatDate(order.due_date) },
+    { labelKey: 'trackOrder:details.orderDate', value: formatDate(order.created_at, lang) },
+    { labelKey: 'trackOrder:details.dueDate', value: formatDate(order.due_date, lang) },
     { labelKey: 'trackOrder:details.paymentMethod', value: order.payment_method || '—' },
     { labelKey: 'trackOrder:details.notes', value: order.notes || '—' },
   ];
@@ -170,7 +170,7 @@ export default function TrackOrder() {
 }
 
 function TrackOrderInner() {
-  const { t } = useTranslation(['common', 'trackOrder']);
+  const { t, i18n } = useTranslation(['common', 'trackOrder']);
   const { id: urlId } = useParams<{ id: string }>();
   const { navigateTopLevel } = useNavigation();
   const [orderIdInput, setOrderIdInput] = useState(urlId || '');
@@ -214,17 +214,17 @@ function TrackOrderInner() {
       const stages = batch?.stages || [];
 
       const steps = buildSteps(order.status, progress, stages);
-      const updates = buildUpdates(order, stages);
-      const details = buildDetails(order, batch);
+      const updates = buildUpdates(order, stages, i18n.language);
+      const details = buildDetails(order, batch, i18n.language);
 
       const trackingData: TrackingData = {
         id: String(order.id),
         product: order.upload?.file_name || `Order #${order.id}`,
         status: order.status,
         statusKey: getStatusKey(order.status, progress),
-        orderDate: formatDate(order.created_at),
-        estimatedDelivery: formatDate(estimatedDelivery),
-        total: formatAmount(order.total_price),
+        orderDate: formatDate(order.created_at, i18n.language),
+        estimatedDelivery: formatDate(estimatedDelivery, i18n.language),
+        total: formatAmount(order.total_price, i18n.language),
         progress,
         steps,
         updates,
