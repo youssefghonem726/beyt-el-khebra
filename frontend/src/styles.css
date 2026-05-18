@@ -1131,3 +1131,58 @@ tbody tr:last-child td { border-bottom: none; }
 .notes-heading { margin-bottom: 10px; }
 
 /* Ensure the PdfPreviewPanel is imported; if not, copy it over */
+
+/* ── Language toggle ── */
+.lang-toggle {
+  display: block;
+  width: 100%;
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: transparent;
+  color: rgba(255,255,255,0.75);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  letter-spacing: 0.5px;
+  transition: background 0.15s, color 0.15s;
+  font-family: inherit;
+  margin-bottom: 8px;
+}
+.lang-toggle:hover {
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+}
+.lang-toggle--light {
+  border-color: rgba(0,0,0,0.2);
+  color: rgba(255,255,255,0.9);
+}
+.lang-toggle--light:hover {
+  background: rgba(255,255,255,0.15);
+}
+
+/* ── RTL overrides ── */
+[dir="rtl"] body {
+  font-family: 'Cairo', Arial, sans-serif;
+}
+[dir="rtl"] .topbar {
+  border-left: none;
+  border-right: 4px solid var(--primary);
+}
+[dir="rtl"] th,
+[dir="rtl"] td {
+  text-align: right;
+}
+[dir="rtl"] .filter-dropdown {
+  left: auto;
+  right: 0;
+}
+[dir="rtl"] .success-toast {
+  right: auto;
+  left: 28px;
+}
+[dir="rtl"] .stat-item {
+  border-left: none;
+  border-right: 3px solid var(--primary-light);
+}

@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useState, useEffect, Suspense, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatCard from '../../components/StatCard';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
+import { useNavigation } from '../../context/NavigationContext';
 import {
   createDelivery,
   getDeliveries,
@@ -84,15 +86,25 @@ function emptyForm(order: Order): DeliveryForm {
 }
 
 export default function DeliveryTracking() {
+  return (
+    <Suspense fallback={null}>
+      <DeliveryTrackingInner />
+    </Suspense>
+  );
+}
+
+function DeliveryTrackingInner() {
+  const { t } = useTranslation(['common', 'deliveryTracking']);
+  const { navigateTopLevel: _nav } = useNavigation();
   const [deliveries, setDeliveries] = useState<DeliveryResponse[]>([]);
   const [readyOrders, setReadyOrders] = useState<Order[]>([]);
   const [selected, setSelected] = useState<DeliveryResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [deliveryForm, setDeliveryForm] = useState<DeliveryForm | null>(null);
   const [addressEdit, setAddressEdit] = useState('');
@@ -241,8 +253,8 @@ export default function DeliveryTracking() {
   if (loading) {
     return (
       <AppShell role="owner" activePage="delivery-tracking">
-        <Topbar title="Delivery Tracking" />
-        <div className="loading-state">Loading deliveries...</div>
+        <Topbar title={t('deliveryTracking:title')} />
+        <div className="loading-state">{t('deliveryTracking:loading')}</div>
       </AppShell>
     );
   }
@@ -250,7 +262,7 @@ export default function DeliveryTracking() {
   if (error) {
     return (
       <AppShell role="owner" activePage="delivery-tracking">
-        <Topbar title="Delivery Tracking" />
+        <Topbar title={t('deliveryTracking:title')} />
         <div className="error-state">{error}</div>
       </AppShell>
     );
@@ -258,7 +270,7 @@ export default function DeliveryTracking() {
 
   return (
     <AppShell role="owner" activePage="delivery-tracking">
-      <Topbar title="Delivery Tracking" />
+      <Topbar title={t('deliveryTracking:title')} />
 
       <section className="grid-4 delivery-stats-grid" style={{ marginBottom: 14 }}>
         <StatCard label="Total Deliveries" value={stats.total} sub="Created deliveries" />
@@ -314,7 +326,7 @@ export default function DeliveryTracking() {
         <div className="stack">
           <article className="table-wrap">
             <div className="table-head">
-              <h3>All Deliveries</h3>
+              <h3>{t('deliveryTracking:table.title')}</h3>
               <div className="search-container">
                 <input
                   className="input"
@@ -337,7 +349,9 @@ export default function DeliveryTracking() {
                         ))}
                       </select>
                     </div>
-                    <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>Apply</button>
+                    <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>
+                      {t('deliveryTracking:table.filter.apply')}
+                    </button>
                   </div>
                 )}
               </div>
@@ -390,7 +404,7 @@ export default function DeliveryTracking() {
 
             <div className="line" />
 
-            <h4 style={{ margin: '12px 0 8px' }}>Delivery Details</h4>
+            <h4 style={{ margin: '12px 0 8px' }}>{t('deliveryTracking:detail.heading')}</h4>
             <ul style={{ listStyle: 'none', display: 'grid', gap: 6, fontSize: 13 }}>
               <li><strong>Tracking ID:</strong> {selected.id}</li>
               <li><strong>Address:</strong> {selected.address || 'Address missing'}</li>

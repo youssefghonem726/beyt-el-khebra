@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface Invoice {
   id: string;
@@ -21,6 +22,7 @@ function formatEGP(amount: number): string {
 }
 
 export default function ClientSummary({ invoices }: ClientSummaryProps) {
+  const { t } = useTranslation('accounting');
   const [search, setSearch] = useState('');
   const [expandedClient, setExpandedClient] = useState<string | null>(null);
 
@@ -49,10 +51,10 @@ export default function ClientSummary({ invoices }: ClientSummaryProps) {
   return (
     <section className="table-wrap" style={{ marginTop: '1.5rem' }}>
       <div className="table-head" style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-        <h3 style={{ margin: 0 }}>Client Summary</h3>
+        <h3 style={{ margin: 0 }}>{t('clientSummary.title')}</h3>
         <input
           type="text"
-          placeholder="Search client…"
+          placeholder={t('clientSummary.search')}
           value={search}
           onChange={e => setSearch(e.target.value)}
           style={{
@@ -71,7 +73,9 @@ export default function ClientSummary({ invoices }: ClientSummaryProps) {
 
       {filteredClients.length === 0 && (
         <div className="loading-state" style={{ padding: '2rem', textAlign: 'center', opacity: 0.5 }}>
-          No clients found{search ? ` for "${search}"` : ''}.
+          {search
+            ? t('clientSummary.emptyFiltered', { search })
+            : t('clientSummary.empty')}
         </div>
       )}
 
@@ -79,11 +83,11 @@ export default function ClientSummary({ invoices }: ClientSummaryProps) {
         <thead>
           <tr>
             <th style={{ width: '2rem' }}></th>
-            <th>Client</th>
-            <th>Invoices</th>
-            <th>Paid</th>
-            <th>Unpaid</th>
-            <th>Total</th>
+            <th>{t('clientSummary.colClient')}</th>
+            <th>{t('clientSummary.colInvoices')}</th>
+            <th>{t('clientSummary.colPaid')}</th>
+            <th>{t('clientSummary.colUnpaid')}</th>
+            <th>{t('clientSummary.colTotal')}</th>
           </tr>
         </thead>
         <tbody>
@@ -92,9 +96,7 @@ export default function ClientSummary({ invoices }: ClientSummaryProps) {
               <tr
                 key={client}
                 style={{ cursor: 'pointer' }}
-                onClick={() =>
-                  setExpandedClient(expandedClient === client ? null : client)
-                }
+                onClick={() => setExpandedClient(expandedClient === client ? null : client)}
               >
                 <td style={{ textAlign: 'center', fontSize: '0.75rem', opacity: 0.5 }}>
                   {expandedClient === client ? '▼' : '▶'}
@@ -112,10 +114,10 @@ export default function ClientSummary({ invoices }: ClientSummaryProps) {
                     <table style={{ width: '100%', fontSize: '0.85rem' }}>
                       <thead>
                         <tr style={{ background: 'var(--row-alt-bg, #f3f4f6)' }}>
-                          <th style={{ paddingLeft: '3rem' }}>Invoice #</th>
-                          <th>Order</th>
-                          <th>Total</th>
-                          <th>Status</th>
+                          <th style={{ paddingLeft: '3rem' }}>{t('clientSummary.colInvoiceNum')}</th>
+                          <th>{t('clientSummary.colOrder')}</th>
+                          <th>{t('clientSummary.colInvoiceTotal')}</th>
+                          <th>{t('clientSummary.colStatus')}</th>
                         </tr>
                       </thead>
                       <tbody>

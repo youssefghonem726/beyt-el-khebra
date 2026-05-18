@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useTranslation } from 'react-i18next';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import { useNavigation } from '../../context/NavigationContext';
@@ -11,6 +12,12 @@ import {
   updateNotification,
 } from '../../lib/api/notificationsService';
 import type { Notification } from '../../lib/api/notificationsService';
+
+function translateActionLabel(label: string, t: (key: string) => string): string {
+  const keyPath = `actions.${label}`;
+  const translated = t(`ownerNotifications:${keyPath}`);
+  return translated === keyPath ? label : translated;
+}
 
 function formatDateTime(value: string): string {
   const date = new Date(value);
@@ -25,6 +32,15 @@ function formatDateTime(value: string): string {
 }
 
 export default function OwnerNotifications() {
+  return (
+    <Suspense fallback={null}>
+      <OwnerNotificationsInner />
+    </Suspense>
+  );
+}
+
+function OwnerNotificationsInner() {
+  const { t } = useTranslation(['common', 'ownerNotifications']);
   const { navigateTopLevel } = useNavigation();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,7 +59,7 @@ export default function OwnerNotifications() {
           setNotifications([]);
         } else {
           console.error('Failed to load notifications:', err);
-          setError('Could not load notifications. Please try again later.');
+          setError(t('ownerNotifications:error'));
         }
       } finally {
         setLoading(false);
@@ -68,7 +84,7 @@ export default function OwnerNotifications() {
       replaceNotification(res.data.data);
     } catch (err) {
       console.error('Failed to mark notification read:', err);
-      setError('Could not update notification.');
+      setError(t('ownerNotifications:updateError'));
     } finally {
       setSavingId(null);
     }
@@ -82,7 +98,7 @@ export default function OwnerNotifications() {
       replaceNotification(res.data.data);
     } catch (err) {
       console.error('Failed to update notification:', err);
-      setError('Could not update notification.');
+      setError(t('ownerNotifications:updateError'));
     } finally {
       setSavingId(null);
     }
@@ -96,14 +112,14 @@ export default function OwnerNotifications() {
       setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
     } catch (err) {
       console.error('Failed to mark all notifications read:', err);
-      setError('Could not update notifications.');
+      setError(t('ownerNotifications:updateAllError'));
     } finally {
       setSavingAll(false);
     }
   };
 
   const handleDelete = async (id: number) => {
-    const shouldDelete = window.confirm('Delete this notification?');
+    const shouldDelete = window.confirm(t('ownerNotifications:confirmDelete'));
     if (!shouldDelete) return;
 
     setSavingId(id);
@@ -113,14 +129,14 @@ export default function OwnerNotifications() {
       setNotifications((prev) => prev.filter((n) => n.id !== id));
     } catch (err) {
       console.error('Failed to delete notification:', err);
-      setError('Could not delete notification.');
+      setError(t('ownerNotifications:deleteError'));
     } finally {
       setSavingId(null);
     }
   };
 
   const handleClearRead = async () => {
-    const shouldClear = window.confirm('Delete all read notifications?');
+    const shouldClear = window.confirm(t('ownerNotifications:confirmClearRead'));
     if (!shouldClear) return;
 
     setClearingRead(true);
@@ -130,7 +146,7 @@ export default function OwnerNotifications() {
       setNotifications((prev) => prev.filter((n) => n.unread));
     } catch (err) {
       console.error('Failed to clear read notifications:', err);
-      setError('Could not clear read notifications.');
+      setError(t('ownerNotifications:clearError'));
     } finally {
       setClearingRead(false);
     }
@@ -139,9 +155,9 @@ export default function OwnerNotifications() {
   if (loading) {
     return (
       <AppShell role="owner" activePage="owner-notifications">
-        <Topbar title="Notifications" />
+        <Topbar title={t('ownerNotifications:title')} />
         <section className="stack">
-          <div className="loading-state">Loading notifications...</div>
+          <div className="loading-state">{t('ownerNotifications:loading')}</div>
         </section>
       </AppShell>
     );
@@ -149,15 +165,15 @@ export default function OwnerNotifications() {
 
   return (
     <AppShell role="owner" activePage="owner-notifications">
-      <Topbar title="Notifications" />
+      <Topbar title={t('ownerNotifications:title')} />
       <section className="stack">
         {error && <div className="error-state">{error}</div>}
 
         <div className="table-head">
           <div>
-            <h3 style={{ margin: 0 }}>Inbox</h3>
+            <h3 style={{ margin: 0 }}>{t('ownerNotifications:inbox')}</h3>
             <p className="muted" style={{ margin: '4px 0 0' }}>
-              {unreadCount} unread
+              {t('ownerNotifications:unreadCount', { count: unreadCount })}
             </p>
           </div>
           <button
@@ -166,7 +182,7 @@ export default function OwnerNotifications() {
             onClick={handleMarkAllRead}
             disabled={savingAll || unreadCount === 0}
           >
-            {savingAll ? 'Saving...' : 'Mark all read'}
+            {savingAll ? t('ownerNotifications:savingAll') : t('ownerNotifications:markAllRead')}
           </button>
           <button
             className="btn"
@@ -174,20 +190,13 @@ export default function OwnerNotifications() {
             onClick={handleClearRead}
             disabled={clearingRead || readCount === 0}
           >
-            {clearingRead ? 'Clearing...' : 'Clear read'}
+            {clearingRead ? t('ownerNotifications:clearing') : t('ownerNotifications:clearRead')}
           </button>
         </div>
 
         {notifications.length === 0 ? (
-          <div
-            className="box"
-            style={{
-              textAlign: 'center',
-              color: 'var(--muted)',
-              padding: 48,
-            }}
-          >
-            No notifications.
+          <div className="box" style={{ textAlign: 'center', color: 'var(--muted)', padding: 48 }}>
+            {t('ownerNotifications:empty')}
           </div>
         ) : (
           notifications.map((notification) => (
@@ -208,7 +217,7 @@ export default function OwnerNotifications() {
                   </p>
                 </div>
                 <span className={`status ${notification.unread ? 'pending' : 'done'}`}>
-                  {notification.unread ? 'Unread' : 'Read'}
+                  {notification.unread ? t('ownerNotifications:unread') : t('ownerNotifications:read')}
                 </span>
               </div>
 
@@ -221,7 +230,7 @@ export default function OwnerNotifications() {
                     type="button"
                     onClick={() => navigateTopLevel(notification.action_page || '')}
                   >
-                    {notification.action_label}
+                    {translateActionLabel(notification.action_label, t)}
                   </button>
                 )}
 
@@ -232,7 +241,7 @@ export default function OwnerNotifications() {
                     onClick={() => handleMarkRead(notification.id)}
                     disabled={savingId === notification.id}
                   >
-                    {savingId === notification.id ? 'Saving...' : 'Mark read'}
+                    {savingId === notification.id ? t('ownerNotifications:saving') : t('ownerNotifications:markRead')}
                   </button>
                 )}
 
@@ -243,7 +252,7 @@ export default function OwnerNotifications() {
                     onClick={() => handleToggleUnread(notification)}
                     disabled={savingId === notification.id}
                   >
-                    Mark unread
+                    {t('ownerNotifications:markUnread')}
                   </button>
                 )}
 
@@ -253,7 +262,7 @@ export default function OwnerNotifications() {
                   onClick={() => handleDelete(notification.id)}
                   disabled={savingId === notification.id}
                 >
-                  Delete
+                  {t('ownerNotifications:delete')}
                 </button>
               </div>
             </article>

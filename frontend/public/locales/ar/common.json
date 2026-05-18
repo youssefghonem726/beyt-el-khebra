@@ -1,0 +1,62 @@
+{
+  "nav": {
+    "dashboard": "لوحة التحكم",
+    "myOrders": "طلباتي",
+    "placeNewOrder": "تقديم طلب جديد",
+    "quotes": "عروض الأسعار",
+    "documents": "المستندات",
+    "invoices": "الفواتير",
+    "notifications": "الإشعارات",
+    "profileSettings": "إعدادات الملف الشخصي",
+    "support": "الدعم الفني",
+    "production": "الإنتاج",
+    "clientManagement": "إدارة العملاء",
+    "deliveryTracking": "تتبع التوصيل",
+    "accounting": "المحاسبة",
+    "settings": "الإعدادات",
+    "unpricedQueue": "قائمة التسعير",
+    "placeOrder": "تقديم طلب",
+    "activeJobs": "لوحة التحكم",
+    "orders": "الطلبات",
+    "completedJobs": "المهام المنجزة",
+    "workView": "عرض العمل",
+    "batchLookup": "البحث الدُفعي",
+    "delivery": "التوصيل"
+  },
+  "actions": {
+    "logout": "تسجيل الخروج",
+    "login": "تسجيل الدخول",
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "apply": "تطبيق",
+    "view": "عرض",
+    "back": "رجوع",
+    "edit": "تعديل",
+    "delete": "حذف",
+    "download": "تنزيل",
+    "search": "بحث"
+  },
+  "brand": {
+    "name": "بيت الخبرة",
+    "ownerDashboard": "لوحة المالك",
+    "managerDashboard": "لوحة المدير",
+    "clientDashboard": "لوحة العميل"
+  },
+  "status": {
+    "UNPRICED_PENDING": "بانتظار التسعير",
+    "PRICED_PENDING_CONFIRMATION": "بانتظار التأكيد",
+    "IN_PROGRESS": "قيد التنفيذ",
+    "COMPLETED": "مكتمل",
+    "CANCELED": "ملغى"
+  },
+  "common": {
+    "loading": "جاري التحميل...",
+    "noResults": "لا توجد نتائج مطابقة",
+    "error": "حدث خطأ ما"
+  },
+  "filter": {
+    "status": "الحالة",
+    "allStatus": "كل الحالات",
+    "apply": "تطبيق الفلاتر"
+  }
+}

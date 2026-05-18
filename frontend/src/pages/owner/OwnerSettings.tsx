@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useTranslation } from 'react-i18next';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
+import { useNavigation } from '../../context/NavigationContext';
 import {
   getSettings,
   getUsers,
@@ -63,6 +65,17 @@ function fmt(n: number | null | undefined) {
 }
 
 export default function OwnerSettings() {
+  return (
+    <Suspense fallback={null}>
+      <OwnerSettingsInner />
+    </Suspense>
+  );
+}
+
+function OwnerSettingsInner() {
+  const { t } = useTranslation(['common', 'ownerSettings']);
+  const { navigateTopLevel: _nav } = useNavigation();
+
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -118,7 +131,7 @@ export default function OwnerSettings() {
         }
       } catch (err) {
         console.error('Failed to load settings:', err);
-        setError('Could not load settings. Please try again later.');
+        setError(t('ownerSettings:error'));
       } finally {
         setLoading(false);
       }
@@ -146,10 +159,10 @@ export default function OwnerSettings() {
       const updated = toUserRow(res.data.data);
       setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
       setEditEmail(null);
-      showToast('User updated.');
+      showToast(t('ownerSettings:users.toastSaved'));
     } catch (err) {
       console.error('Failed to update user:', err);
-      showToast('Could not update user.');
+      showToast(t('ownerSettings:users.toastError'));
     } finally {
       setSavingUserId(null);
     }
@@ -158,7 +171,7 @@ export default function OwnerSettings() {
   const handleSavePricingRoles = async () => {
     const threshold = Number(pricingRoles.threshold);
     if (!pricingRoles.owner.trim() || Number.isNaN(threshold) || threshold < 0) {
-      showToast('Enter a valid pricing owner and threshold.');
+      showToast(t('ownerSettings:pricingRoles.toastInvalid'));
       return;
     }
 
@@ -172,10 +185,10 @@ export default function OwnerSettings() {
         owner: res.data.data.value.owner,
         threshold: String(res.data.data.value.approval_threshold),
       });
-      showToast('Pricing roles saved.');
+      showToast(t('ownerSettings:pricingRoles.toastSaved'));
     } catch (err) {
       console.error('Failed to save pricing roles:', err);
-      showToast('Could not save pricing roles.');
+      showToast(t('ownerSettings:pricingRoles.toastError'));
     } finally {
       setSavingPricingRoles(false);
     }
@@ -189,7 +202,7 @@ export default function OwnerSettings() {
   const savePricingField = async (key: PricingKey) => {
     const price = Number(editPrice);
     if (Number.isNaN(price) || price < 0) {
-      showToast('Enter a valid price.');
+      showToast(t('ownerSettings:defaultPricing.invalidPrice'));
       return;
     }
 
@@ -198,10 +211,10 @@ export default function OwnerSettings() {
       const res = await updateDefaultPricing({ [key]: price });
       setDefaultPricing(res.data.data);
       setPricingEditKey(null);
-      showToast('Default price saved.');
+      showToast(t('ownerSettings:defaultPricing.toastSaved'));
     } catch (err) {
       console.error('Failed to save default pricing:', err);
-      showToast('Could not save default price.');
+      showToast(t('ownerSettings:defaultPricing.toastError'));
     } finally {
       setSavingPricingKey(null);
     }
@@ -209,7 +222,7 @@ export default function OwnerSettings() {
 
   const handleSaveWhatsapp = async () => {
     if (!whatsapp.number.trim() || !whatsapp.template.trim()) {
-      showToast('Enter a WhatsApp number and template.');
+      showToast(t('ownerSettings:whatsapp.toastInvalid'));
       return;
     }
 
@@ -223,10 +236,10 @@ export default function OwnerSettings() {
         number: String(res.data.data.value.number ?? ''),
         template: String(res.data.data.value.template ?? ''),
       });
-      showToast('WhatsApp settings saved.');
+      showToast(t('ownerSettings:whatsapp.toastSaved'));
     } catch (err) {
       console.error('Failed to save WhatsApp settings:', err);
-      showToast('Could not save WhatsApp settings.');
+      showToast(t('ownerSettings:whatsapp.toastError'));
     } finally {
       setSavingWhatsapp(false);
     }
@@ -235,9 +248,9 @@ export default function OwnerSettings() {
   if (loading) {
     return (
       <AppShell role="owner" activePage="owner-settings">
-        <Topbar title="Owner Settings" />
+        <Topbar title={t('ownerSettings:title')} />
         <section className="stack">
-          <div className="loading-state">Loading settings...</div>
+          <div className="loading-state">{t('ownerSettings:loading')}</div>
         </section>
       </AppShell>
     );
@@ -246,7 +259,7 @@ export default function OwnerSettings() {
   if (error) {
     return (
       <AppShell role="owner" activePage="owner-settings">
-        <Topbar title="Owner Settings" />
+        <Topbar title={t('ownerSettings:title')} />
         <section className="stack">
           <div className="error-state">{error}</div>
         </section>
@@ -256,13 +269,14 @@ export default function OwnerSettings() {
 
   return (
     <AppShell role="owner" activePage="owner-settings">
-      <Topbar title="Owner Settings" />
+      <Topbar title={t('ownerSettings:title')} />
       <section className="stack">
+        {/* Pricing Roles */}
         <article className="box">
-          <h3>Pricing Roles</h3>
+          <h3>{t('ownerSettings:pricingRoles.title')}</h3>
           <div className="form-grid-2">
             <div className="field">
-              <label>Pricing Owner</label>
+              <label>{t('ownerSettings:pricingRoles.owner')}</label>
               <input
                 className="input"
                 type="text"
@@ -271,7 +285,7 @@ export default function OwnerSettings() {
               />
             </div>
             <div className="field">
-              <label>Approval Threshold (EGP)</label>
+              <label>{t('ownerSettings:pricingRoles.threshold')}</label>
               <input
                 className="input"
                 type="number"
@@ -281,25 +295,26 @@ export default function OwnerSettings() {
             </div>
           </div>
           <button className="btn primary" style={{ marginTop: 12 }} onClick={handleSavePricingRoles} disabled={savingPricingRoles}>
-            {savingPricingRoles ? 'Saving...' : 'Save Pricing Roles'}
+            {savingPricingRoles ? t('ownerSettings:pricingRoles.saving') : t('ownerSettings:pricingRoles.save')}
           </button>
         </article>
 
+        {/* Default Product Pricing */}
         <article className="box">
-          <h3>Default Product Pricing</h3>
+          <h3>{t('ownerSettings:defaultPricing.title')}</h3>
           <p className="muted" style={{ marginTop: -4 }}>
-            These prices come from the default pricing row and are used when a client has no custom pricing.
+            {t('ownerSettings:defaultPricing.subtitle')}
           </p>
           {!defaultPricing ? (
-            <p className="no-results">No default pricing row is configured yet.</p>
+            <p className="no-results">{t('ownerSettings:defaultPricing.empty')}</p>
           ) : (
             <div className="table-responsive">
               <table className="orders-table">
                 <thead>
                   <tr>
-                    <th>Item</th>
-                    <th style={{ textAlign: 'right' }}>Price (EGP)</th>
-                    <th style={{ textAlign: 'center' }}>Actions</th>
+                    <th>{t('ownerSettings:defaultPricing.colItem')}</th>
+                    <th style={{ textAlign: 'right' }}>{t('ownerSettings:defaultPricing.colPrice')}</th>
+                    <th style={{ textAlign: 'center' }}>{t('ownerSettings:defaultPricing.colActions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -331,15 +346,15 @@ export default function OwnerSettings() {
                                 onClick={() => savePricingField(field.key)}
                                 disabled={savingPricingKey === field.key}
                               >
-                                {savingPricingKey === field.key ? 'Saving...' : 'Save'}
+                                {savingPricingKey === field.key ? t('ownerSettings:defaultPricing.saving') : t('ownerSettings:defaultPricing.save')}
                               </button>
                               <button className="btn" onClick={() => setPricingEditKey(null)} disabled={savingPricingKey === field.key}>
-                                Cancel
+                                {t('ownerSettings:defaultPricing.cancel')}
                               </button>
                             </div>
                           ) : (
                             <button className="btn" onClick={() => startPricingEdit(field.key)}>
-                              Edit
+                              {t('ownerSettings:defaultPricing.edit')}
                             </button>
                           )}
                         </td>
@@ -352,10 +367,11 @@ export default function OwnerSettings() {
           )}
         </article>
 
+        {/* WhatsApp */}
         <article className="box">
-          <h3>Notification Format (WhatsApp Integration)</h3>
+          <h3>{t('ownerSettings:whatsapp.title')}</h3>
           <div className="field">
-            <label>WhatsApp Business Number</label>
+            <label>{t('ownerSettings:whatsapp.number')}</label>
             <input
               className="input"
               type="text"
@@ -364,7 +380,7 @@ export default function OwnerSettings() {
             />
           </div>
           <div className="field">
-            <label>Message Template</label>
+            <label>{t('ownerSettings:whatsapp.template')}</label>
             <textarea
               className="textarea"
               value={whatsapp.template}
@@ -372,19 +388,20 @@ export default function OwnerSettings() {
             />
           </div>
           <button className="btn primary" style={{ marginTop: 12 }} onClick={handleSaveWhatsapp} disabled={savingWhatsapp}>
-            {savingWhatsapp ? 'Saving...' : 'Save WhatsApp Settings'}
+            {savingWhatsapp ? t('ownerSettings:whatsapp.saving') : t('ownerSettings:whatsapp.save')}
           </button>
         </article>
 
+        {/* User Management */}
         <article className="box">
-          <h3>User Management</h3>
+          <h3>{t('ownerSettings:users.title')}</h3>
           <table className="orders-table">
             <thead>
               <tr>
-                <th>User</th>
-                <th>Role</th>
-                <th>Status</th>
-                <th>Action</th>
+                <th>{t('ownerSettings:users.colUser')}</th>
+                <th>{t('ownerSettings:users.colRole')}</th>
+                <th>{t('ownerSettings:users.colStatus')}</th>
+                <th>{t('ownerSettings:users.colAction')}</th>
               </tr>
             </thead>
             <tbody>
@@ -393,24 +410,32 @@ export default function OwnerSettings() {
                   <tr key={u.id}>
                     <td>{u.email}</td>
                     <td>
-                      <select className="select" value={editRole} onChange={(e) => setEditRole(e.target.value as UserProfile['role'])}>
-                        <option value="owner">Owner</option>
-                        <option value="staff">Staff</option>
-                        <option value="client">Client</option>
+                      <select
+                        className="select"
+                        value={editRole}
+                        onChange={(e) => setEditRole(e.target.value as UserProfile['role'])}
+                      >
+                        <option value="owner">{t('ownerSettings:users.roleOwner')}</option>
+                        <option value="staff">{t('ownerSettings:users.roleStaff')}</option>
+                        <option value="client">{t('ownerSettings:users.roleClient')}</option>
                       </select>
                     </td>
                     <td>
-                      <select className="select" value={editStatus} onChange={(e) => setEditStatus(e.target.value as 'active' | 'inactive')}>
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
+                      <select
+                        className="select"
+                        value={editStatus}
+                        onChange={(e) => setEditStatus(e.target.value as 'active' | 'inactive')}
+                      >
+                        <option value="active">{t('ownerSettings:users.statusActive')}</option>
+                        <option value="inactive">{t('ownerSettings:users.statusInactive')}</option>
                       </select>
                     </td>
                     <td style={{ display: 'flex', gap: 6 }}>
                       <button className="btn primary" onClick={saveEdit} disabled={savingUserId === u.id}>
-                        {savingUserId === u.id ? 'Saving...' : 'Save'}
+                        {savingUserId === u.id ? t('ownerSettings:users.saving') : t('ownerSettings:users.save')}
                       </button>
                       <button className="btn" onClick={() => setEditEmail(null)} disabled={savingUserId === u.id}>
-                        Cancel
+                        {t('ownerSettings:users.cancel')}
                       </button>
                     </td>
                   </tr>
@@ -419,7 +444,11 @@ export default function OwnerSettings() {
                     <td>{u.email}</td>
                     <td>{u.role}</td>
                     <td><StatusBadge status={u.status} /></td>
-                    <td><button className="btn" onClick={() => startEdit(u)}>Edit</button></td>
+                    <td>
+                      <button className="btn" onClick={() => startEdit(u)}>
+                        {t('ownerSettings:users.edit')}
+                      </button>
+                    </td>
                   </tr>
                 )
               )}

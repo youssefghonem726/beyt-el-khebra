@@ -1,31 +1,29 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useTranslation } from 'react-i18next';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatCard from '../../components/StatCard';
 import StatusBadge from '../../components/StatusBadge';
 import { useNavigation } from '../../context/NavigationContext';
-// Direct service imports – bypasses VITE_USE_MOCK
 import { getOrders } from '../../lib/api/ordersQuotesService';
 import { getMe } from '../../lib/api/usersService';
 
-// ─── Static data (no backend required) ────────────────────────────────
-const STATUS_GUIDE = [
-  { status: 'UNPRICED_PENDING', desc: 'Your order is waiting for pricing.' },
-  { status: 'PRICED_PENDING_CONFIRMATION', desc: 'Quote has been sent – awaiting your approval.' },
-  { status: 'IN_PROGRESS', desc: 'Your order is being produced.' },
-  { status: 'COMPLETED', desc: 'Order is complete and ready for delivery.' },
-  { status: 'CANCELED', desc: 'Order has been cancelled.' },
-];
+const STATUS_GUIDE_KEYS = [
+  'UNPRICED_PENDING',
+  'PRICED_PENDING_CONFIRMATION',
+  'IN_PROGRESS',
+  'COMPLETED',
+  'CANCELED',
+] as const;
 
-const STATUS_FILTERS = [
-  { label: 'Unpriced', value: 'UNPRICED_PENDING' },
-  { label: 'Pending Confirmation', value: 'PRICED_PENDING_CONFIRMATION' },
-  { label: 'In Progress', value: 'IN_PROGRESS' },
-  { label: 'Completed', value: 'COMPLETED' },
-  { label: 'Canceled', value: 'CANCELED' },
-];
+const STATUS_FILTER_VALUES = [
+  'UNPRICED_PENDING',
+  'PRICED_PENDING_CONFIRMATION',
+  'IN_PROGRESS',
+  'COMPLETED',
+  'CANCELED',
+] as const;
 
-// ─── Types ────────────────────────────────────────────────────────────
 interface DisplayOrder {
   id: string;
   product: string;
@@ -35,7 +33,6 @@ interface DisplayOrder {
   total: string;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────
 function formatDate(isoDate: string | null): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
@@ -49,9 +46,18 @@ function formatTotal(amount: number | null): string {
 }
 
 export default function ClientDashboard() {
+  return (
+    <Suspense fallback={null}>
+      <ClientDashboardInner />
+    </Suspense>
+  );
+}
+
+function ClientDashboardInner() {
+  const { t } = useTranslation(['common', 'clientDashboard']);
   const { navigateTopLevel } = useNavigation();
 
-  const [clientName, setClientName] = useState<string>('Client');
+  const [clientName, setClientName] = useState<string>('');
   const [clientEmail, setClientEmail] = useState('');
   const [clientPhone, setClientPhone] = useState('');
 
@@ -73,21 +79,15 @@ export default function ClientDashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch user profile and orders in parallel
-        const [userRes, ordersRes] = await Promise.all([
-          getMe(),
-          getOrders(),
-        ]);
+        const [userRes, ordersRes] = await Promise.all([getMe(), getOrders()]);
 
         const user = userRes.data.data;
         setClientName([user.first_name, user.last_name].filter(Boolean).join(' ') || user.email);
         setClientEmail(user.email);
         setClientPhone(user.phone || '');
 
-        const allOrders = ordersRes.data.data; // array of backend orders
-        console.log('ClientDashboard - raw orders:', allOrders);
+        const allOrders = ordersRes.data.data;
 
-        // Map to display orders
         const displayOrders: DisplayOrder[] = allOrders.map((o: any) => ({
           id: String(o.id),
           product: o.upload?.file_name || `Order #${o.id}`,
@@ -99,16 +99,15 @@ export default function ClientDashboard() {
 
         setOrders(displayOrders);
 
-        // Compute stats
-        const totalOrders = displayOrders.length;
-        const pendingQuote = allOrders.filter((o: any) => o.status === 'UNPRICED_PENDING').length;
-        const inProgress = allOrders.filter((o: any) => o.status === 'IN_PROGRESS').length;
-        const completed = allOrders.filter((o: any) => o.status === 'COMPLETED').length;
-
-        setStats({ totalOrders, pendingQuote, inProgress, completed });
+        setStats({
+          totalOrders: displayOrders.length,
+          pendingQuote: allOrders.filter((o: any) => o.status === 'UNPRICED_PENDING').length,
+          inProgress: allOrders.filter((o: any) => o.status === 'IN_PROGRESS').length,
+          completed: allOrders.filter((o: any) => o.status === 'COMPLETED').length,
+        });
       } catch (err) {
         console.error('Failed to load dashboard:', err);
-        setError('Could not load dashboard data. Please try again later.');
+        setError(t('clientDashboard:error'));
       } finally {
         setLoading(false);
       }
@@ -117,7 +116,6 @@ export default function ClientDashboard() {
     fetchData();
   }, []);
 
-  // Filter orders by search query and status
   const filtered = orders.filter((o) => {
     const matchQ = !query || o.id.toLowerCase().includes(query.toLowerCase()) || o.product.toLowerCase().includes(query.toLowerCase());
     const matchS = !filterStatus || o.status === filterStatus;
@@ -127,15 +125,15 @@ export default function ClientDashboard() {
   if (loading) {
     return (
       <AppShell role="client" activePage="client-dashboard">
-        <Topbar title="Dashboard" />
-        <div className="loading-state">Loading your dashboard...</div>
+        <Topbar title={t('clientDashboard:title')} />
+        <div className="loading-state">{t('clientDashboard:loading')}</div>
       </AppShell>
     );
   }
 
   return (
     <AppShell role="client" activePage="client-dashboard">
-      <Topbar title="Dashboard" />
+      <Topbar title={t('clientDashboard:title')} />
 
       {error && (
         <div className="box" style={{ background: '#fff0f0', color: '#c0392b', marginBottom: 12 }}>
@@ -144,8 +142,8 @@ export default function ClientDashboard() {
       )}
 
       <section className="welcome">
-        <h2>Welcome back, {clientName}</h2>
-        <p>Here's what is happening with your orders.</p>
+        <h2>{t('clientDashboard:welcome.greeting', { name: clientName })}</h2>
+        <p>{t('clientDashboard:welcome.sub')}</p>
         <div className="client-info" style={{ marginTop: 8 }}>
           <span>📧 {clientEmail}</span>
           {clientPhone && <span>📞 {clientPhone}</span>}
@@ -153,21 +151,21 @@ export default function ClientDashboard() {
       </section>
 
       <section className="grid-4">
-        <StatCard label="Total Orders"  value={stats.totalOrders}  sub="All time" />
-        <StatCard label="Pending Quote" value={stats.pendingQuote} sub="Awaiting pricing" />
-        <StatCard label="In Progress"   value={stats.inProgress}   sub="Currently in production" />
-        <StatCard label="Completed"     value={stats.completed}    sub="Successfully completed" />
+        <StatCard label={t('clientDashboard:stats.totalOrders')}  value={stats.totalOrders}  sub={t('clientDashboard:stats.allTime')} />
+        <StatCard label={t('clientDashboard:stats.pendingQuote')} value={stats.pendingQuote} sub={t('clientDashboard:stats.awaitingPricing')} />
+        <StatCard label={t('clientDashboard:stats.inProgress')}   value={stats.inProgress}   sub={t('clientDashboard:stats.inProduction')} />
+        <StatCard label={t('clientDashboard:stats.completed')}    value={stats.completed}    sub={t('clientDashboard:stats.successCompleted')} />
       </section>
 
       <section className="content">
         <article className="table-wrap">
           <div className="table-head">
-            <h3>My Orders</h3>
+            <h3>{t('clientDashboard:orders.title')}</h3>
             <div className="search-container">
               <input
                 className="input"
                 type="search"
-                placeholder="Search by order ID or product"
+                placeholder={t('clientDashboard:orders.searchPlaceholder')}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
@@ -175,15 +173,15 @@ export default function ClientDashboard() {
               {dropdownOpen && (
                 <div className="filter-dropdown show">
                   <div className="field">
-                    <label>Status</label>
+                    <label>{t('common:filter.status')}</label>
                     <select className="select" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-                      <option value="">All Status</option>
-                      {STATUS_FILTERS.map((f) => (
-                        <option key={f.value} value={f.value}>{f.label}</option>
+                      <option value="">{t('common:filter.allStatus')}</option>
+                      {STATUS_FILTER_VALUES.map((v) => (
+                        <option key={v} value={v}>{t(`common:status.${v}`)}</option>
                       ))}
                     </select>
                   </div>
-                  <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>Apply</button>
+                  <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>{t('common:filter.apply')}</button>
                 </div>
               )}
             </div>
@@ -192,13 +190,18 @@ export default function ClientDashboard() {
           <table className="orders-table">
             <thead>
               <tr>
-                <th>Order ID</th><th>Product</th><th>Status</th>
-                <th>Order Date</th><th>Delivery Date</th><th>Total</th><th>Action</th>
+                <th>{t('clientDashboard:table.id')}</th>
+                <th>{t('clientDashboard:table.product')}</th>
+                <th>{t('clientDashboard:table.status')}</th>
+                <th>{t('clientDashboard:table.orderDate')}</th>
+                <th>{t('clientDashboard:table.deliveryDate')}</th>
+                <th>{t('clientDashboard:table.total')}</th>
+                <th>{t('clientDashboard:table.action')}</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={7} className="no-results">No matching results</td></tr>
+                <tr><td colSpan={7} className="no-results">{t('clientDashboard:orders.noResults')}</td></tr>
               ) : (
                 filtered.map((o) => (
                   <tr key={o.id}>
@@ -209,7 +212,7 @@ export default function ClientDashboard() {
                     <td>{o.deliveryDate}</td>
                     <td>{o.total}</td>
                     <td>
-                      <button className="btn btn-sm" onClick={() => navigateTopLevel(`/client/orders/${o.id}`)}>View</button>
+                      <button className="btn btn-sm" onClick={() => navigateTopLevel(`/client/orders/${o.id}`)}>{t('clientDashboard:table.view')}</button>
                     </td>
                   </tr>
                 ))
@@ -220,19 +223,19 @@ export default function ClientDashboard() {
 
         <div className="stack">
           <section className="box">
-            <h3>Quick Actions</h3>
-            <button className="btn block primary" onClick={() => navigateTopLevel('place-new-order')}>Place New Order</button>
-            <button className="btn block" onClick={() => navigateTopLevel('quotes')}>View Quotes</button>
-            <button className="btn block" onClick={() => navigateTopLevel('support')}>Contact Support</button>
+            <h3>{t('clientDashboard:quickActions.title')}</h3>
+            <button className="btn block primary" onClick={() => navigateTopLevel('place-new-order')}>{t('clientDashboard:quickActions.placeOrder')}</button>
+            <button className="btn block" onClick={() => navigateTopLevel('quotes')}>{t('clientDashboard:quickActions.viewQuotes')}</button>
+            <button className="btn block" onClick={() => navigateTopLevel('support')}>{t('clientDashboard:quickActions.contactSupport')}</button>
           </section>
 
           <section className="box">
-            <h3>Order Status Guide</h3>
+            <h3>{t('clientDashboard:statusGuide.title')}</h3>
             <ul className="status-list">
-              {STATUS_GUIDE.map((s) => (
-                <li key={s.status} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                  <StatusBadge status={s.status} />
-                  <span className="status-desc">{s.desc}</span>
+              {STATUS_GUIDE_KEYS.map((key) => (
+                <li key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <StatusBadge status={key} />
+                  <span className="status-desc">{t(`clientDashboard:statusGuide.desc.${key}`)}</span>
                 </li>
               ))}
             </ul>

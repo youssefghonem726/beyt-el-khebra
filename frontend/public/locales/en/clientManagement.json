@@ -1,0 +1,92 @@
+{
+  "title": "Client Management",
+  "loading": "Loading clients...",
+  "error": "Could not load client data.",
+  "table": {
+    "title": "All Clients",
+    "searchPlaceholder": "Search by name, email, or phone"
+  },
+  "filter": {
+    "status": "Status",
+    "allStatus": "All Status",
+    "active": "Active",
+    "inactive": "Inactive",
+    "type": "Type",
+    "allTypes": "All Types",
+    "individual": "Individual",
+    "business": "Business",
+    "apply": "Apply"
+  },
+  "card": {
+    "since": "Client since {{date}}",
+    "openProfile": "Click to open full profile"
+  },
+  "detail": {
+    "title": "Client Details",
+    "titleWithName": "Client Details - {{name}}",
+    "back": "Back to Client Management",
+    "loading": "Loading client details...",
+    "error": "Could not load client data. Please try again later.",
+    "unavailable": "Client data unavailable.",
+    "notFound": "Client with ID \"{{id}}\" not found.",
+    "name": "Name",
+    "phone": "Phone Number",
+    "address": "Address",
+    "email": "Email",
+    "stats": {
+      "totalOrders": "Total Number of Orders",
+      "avgPrice": "Average Order Price",
+      "customerSince": "Customer Since",
+      "totalSpent": "Total Amount Spent",
+      "customerSinceFmt": "{{years}} yr {{months}} mo",
+      "customerSinceMonths": "{{months}} mo"
+    },
+    "pricing": {
+      "title": "Custom Pricing",
+      "custom": "Client-specific override prices. Changes are saved immediately.",
+      "default": "Default prices are shown. Editing any price creates a client-specific override.",
+      "empty": "No default or client-specific pricing is configured yet.",
+      "colItem": "Item",
+      "colPrice": "Price (EGP)",
+      "colActions": "Actions",
+      "saving": "Saving...",
+      "save": "Save",
+      "cancel": "Cancel",
+      "edit": "Edit",
+      "items": {
+        "front": "Front",
+        "front_and_back": "Front & Back",
+        "digital_cover_300g": "Digital Cover 300g",
+        "digital_cover_200g": "Digital Cover 200g",
+        "offset_cover_200g": "Offset Cover 200g",
+        "offset_cover_300g": "Offset Cover 300g",
+        "coil_size_10": "Coil Size 10",
+        "coil_size_12": "Coil Size 12",
+        "coil_size_14": "Coil Size 14",
+        "coil_size_16": "Coil Size 16",
+        "coil_size_18": "Coil Size 18",
+        "coil_size_20": "Coil Size 20",
+        "coil_size_22": "Coil Size 22",
+        "coil_size_25": "Coil Size 25",
+        "coil_size_28": "Coil Size 28",
+        "coil_size_30": "Coil Size 30",
+        "coil_size_32": "Coil Size 32",
+        "coil_size_35": "Coil Size 35"
+      }
+    },
+    "docs": {
+      "title": "Documents",
+      "sub": "Click a document to expand its preview. Rename, download, or remove files below."
+    },
+    "orders": {
+      "title": "Past Orders",
+      "colId": "Order ID",
+      "colProduct": "Product",
+      "colStatus": "Status",
+      "colDate": "Date",
+      "colTotal": "Total",
+      "empty": "No past orders",
+      "pcs": "{{count}} pcs"
+    }
+  }
+}

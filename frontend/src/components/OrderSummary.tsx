@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+
 // ── Inlined from types.ts ───────────────────────────────────────────
 type ItemType = 'book' | 'booklet' | 'card' | 'sticker' | 'poster';
 
@@ -18,13 +20,11 @@ interface ClientDocument {
   url?: string;
 }
 
-const ITEM_TYPES: { id: ItemType; label: string; icon: string }[] = [
-  { id: 'book',    label: 'Book',          icon: '📚' },
-  { id: 'booklet', label: 'Booklet',       icon: '📖' },
-  { id: 'card',    label: 'Business Card', icon: '🃏' },
-  { id: 'sticker', label: 'Sticker',       icon: '🏷️' },
-  { id: 'poster',  label: 'Poster',        icon: '🖼️' },
-];
+// English labels kept — used for type display in summary (translated via t() below)
+const ITEM_TYPE_IDS: ItemType[] = ['book', 'booklet', 'card', 'sticker', 'poster'];
+const ITEM_TYPE_ICONS: Record<ItemType, string> = {
+  book: '📚', booklet: '📖', card: '🃏', sticker: '🏷️', poster: '🖼️',
+};
 // ─────────────────────────────────────────────────────────────────────
 
 import styles from './order.module.css';
@@ -44,25 +44,27 @@ export function PackageOrderSummary({
   selectedDoc,
   onSubmit,
 }: PackageOrderSummaryProps) {
+  const { t } = useTranslation('ownerPlaceOrder');
+
   return (
     <div className="box">
-      <h3 className="summary__heading">Order Summary</h3>
+      <h3 className="summary__heading">{t('shared.orderSummary.title')}</h3>
       <div className={styles.orderSummary__rows}>
         <div className={styles.orderSummary__row}>
-          <span className={styles.orderSummary__label}>Client</span>
+          <span className={styles.orderSummary__label}>{t('shared.orderSummary.client')}</span>
           <span className={styles.orderSummary__value}>{selectedClient}</span>
         </div>
 
         {items.length === 0 ? (
-          <p className="summary__empty">No items added yet.</p>
+          <p className="summary__empty">{t('shared.orderSummary.noItems')}</p>
         ) : (
           items.map(i => {
-            const ti = ITEM_TYPES.find(t => t.id === i.type)!;
+            const icon = ITEM_TYPE_ICONS[i.type] ?? '';
             return (
               <div key={i.id} className={styles.orderSummary__row}>
-                <span><span className={styles.orderSummary__itemIcon}>{ti.icon}</span>{ti.label}</span>
+                <span><span className={styles.orderSummary__itemIcon}>{icon}</span>{t(`itemTypes.${i.type}`)}</span>
                 <span className={`${styles.orderSummary__value} muted`}>
-                  {i.data.qty ? Number(i.data.qty).toLocaleString() + ' pcs' : '—'}
+                  {i.data.qty ? t('shared.orderSummary.pcs', { count: Number(i.data.qty).toLocaleString() }) : '—'}
                 </span>
               </div>
             );
@@ -71,16 +73,16 @@ export function PackageOrderSummary({
 
         {selectedDoc && (
           <div className={`${styles.orderSummary__row} ${styles['orderSummary__row--top']}`}>
-            <span className={`${styles.orderSummary__label} ${styles['orderSummary__label--shrink']}`}>File</span>
+            <span className={`${styles.orderSummary__label} ${styles['orderSummary__label--shrink']}`}>
+              {t('shared.orderSummary.file')}
+            </span>
             <span className={styles.orderSummary__fileValue}>{selectedDoc.name}</span>
           </div>
         )}
       </div>
 
       <div className={styles.orderSummary__hint}>
-        <p className={styles.orderSummary__hintText}>
-          Order will be sent to the Unpriced Queue for pricing.
-        </p>
+        <p className={styles.orderSummary__hintText}>{t('shared.orderSummary.priceNote')}</p>
       </div>
 
       <button
@@ -88,7 +90,7 @@ export function PackageOrderSummary({
         disabled={items.length === 0}
         onClick={onSubmit}
       >
-        Place Package Order
+        {t('shared.orderSummary.submitPackage')}
       </button>
     </div>
   );
@@ -113,27 +115,34 @@ export function SingleOrderSummary({
   localPreviewFile,
   onSubmit,
 }: SingleOrderSummaryProps) {
-  const typeInfo = ITEM_TYPES.find(t => t.id === singleType);
+  const { t } = useTranslation('ownerPlaceOrder');
+
+  const icon = singleType ? ITEM_TYPE_ICONS[singleType] : null;
   const fileName = selectedDoc
     ? selectedDoc.name
     : localPreviewFile
     ? localPreviewFile.name
     : '—';
 
+  // Suppress unused variable warning — ITEM_TYPE_IDS used for type safety
+  void ITEM_TYPE_IDS;
+
   return (
     <div className="box">
-      <h3 className="summary__heading">Order Summary</h3>
+      <h3 className="summary__heading">{t('shared.orderSummary.title')}</h3>
       <div className={styles.orderSummary__rows}>
         <div className={styles.orderSummary__row}>
-          <span className={styles.orderSummary__label}>Client</span>
+          <span className={styles.orderSummary__label}>{t('shared.orderSummary.client')}</span>
           <span className={styles.orderSummary__value}>{selectedClient}</span>
         </div>
 
         <div className={styles.orderSummary__row}>
-          <span className={`${styles.orderSummary__label} ${styles['orderSummary__label--shrink']}`}>Type</span>
-          {typeInfo ? (
+          <span className={`${styles.orderSummary__label} ${styles['orderSummary__label--shrink']}`}>
+            {t('shared.orderSummary.type')}
+          </span>
+          {singleType ? (
             <span className={styles.orderSummary__typeBadge}>
-              {typeInfo.icon}&nbsp;{typeInfo.label}
+              {icon}&nbsp;{t(`itemTypes.${singleType}`)}
             </span>
           ) : (
             <span className="muted">—</span>
@@ -141,22 +150,22 @@ export function SingleOrderSummary({
         </div>
 
         <div className={`${styles.orderSummary__row} ${styles['orderSummary__row--top']}`}>
-          <span className={`${styles.orderSummary__label} ${styles['orderSummary__label--shrink']}`}>File</span>
+          <span className={`${styles.orderSummary__label} ${styles['orderSummary__label--shrink']}`}>
+            {t('shared.orderSummary.file')}
+          </span>
           <span className={styles.orderSummary__fileValue}>{fileName}</span>
         </div>
 
         <div className={styles.orderSummary__row}>
-          <span className={styles.orderSummary__label}>Quantity</span>
+          <span className={styles.orderSummary__label}>{t('shared.orderSummary.quantity')}</span>
           <span className={styles.orderSummary__value}>
-            {singleData.qty ? Number(singleData.qty).toLocaleString() + ' pcs' : '—'}
+            {singleData.qty ? t('shared.orderSummary.pcs', { count: Number(singleData.qty).toLocaleString() }) : '—'}
           </span>
         </div>
       </div>
 
       <div className={styles.orderSummary__hint}>
-        <p className={styles.orderSummary__hintText}>
-          Order will be sent to the Unpriced Queue for pricing.
-        </p>
+        <p className={styles.orderSummary__hintText}>{t('shared.orderSummary.priceNote')}</p>
       </div>
 
       <button
@@ -164,7 +173,7 @@ export function SingleOrderSummary({
         disabled={!singleType}
         onClick={onSubmit}
       >
-        Place Order
+        {t('shared.orderSummary.submitSingle')}
       </button>
     </div>
   );

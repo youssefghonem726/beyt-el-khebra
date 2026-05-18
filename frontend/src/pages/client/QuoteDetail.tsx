@@ -1,15 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useTranslation } from 'react-i18next';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import { useNavigation } from '../../context/NavigationContext';
-// Direct service import – bypasses VITE_USE_MOCK
 import { getQuotes } from '../../lib/api/quotesService';
 import type { QuoteResponse } from '../../lib/api/quotesService';
 
 interface QuoteSummary {
   id: number;
-  status: string;           // normalized status for StatusBadge
+  status: string;
   amount: number;
 }
 
@@ -17,17 +17,26 @@ function fmt(n: number): string {
   return n.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-// Compute total from items (in case total_estimated_price is missing)
 function computeTotalFromItems(items: QuoteResponse['items']): number {
   return items.reduce((sum, item) => {
-    const price = typeof item.estimated_total_price === 'string'
-      ? parseFloat(item.estimated_total_price)
-      : item.estimated_total_price;
+    const price =
+      typeof item.estimated_total_price === 'string'
+        ? parseFloat(item.estimated_total_price)
+        : item.estimated_total_price;
     return sum + (price || 0);
   }, 0);
 }
 
-export default function Quotes() {
+export default function QuoteDetail() {
+  return (
+    <Suspense fallback={null}>
+      <QuoteDetailInner />
+    </Suspense>
+  );
+}
+
+function QuoteDetailInner() {
+  const { t } = useTranslation(['common', 'quotes']);
   const { navigateTopLevel } = useNavigation();
   const [quotes, setQuotes] = useState<QuoteSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,31 +47,28 @@ export default function Quotes() {
       try {
         const res = await getQuotes();
         const rawQuotes: QuoteResponse[] = res.data.data;
-        console.log('Quotes - raw:', rawQuotes);
 
         const summaries: QuoteSummary[] = rawQuotes.map((q) => {
-          // Determine the amount to display
           let amount: number;
           if (q.total_estimated_price != null) {
-            amount = typeof q.total_estimated_price === 'string'
-              ? parseFloat(q.total_estimated_price)
-              : q.total_estimated_price;
+            amount =
+              typeof q.total_estimated_price === 'string'
+                ? parseFloat(q.total_estimated_price)
+                : q.total_estimated_price;
           } else {
             amount = computeTotalFromItems(q.items || []);
           }
 
-          // Normalize status to a value StatusBadge understands
           const statusMap: Record<string, string> = {
-            pending: 'awaiting_confirmation',    // you can adjust the labels
+            pending: 'awaiting_confirmation',
             approved: 'approved',
             rejected: 'rejected',
             converted: 'converted',
           };
-          const normalizedStatus = statusMap[q.status] || q.status;
 
           return {
             id: q.id,
-            status: normalizedStatus,
+            status: statusMap[q.status] || q.status,
             amount,
           };
         });
@@ -70,7 +76,7 @@ export default function Quotes() {
         setQuotes(summaries);
       } catch (err) {
         console.error('Failed to load quotes:', err);
-        setError('Could not load your quotes. Please try again later.');
+        setError(t('quotes:error'));
       } finally {
         setLoading(false);
       }
@@ -82,8 +88,8 @@ export default function Quotes() {
   if (loading) {
     return (
       <AppShell role="client" activePage="quotes">
-        <Topbar title="Quotes" />
-        <div className="loading-state">Loading quotes...</div>
+        <Topbar title={t('quotes:title')} />
+        <div className="loading-state">{t('quotes:loading')}</div>
       </AppShell>
     );
   }
@@ -91,7 +97,7 @@ export default function Quotes() {
   if (error) {
     return (
       <AppShell role="client" activePage="quotes">
-        <Topbar title="Quotes" />
+        <Topbar title={t('quotes:title')} />
         <div className="error-state">{error}</div>
       </AppShell>
     );
@@ -99,28 +105,28 @@ export default function Quotes() {
 
   return (
     <AppShell role="client" activePage="quotes">
-      <Topbar title="Quotes" />
+      <Topbar title={t('quotes:title')} />
 
       <section className="table-wrap">
         <div className="table-head" style={{ marginBottom: 10 }}>
-          <h3>My Quotes</h3>
+          <h3>{t('quotes:myQuotes')}</h3>
           <button className="btn primary" onClick={() => navigateTopLevel('place-new-order')}>
-            Request New Quote
+            {t('quotes:requestNew')}
           </button>
         </div>
         <table className="orders-table">
           <thead>
             <tr>
-              <th>Quote ID</th>
-              <th>Status</th>
-              <th>Amount</th>
-              <th>Action</th>
+              <th>{t('quotes:table.id')}</th>
+              <th>{t('quotes:table.status')}</th>
+              <th>{t('quotes:table.amount')}</th>
+              <th>{t('quotes:table.action')}</th>
             </tr>
           </thead>
           <tbody>
             {quotes.length === 0 ? (
               <tr>
-                <td colSpan={4} className="no-results">No quotes available.</td>
+                <td colSpan={4} className="no-results">{t('quotes:empty')}</td>
               </tr>
             ) : (
               quotes.map((q) => (
@@ -133,7 +139,7 @@ export default function Quotes() {
                       className="btn"
                       onClick={() => navigateTopLevel(`/client/quotes/${q.id}`)}
                     >
-                      Review Quote
+                      {t('quotes:table.review')}
                     </button>
                   </td>
                 </tr>
@@ -142,8 +148,6 @@ export default function Quotes() {
           </tbody>
         </table>
       </section>
-
-      {/* Standard pricing section removed – no client‑facing API yet */}
     </AppShell>
   );
 }

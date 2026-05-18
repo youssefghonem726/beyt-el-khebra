@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, Suspense } from 'react';
+import { useTranslation } from 'react-i18next';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatCard from '../../components/StatCard';
@@ -11,10 +12,10 @@ import type { UploadFile } from '../../lib/api/uploadsService';
 
 interface DisplayDocument {
   id: string;
-  name: string;           // file_name from backend or fallback from url
-  fileName: string;       // original file name (from url)
+  name: string;
+  fileName: string;
   type: string;
-  sizeKB: number;         // still 0 until we store size
+  sizeKB: number;
   uploadedDate: string;
   reorderCount: number;
   ownerType: 'client';
@@ -30,7 +31,16 @@ interface ReorderOptions {
 }
 
 export default function DocumentManagement() {
-  const { navigateTopLevel } = useNavigation();
+  return (
+    <Suspense fallback={null}>
+      <DocumentManagementInner />
+    </Suspense>
+  );
+}
+
+function DocumentManagementInner() {
+  const { t } = useTranslation(['common', 'documentManagement']);
+  const { navigateTopLevel: _nav } = useNavigation();
   const [documents, setDocuments] = useState<DisplayDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -46,16 +56,13 @@ export default function DocumentManagement() {
   const [uploadCustomName, setUploadCustomName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch real uploads
   useEffect(() => {
     const fetchUploads = async () => {
       try {
         const res = await getUploads();
         const uploads: UploadFile[] = res.data.data;
-        console.log('DocumentManagement - uploads:', uploads);
 
         const docs: DisplayDocument[] = uploads.map((u) => {
-          // Use file_name if present, else extract from url
           const rawName = u.file_name || u.url.split('/').pop() || 'file';
           const displayName = rawName.replace(/\.[^/.]+$/, '');
           const ext = rawName.split('.').pop()?.toUpperCase() || '';
@@ -76,7 +83,7 @@ export default function DocumentManagement() {
         setDocuments(docs);
       } catch (err) {
         console.error('Failed to load uploads:', err);
-        setError('Could not load your documents.');
+        setError(t('documentManagement:error'));
       } finally {
         setLoading(false);
       }
@@ -94,7 +101,6 @@ export default function DocumentManagement() {
   const formatSize = (kb: number): string => (kb > 1024 ? (kb / 1024).toFixed(1) + ' MB' : kb + ' KB');
   const showToast = (msg: string) => setToastMessage(msg);
 
-  // Stats
   const totalDocuments = documents.length;
   let maxReorder = 0, mostOrderedName = '—', totalReorders = 0, totalStorageKB = 0;
   documents.forEach((doc) => {
@@ -105,7 +111,7 @@ export default function DocumentManagement() {
   const mostOrderedDisplay = maxReorder > 0 ? mostOrderedName.substring(0, 18) : '—';
   const storageUsed = totalStorageKB > 1024 ? (totalStorageKB / 1024).toFixed(1) + ' MB' : totalStorageKB + ' KB';
 
-  const filtered = documents.filter(doc =>
+  const filtered = documents.filter((doc) =>
     doc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     doc.fileName.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -116,29 +122,31 @@ export default function DocumentManagement() {
   };
 
   const updateReorderOption = (docId: string, key: keyof ReorderOptions, value: string | number) => {
-    setReorderOptions(prev => ({ ...prev, [docId]: { ...getReorderOptions(docId), [key]: value } }));
+    setReorderOptions((prev) => ({ ...prev, [docId]: { ...getReorderOptions(docId), [key]: value } }));
   };
 
   const handleReorder = (doc: DisplayDocument) => {
     const options = getReorderOptions(doc.id);
     const orderRef = '#ORD' + Math.floor(Math.random() * 9000 + 1000);
-    setDocuments(prev => prev.map(d => d.id === doc.id ? { ...d, reorderCount: d.reorderCount + 1 } : d));
-    showToast(`✅ Order ${orderRef} placed! ${options.quantity} × "${doc.name}" — We'll send you a quote shortly.`);
+    setDocuments((prev) => prev.map((d) => d.id === doc.id ? { ...d, reorderCount: d.reorderCount + 1 } : d));
+    showToast(t('documentManagement:toast.reorderPlaced', { ref: orderRef, qty: options.quantity, name: doc.name }));
     setExpandedDocId(null);
   };
 
   const handleDelete = async (docId: string) => {
-    if (!window.confirm('Delete this document permanently?')) return;
+    if (!window.confirm(t('documentManagement:confirm.delete'))) return;
     try {
       await deleteUpload(Number(docId));
-      setDocuments(prev => prev.filter(d => d.id !== docId));
+      setDocuments((prev) => prev.filter((d) => d.id !== docId));
       if (expandedDocId === docId) setExpandedDocId(null);
-      showToast('🗑️ Document deleted');
-    } catch { showToast('❌ Could not delete'); }
+      showToast(t('documentManagement:toast.deleted'));
+    } catch {
+      showToast(t('documentManagement:toast.deleteError'));
+    }
   };
 
   const openEditModal = (docId: string) => {
-    const doc = documents.find(d => d.id === docId);
+    const doc = documents.find((d) => d.id === docId);
     if (doc) {
       setEditingDocId(docId);
       setEditDocName(doc.name);
@@ -149,10 +157,12 @@ export default function DocumentManagement() {
   const saveEdit = async () => {
     if (!editingDocId) return;
     try {
-      await updateUpload(Number(editingDocId), { file_name: editDocName.trim() || documents.find(d=>d.id===editingDocId)!.name });
-      setDocuments(prev => prev.map(d => d.id === editingDocId ? { ...d, name: editDocName.trim() || d.name } : d));
-      showToast('✏️ Document updated');
-    } catch { showToast('❌ Could not rename'); }
+      await updateUpload(Number(editingDocId), { file_name: editDocName.trim() || documents.find((d) => d.id === editingDocId)!.name });
+      setDocuments((prev) => prev.map((d) => d.id === editingDocId ? { ...d, name: editDocName.trim() || d.name } : d));
+      showToast(t('documentManagement:toast.updated'));
+    } catch {
+      showToast(t('documentManagement:toast.renameError'));
+    }
     setEditModalOpen(false);
     setEditingDocId(null);
     setEditDocName('');
@@ -160,8 +170,14 @@ export default function DocumentManagement() {
 
   const handleFileSelect = (file: File) => {
     const ext = file.name.split('.').pop()?.toUpperCase() || '';
-    if (!['PDF','AI','PSD','JPG','JPEG','PNG'].includes(ext)) { alert('Unsupported format.'); return false; }
-    if (file.size / 1024 > 102400) { alert('Max file size 100MB'); return false; }
+    if (!['PDF', 'AI', 'PSD', 'JPG', 'JPEG', 'PNG'].includes(ext)) {
+      alert(t('documentManagement:alert.unsupportedFormat'));
+      return false;
+    }
+    if (file.size / 1024 > 102400) {
+      alert(t('documentManagement:alert.maxFileSize'));
+      return false;
+    }
     setUploadFile(file);
     return true;
   };
@@ -170,7 +186,7 @@ export default function DocumentManagement() {
     if (!uploadFile) return;
     const formData = new FormData();
     formData.append('file', uploadFile);
-    formData.append('file_type', 'content'); // default
+    formData.append('file_type', 'content');
     if (uploadCustomName.trim()) formData.append('file_name', uploadCustomName.trim());
     try {
       const res = await createUpload(formData);
@@ -191,13 +207,15 @@ export default function DocumentManagement() {
         fileUrl: newUpload.url,
         mimeType: newUpload.mime_type || '',
       };
-      setDocuments(prev => [newDoc, ...prev]);
-      showToast('📄 File uploaded');
+      setDocuments((prev) => [newDoc, ...prev]);
+      showToast(t('documentManagement:toast.uploaded'));
       setUploadModalOpen(false);
       setUploadFile(null);
       setUploadCustomName('');
       if (fileInputRef.current) fileInputRef.current.value = '';
-    } catch { showToast('❌ Upload failed'); }
+    } catch {
+      showToast(t('documentManagement:toast.uploadError'));
+    }
   };
 
   const cancelUpload = () => {
@@ -221,56 +239,95 @@ export default function DocumentManagement() {
   const tableActions = (
     <>
       <div className="search-container">
-        <input type="search" className="input" placeholder="Search by file name..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+        <input
+          type="search"
+          className="input"
+          placeholder={t('documentManagement:searchPlaceholder')}
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
       </div>
-      <button className="btn primary" onClick={() => setUploadModalOpen(true)}>+ Upload New</button>
+      <button className="btn primary" onClick={() => setUploadModalOpen(true)}>
+        {t('documentManagement:uploadNew')}
+      </button>
     </>
   );
 
-  if (loading) return <AppShell role="client" activePage="documents"><Topbar title="My Documents" /><div className="loading-state">Loading...</div></AppShell>;
-  if (error) return <AppShell role="client" activePage="documents"><Topbar title="My Documents" /><div className="error-state">{error}</div></AppShell>;
+  if (loading) return (
+    <AppShell role="client" activePage="document-management">
+      <Topbar title={t('documentManagement:title')} />
+      <div className="loading-state">{t('documentManagement:loading')}</div>
+    </AppShell>
+  );
+
+  if (error) return (
+    <AppShell role="client" activePage="document-management">
+      <Topbar title={t('documentManagement:title')} />
+      <div className="error-state">{error}</div>
+    </AppShell>
+  );
 
   return (
-    <AppShell role="client" activePage="documents">
-      <Topbar title="My Documents" />
+    <AppShell role="client" activePage="document-management">
+      <Topbar title={t('documentManagement:title')} />
       <div style={{ marginBottom: '8px' }}>
-        <h2 style={{ fontSize: '28px', fontWeight: 600, marginBottom: '4px' }}>Print-Ready Files</h2>
-        <p style={{ color: 'var(--muted)' }}>Manage your documents and re-order any design.</p>
+        <h2 style={{ fontSize: '28px', fontWeight: 600, marginBottom: '4px' }}>{t('documentManagement:header')}</h2>
+        <p style={{ color: 'var(--muted)' }}>{t('documentManagement:headerSub')}</p>
       </div>
       <section className="grid-4">
-        <StatCard label="Total Documents" value={totalDocuments} sub="Saved print files" />
-        <StatCard label="Most Ordered" value={mostOrderedDisplay} sub="Top used design" />
-        <StatCard label="Total Re-orders" value={totalReorders} sub="Lifetime re-orders" />
-        <StatCard label="Storage Used" value={storageUsed} sub="Total file size" />
+        <StatCard label={t('documentManagement:stats.totalDocuments')} value={totalDocuments}      sub={t('documentManagement:stats.savedFiles')} />
+        <StatCard label={t('documentManagement:stats.mostOrdered')}    value={mostOrderedDisplay}  sub={t('documentManagement:stats.topDesign')} />
+        <StatCard label={t('documentManagement:stats.totalReorders')}  value={totalReorders}       sub={t('documentManagement:stats.lifetimeReorders')} />
+        <StatCard label={t('documentManagement:stats.storageUsed')}    value={storageUsed}         sub={t('documentManagement:stats.totalSize')} />
       </section>
-      <TableWrap title="Document Library" actions={tableActions}>
+      <TableWrap title={t('documentManagement:libraryTitle')} actions={tableActions}>
         <div className="table-responsive">
           <table className="documents-table">
-            <thead><tr><th>File Name</th><th>Type</th><th>Size</th><th>Uploaded</th><th>Re-orders</th><th>Action</th></tr></thead>
+            <thead>
+              <tr>
+                <th>{t('documentManagement:table.fileName')}</th>
+                <th>{t('documentManagement:table.type')}</th>
+                <th>{t('documentManagement:table.size')}</th>
+                <th>{t('documentManagement:table.uploaded')}</th>
+                <th>{t('documentManagement:table.reorders')}</th>
+                <th>{t('documentManagement:table.action')}</th>
+              </tr>
+            </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr className="empty-row"><td colSpan={6}>No documents found. Upload your first print file.</td></tr>
+                <tr className="empty-row"><td colSpan={6}>{t('documentManagement:empty')}</td></tr>
               ) : (
-                filtered.map(doc => {
+                filtered.map((doc) => {
                   const isExpanded = expandedDocId === doc.id;
                   const options = getReorderOptions(doc.id);
                   return (
                     <React.Fragment key={doc.id}>
                       <tr>
-                        <td><strong>{doc.name}</strong><br/><span style={{ fontSize: '11px', color: 'var(--muted)' }}>{doc.fileName}</span></td>
+                        <td>
+                          <strong>{doc.name}</strong><br />
+                          <span style={{ fontSize: '11px', color: 'var(--muted)' }}>{doc.fileName}</span>
+                        </td>
                         <td><span className="file-type-badge">{doc.type}</span></td>
                         <td>{formatSize(doc.sizeKB)}</td>
                         <td>{doc.uploadedDate}</td>
                         <td>{doc.reorderCount}</td>
                         <td>
                           <div className="action-buttons">
-                            <button className="btn primary btn-sm" onClick={() => setExpandedDocId(isExpanded ? null : doc.id)}>Re-order</button>
+                            <button className="btn primary btn-sm" onClick={() => setExpandedDocId(isExpanded ? null : doc.id)}>
+                              {t('documentManagement:actions.reorder')}
+                            </button>
                             <button className="btn btn-sm" onClick={() => {
-                              downloadText(`${doc.name}.txt`, [`Document: ${doc.name}`,`File: ${doc.fileName}`,`Type: ${doc.type}`,`Size: ${formatSize(doc.sizeKB)}`,`Uploaded: ${doc.uploadedDate}`,`Re-orders: ${doc.reorderCount}`]);
-                              showToast(`"${doc.name}" downloaded`);
-                            }}>Download</button>
-                            <button className="btn btn-sm" onClick={() => openEditModal(doc.id)}>Edit</button>
-                            <button className="btn btn-sm" onClick={() => handleDelete(doc.id)}>Delete</button>
+                              downloadText(`${doc.name}.txt`, [`Document: ${doc.name}`, `File: ${doc.fileName}`, `Type: ${doc.type}`, `Size: ${formatSize(doc.sizeKB)}`, `Uploaded: ${doc.uploadedDate}`, `Re-orders: ${doc.reorderCount}`]);
+                              showToast(t('documentManagement:toast.downloaded', { name: doc.name }));
+                            }}>
+                              {t('documentManagement:actions.download')}
+                            </button>
+                            <button className="btn btn-sm" onClick={() => openEditModal(doc.id)}>
+                              {t('documentManagement:actions.edit')}
+                            </button>
+                            <button className="btn btn-sm" onClick={() => handleDelete(doc.id)}>
+                              {t('documentManagement:actions.delete')}
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -280,24 +337,36 @@ export default function DocumentManagement() {
                             <div className="reorder-controls">
                               <div className="quantity-group">
                                 <button className="qty-btn" onClick={() => adjustQuantity(doc.id, -10)}>−</button>
-                                <input type="number" className="qty-input" value={options.quantity} onChange={e => updateReorderOption(doc.id, 'quantity', Math.max(1, parseInt(e.target.value) || 1))} min={1} max={10000} step={10} />
+                                <input
+                                  type="number"
+                                  className="qty-input"
+                                  value={options.quantity}
+                                  onChange={(e) => updateReorderOption(doc.id, 'quantity', Math.max(1, parseInt(e.target.value) || 1))}
+                                  min={1} max={10000} step={10}
+                                />
                                 <button className="qty-btn" onClick={() => adjustQuantity(doc.id, 10)}>+</button>
                               </div>
-                              <select className="spec-select" value={options.finish} onChange={e => updateReorderOption(doc.id, 'finish', e.target.value)}>
-                                <option value="Glossy">Glossy</option>
-                                <option value="Matte">Matte</option>
-                                <option value="Uncoated">Uncoated</option>
+                              <select className="spec-select" value={options.finish} onChange={(e) => updateReorderOption(doc.id, 'finish', e.target.value)}>
+                                <option value="Glossy">{t('documentManagement:reorderPanel.finish.glossy')}</option>
+                                <option value="Matte">{t('documentManagement:reorderPanel.finish.matte')}</option>
+                                <option value="Uncoated">{t('documentManagement:reorderPanel.finish.uncoated')}</option>
                               </select>
-                              <select className="spec-select" value={options.size} onChange={e => updateReorderOption(doc.id, 'size', e.target.value)}>
-                                <option value="Standard">Standard</option>
-                                <option value="A4">A4</option>
-                                <option value="A3">A3</option>
-                                <option value="Custom">Custom</option>
+                              <select className="spec-select" value={options.size} onChange={(e) => updateReorderOption(doc.id, 'size', e.target.value)}>
+                                <option value="Standard">{t('documentManagement:reorderPanel.size.standard')}</option>
+                                <option value="A4">{t('documentManagement:reorderPanel.size.a4')}</option>
+                                <option value="A3">{t('documentManagement:reorderPanel.size.a3')}</option>
+                                <option value="Custom">{t('documentManagement:reorderPanel.size.custom')}</option>
                               </select>
-                              <button className="btn primary" onClick={() => handleReorder(doc)}>Confirm Re-order</button>
-                              <button className="btn" onClick={() => setExpandedDocId(null)}>Cancel</button>
+                              <button className="btn primary" onClick={() => handleReorder(doc)}>
+                                {t('documentManagement:actions.confirmReorder')}
+                              </button>
+                              <button className="btn" onClick={() => setExpandedDocId(null)}>
+                                {t('documentManagement:actions.cancel')}
+                              </button>
                             </div>
-                            <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '10px' }}>💡 No price shown yet — we'll send a quote after you confirm.</div>
+                            <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '10px' }}>
+                              {t('documentManagement:reorderPanel.hint')}
+                            </div>
                           </div>
                         </td>
                       </tr>
@@ -310,39 +379,47 @@ export default function DocumentManagement() {
         </div>
       </TableWrap>
 
-      {/* Upload Modal */}
       {uploadModalOpen && (
         <div className="modal active">
           <div className="modal-content">
-            <div className="modal-header"><h3>Upload Document</h3><button className="icon-btn" onClick={cancelUpload}>✕</button></div>
-            <div className="upload-zone" onClick={() => fileInputRef.current?.click()} onDragOver={handleDragOver} onDrop={handleDrop}>
-              {uploadFile ? (<>✅ {uploadFile.name}<br/><span style={{ fontSize: '12px' }}>Ready to upload</span></>) : (<>📄 Click or drag file here<br/><span style={{ fontSize: '12px' }}>PDF, AI, PSD, JPG, PNG (max 100MB)</span></>)}
+            <div className="modal-header">
+              <h3>{t('documentManagement:uploadModal.title')}</h3>
+              <button className="icon-btn" onClick={cancelUpload}>✕</button>
             </div>
-            <input type="file" ref={fileInputRef} accept=".pdf,.ai,.psd,.jpg,.jpeg,.png" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleFileSelect(e.target.files[0]); }} />
+            <div className="upload-zone" onClick={() => fileInputRef.current?.click()} onDragOver={handleDragOver} onDrop={handleDrop}>
+              {uploadFile ? (
+                <>{t('documentManagement:uploadModal.dropZoneReady', { name: uploadFile.name })}<br /><span style={{ fontSize: '12px' }}>{t('documentManagement:uploadModal.dropZoneReadySub')}</span></>
+              ) : (
+                <>{t('documentManagement:uploadModal.dropZoneEmpty')}<br /><span style={{ fontSize: '12px' }}>{t('documentManagement:uploadModal.dropZoneEmptySub')}</span></>
+              )}
+            </div>
+            <input type="file" ref={fileInputRef} accept=".pdf,.ai,.psd,.jpg,.jpeg,.png" style={{ display: 'none' }} onChange={(e) => { if (e.target.files?.[0]) handleFileSelect(e.target.files[0]); }} />
             <div className="form-group" style={{ marginTop: '16px' }}>
-              <label>Document Name (optional)</label>
-              <input type="text" className="search-input" placeholder="Leave blank to use filename" value={uploadCustomName} onChange={e => setUploadCustomName(e.target.value)} />
+              <label>{t('documentManagement:uploadModal.nameLabel')}</label>
+              <input type="text" className="search-input" placeholder={t('documentManagement:uploadModal.namePlaceholder')} value={uploadCustomName} onChange={(e) => setUploadCustomName(e.target.value)} />
             </div>
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '16px' }}>
-              <button className="btn" onClick={cancelUpload}>Cancel</button>
-              <button className="btn primary" onClick={confirmUpload} disabled={!uploadFile}>Upload</button>
+              <button className="btn" onClick={cancelUpload}>{t('documentManagement:uploadModal.cancel')}</button>
+              <button className="btn primary" onClick={confirmUpload} disabled={!uploadFile}>{t('documentManagement:uploadModal.upload')}</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Edit Modal */}
       {editModalOpen && (
         <div className="modal active">
           <div className="modal-content">
-            <div className="modal-header"><h3>Edit Document</h3><button className="icon-btn" onClick={() => setEditModalOpen(false)}>✕</button></div>
+            <div className="modal-header">
+              <h3>{t('documentManagement:editModal.title')}</h3>
+              <button className="icon-btn" onClick={() => setEditModalOpen(false)}>✕</button>
+            </div>
             <div className="form-group">
-              <label>Document Name</label>
-              <input type="text" className="search-input" value={editDocName} onChange={e => setEditDocName(e.target.value)} />
+              <label>{t('documentManagement:editModal.nameLabel')}</label>
+              <input type="text" className="search-input" value={editDocName} onChange={(e) => setEditDocName(e.target.value)} />
             </div>
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '20px' }}>
-              <button className="btn" onClick={() => setEditModalOpen(false)}>Cancel</button>
-              <button className="btn primary" onClick={saveEdit}>Save</button>
+              <button className="btn" onClick={() => setEditModalOpen(false)}>{t('documentManagement:editModal.cancel')}</button>
+              <button className="btn primary" onClick={saveEdit}>{t('documentManagement:editModal.save')}</button>
             </div>
           </div>
         </div>

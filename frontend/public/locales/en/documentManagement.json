@@ -1,0 +1,85 @@
+{
+  "title": "My Documents",
+  "loading": "Loading...",
+  "error": "Could not load your documents.",
+  "header": "Print-Ready Files",
+  "headerSub": "Manage your documents and re-order any design.",
+  "stats": {
+    "totalDocuments": "Total Documents",
+    "savedFiles": "Saved print files",
+    "mostOrdered": "Most Ordered",
+    "topDesign": "Top used design",
+    "totalReorders": "Total Re-orders",
+    "lifetimeReorders": "Lifetime re-orders",
+    "storageUsed": "Storage Used",
+    "totalSize": "Total file size"
+  },
+  "libraryTitle": "Document Library",
+  "searchPlaceholder": "Search by file name...",
+  "uploadNew": "+ Upload New",
+  "table": {
+    "fileName": "File Name",
+    "type": "Type",
+    "size": "Size",
+    "uploaded": "Uploaded",
+    "reorders": "Re-orders",
+    "action": "Action"
+  },
+  "empty": "No documents found. Upload your first print file.",
+  "actions": {
+    "reorder": "Re-order",
+    "download": "Download",
+    "edit": "Edit",
+    "delete": "Delete",
+    "confirmReorder": "Confirm Re-order",
+    "cancel": "Cancel"
+  },
+  "reorderPanel": {
+    "hint": "💡 No price shown yet — we'll send a quote after you confirm.",
+    "finish": {
+      "glossy": "Glossy",
+      "matte": "Matte",
+      "uncoated": "Uncoated"
+    },
+    "size": {
+      "standard": "Standard",
+      "a4": "A4",
+      "a3": "A3",
+      "custom": "Custom"
+    }
+  },
+  "toast": {
+    "reorderPlaced": "✅ Order {{ref}} placed! {{qty}} × \"{{name}}\" — We'll send you a quote shortly.",
+    "deleted": "🗑️ Document deleted",
+    "deleteError": "❌ Could not delete",
+    "updated": "✏️ Document updated",
+    "renameError": "❌ Could not rename",
+    "uploaded": "📄 File uploaded",
+    "uploadError": "❌ Upload failed",
+    "downloaded": "\"{{name}}\" downloaded"
+  },
+  "confirm": {
+    "delete": "Delete this document permanently?"
+  },
+  "alert": {
+    "unsupportedFormat": "Unsupported format.",
+    "maxFileSize": "Max file size 100MB"
+  },
+  "uploadModal": {
+    "title": "Upload Document",
+    "dropZoneReady": "✅ {{name}}",
+    "dropZoneReadySub": "Ready to upload",
+    "dropZoneEmpty": "📄 Click or drag file here",
+    "dropZoneEmptySub": "PDF, AI, PSD, JPG, PNG (max 100MB)",
+    "nameLabel": "Document Name (optional)",
+    "namePlaceholder": "Leave blank to use filename",
+    "cancel": "Cancel",
+    "upload": "Upload"
+  },
+  "editModal": {
+    "title": "Edit Document",
+    "nameLabel": "Document Name",
+    "cancel": "Cancel",
+    "save": "Save"
+  }
+}

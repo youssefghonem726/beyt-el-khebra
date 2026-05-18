@@ -1,12 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useTranslation } from 'react-i18next';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import { useNavigation } from '../../context/NavigationContext';
-// Direct import – bypasses VITE_USE_MOCK
 import { getClients } from '../../lib/api/invoicesClientsSettingsService';
-import type { Client } from '../../lib/api/invoicesClientsSettingsService'; // optional if you want typed
+import type { Client } from '../../lib/api/invoicesClientsSettingsService';
 
 export default function ClientManagement() {
+  return (
+    <Suspense fallback={null}>
+      <ClientManagementInner />
+    </Suspense>
+  );
+}
+
+function ClientManagementInner() {
+  const { t } = useTranslation(['common', 'clientManagement']);
   const { navigateTopLevel } = useNavigation();
   const [query, setQuery]             = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -18,11 +27,11 @@ export default function ClientManagement() {
     const fetchClients = async () => {
       try {
         const res = await getClients();
-        setClients(res.data.data.results);   // results is Client[]
+        setClients(res.data.data.results);
         console.log('ClientManagement - clients:', res.data.data.results);
       } catch (err) {
         console.error(err);
-        setError('Could not load client data.');
+        setError(t('clientManagement:error'));
       } finally {
         setLoading(false);
       }
@@ -38,8 +47,8 @@ export default function ClientManagement() {
   if (loading) {
     return (
       <AppShell role="owner" activePage="client-management">
-        <Topbar title="Client Management" />
-        <section className="box"><div className="loading-state">Loading clients...</div></section>
+        <Topbar title={t('clientManagement:title')} />
+        <section className="box"><div className="loading-state">{t('clientManagement:loading')}</div></section>
       </AppShell>
     );
   }
@@ -47,7 +56,7 @@ export default function ClientManagement() {
   if (error) {
     return (
       <AppShell role="owner" activePage="client-management">
-        <Topbar title="Client Management" />
+        <Topbar title={t('clientManagement:title')} />
         <section className="box"><div className="error-state">{error}</div></section>
       </AppShell>
     );
@@ -55,16 +64,16 @@ export default function ClientManagement() {
 
   return (
     <AppShell role="owner" activePage="client-management">
-      <Topbar title="Client Management" />
+      <Topbar title={t('clientManagement:title')} />
 
       <section className="box">
         <div className="table-head">
-          <h3>All Clients</h3>
+          <h3>{t('clientManagement:table.title')}</h3>
           <div className="search-container">
             <input
               className="input"
               type="search"
-              placeholder="Search by name, email, or phone"
+              placeholder={t('clientManagement:table.searchPlaceholder')}
               value={query}
               onChange={e => setQuery(e.target.value)}
             />
@@ -72,14 +81,24 @@ export default function ClientManagement() {
             {dropdownOpen && (
               <div className="filter-dropdown show">
                 <div className="field">
-                  <label>Status</label>
-                  <select className="select"><option>All Status</option><option>Active</option><option>Inactive</option></select>
+                  <label>{t('clientManagement:filter.status')}</label>
+                  <select className="select">
+                    <option>{t('clientManagement:filter.allStatus')}</option>
+                    <option>{t('clientManagement:filter.active')}</option>
+                    <option>{t('clientManagement:filter.inactive')}</option>
+                  </select>
                 </div>
                 <div className="field">
-                  <label>Type</label>
-                  <select className="select"><option>All Types</option><option>Individual</option><option>Business</option></select>
+                  <label>{t('clientManagement:filter.type')}</label>
+                  <select className="select">
+                    <option>{t('clientManagement:filter.allTypes')}</option>
+                    <option>{t('clientManagement:filter.individual')}</option>
+                    <option>{t('clientManagement:filter.business')}</option>
+                  </select>
                 </div>
-                <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>Apply</button>
+                <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>
+                  {t('clientManagement:filter.apply')}
+                </button>
               </div>
             )}
           </div>
@@ -99,8 +118,8 @@ export default function ClientManagement() {
               <h3>{c.name}</h3>
               <p>{c.email}</p>
               <p>{c.phone}</p>
-              {c.since && <p>Client since {new Date(c.since).toLocaleDateString()}</p>}
-              <p><strong>Click to open full profile</strong></p>
+              {c.since && <p>{t('clientManagement:card.since', { date: new Date(c.since).toLocaleDateString() })}</p>}
+              <p><strong>{t('clientManagement:card.openProfile')}</strong></p>
             </a>
           ))}
         </div>

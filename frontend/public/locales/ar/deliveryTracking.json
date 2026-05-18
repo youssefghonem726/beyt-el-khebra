@@ -1,0 +1,68 @@
+{
+  "title": "تتبع التوصيل",
+  "loading": "جاري تحميل بيانات التوصيل...",
+  "error": "تعذّر تحميل بيانات التوصيل. يرجى المحاولة مجدداً.",
+  "stats": {
+    "total": "إجمالي عمليات التوصيل",
+    "totalSub": "جميع عمليات التوصيل النشطة",
+    "onTime": "في الوقت المحدد",
+    "onTimeSub": "تسير وفق الجدول الزمني",
+    "delayed": "متأخرة",
+    "delayedSub": "متأخرة عن الموعد",
+    "lost": "مفقودة في الطريق",
+    "lostSub": "تحتاج إجراءً فورياً"
+  },
+  "table": {
+    "title": "جميع عمليات التوصيل",
+    "searchPlaceholder": "ابحث بالطلب أو العميل أو السائق…",
+    "empty": "لا توجد عمليات توصيل مطابقة.",
+    "filter": {
+      "label": "الحالة",
+      "all": "الكل",
+      "onTime": "في الوقت المحدد",
+      "delayed": "متأخرة",
+      "lost": "مفقودة في الطريق",
+      "apply": "تطبيق"
+    }
+  },
+  "card": {
+    "client": "العميل",
+    "driver": "السائق",
+    "address": "العنوان",
+    "progress": "{{percent}}% تم التوصيل"
+  },
+  "detail": {
+    "heading": "تفاصيل التوصيل",
+    "trackingId": "رقم التتبع",
+    "address": "العنوان",
+    "driver": "السائق",
+    "company": "الشركة",
+    "phone": "الهاتف",
+    "progress": "التقدم",
+    "progressPct": "{{percent}}% مكتمل",
+    "lostWarning": "تأخير أكثر من يومين",
+    "actions": "الإجراءات",
+    "deliveredClosed": "✓ تم التوصيل بنجاح.",
+    "cancelledClosed": "✕ تم إلغاء التوصيل.",
+    "markDelivered": "تأكيد التسليم",
+    "reschedule": "إعادة الجدولة",
+    "cancelReschedule": "إلغاء إعادة الجدولة",
+    "rescheduleLabel": "تاريخ التوصيل الجديد",
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "changeAddress": "تغيير العنوان",
+    "cancelAddressChange": "إلغاء تغيير العنوان",
+    "newAddressLabel": "عنوان التوصيل الجديد",
+    "cancelDelivery": "إلغاء التوصيل",
+    "keepDelivery": "الإبقاء على التوصيل",
+    "cancelConfirm": "إلغاء توصيل {{order}} للعميل {{client}}؟ لا يمكن التراجع عن هذا.",
+    "yesCancel": "نعم، إلغاء",
+    "keep": "إبقاء"
+  },
+  "toast": {
+    "delivered": "✓ تم تسليم {{order}} بنجاح.",
+    "rescheduled": "↻ تمت إعادة جدولة {{order}} إلى {{date}}.",
+    "addressUpdated": "📍 تم تحديث عنوان {{order}}.",
+    "cancelled": "✕ تم إلغاء توصيل {{order}}."
+  }
+}
