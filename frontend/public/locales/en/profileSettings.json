@@ -1,0 +1,20 @@
+{
+  "title": "Profile Settings",
+  "loading": "Loading profile...",
+  "error": "Could not load your profile. Please try again later.",
+  "saveError": "Could not save changes. Please try again.",
+  "saveSuccess": "Changes saved successfully.",
+  "account": {
+    "title": "Account Information",
+    "fullName": "Full Name",
+    "email": "Email",
+    "phone": "Phone",
+    "saving": "Saving…",
+    "save": "Save Changes"
+  },
+  "security": {
+    "title": "Security",
+    "description": "Password changes are managed by Supabase. Use the \"Forgot password\" link on the login page or contact support.",
+    "resetPassword": "Reset Password"
+  }
+}
