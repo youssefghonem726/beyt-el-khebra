@@ -74,18 +74,16 @@ def dashboard_stats(request):
 
     accounting_orders = Order.objects.filter(
         status__in=[
-            "PRICED_PENDING_CONFIRMATION",
             "CONFIRMED",
             "IN_PROGRESS",
             "COMPLETED",
-            "CLOSED",
         ],
         total_price__isnull=False,
         total_price__gt=0,
     )
     total_order_value = accounting_orders.aggregate(total=Sum("total_price"))["total"] or Decimal("0")
     total_paid_amount = accounting_orders.aggregate(total=Sum("paid_amount"))["total"] or Decimal("0")
-    total_remaining_amount = total_order_value - total_paid_amount
+    total_remaining_amount = max(total_order_value - total_paid_amount, Decimal("0"))
 
     unpaid_orders = accounting_orders.exclude(payment_status="paid").count()
     partial_paid_orders = accounting_orders.filter(payment_status="partial").count()

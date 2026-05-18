@@ -6,6 +6,7 @@ from users.models import User
 from orders.models import Order, OrderStatusHistory
 from quotes.models import Quote
 from quotes.serializers import QuoteSerializer, QuoteCreateSerializer
+from notifications.services import create_notification, notify_owner_staff
 
 
 def get_authenticated_user(request):
@@ -94,6 +95,14 @@ def quotes_list_create(request):
                 notes="Quote created",
             )
 
+            create_notification(
+                order.customer,
+                "Quote ready",
+                f"Your quote is ready for Order #{order.id}.",
+                action_label="View quote",
+                action_page="quotes",
+            )
+
             response_serializer = QuoteSerializer(quote)
 
             return success_response(
@@ -169,3 +178,70 @@ def quote_detail(request, quote_id):
             data={},
             status_code=status.HTTP_200_OK
         )
+
+
+@api_view(["POST"])
+def quote_approve(request, quote_id):
+    user, auth_error = get_authenticated_user(request)
+
+    if auth_error:
+        return auth_error
+
+    try:
+        if user.role in ("owner", "staff"):
+            quote = Quote.objects.select_related("order", "customer").get(id=quote_id)
+        else:
+            quote = Quote.objects.select_related("order", "customer").get(id=quote_id, customer=user)
+    except Quote.DoesNotExist:
+        return error_response(
+            message="Quote not found",
+            errors={"detail": "No quote found with this id for the authenticated user"},
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+
+    order = quote.order
+    if user.role == "client" and order.customer_id != user.id:
+        return error_response(
+            message="Forbidden",
+            errors={"detail": "You can only approve quotes for your own orders"},
+            status_code=status.HTTP_403_FORBIDDEN
+        )
+
+    old_status = order.status
+    quote.status = "approved"
+    quote.save(update_fields=["status"])
+
+    order.status = "CONFIRMED"
+    order.save(update_fields=["status"])
+
+    if old_status != order.status:
+        OrderStatusHistory.objects.create(
+            order=order,
+            updated_by=user,
+            old_status=old_status,
+            new_status=order.status,
+            notes="Quote approved",
+        )
+
+    notify_owner_staff(
+        "Quote approved",
+        f"Quote approved for Order #{order.id}.",
+        action_label="Open order",
+        action_page="owner-dashboard",
+    )
+
+    return success_response(
+        message="Quote approved successfully",
+        data={
+            "id": quote.id,
+            "status": quote.status,
+            "order_id": order.id,
+            "order_status": order.status,
+        },
+        status_code=status.HTTP_200_OK
+    )
+
+
+@api_view(["POST"])
+def quote_confirm(request, quote_id):
+    return quote_approve(request, quote_id)

@@ -99,6 +99,7 @@ export interface Order {
   approved_by: number | null
   upload?: { file_name?: string; url?: string }
   created_at: string
+  completed_at?: string | null
   updated_at: string | null
   due_date: string | null
   deliveryDate?: string | null

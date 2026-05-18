@@ -12,10 +12,7 @@ def notification_list(request):
     if auth_error:
         return auth_error
 
-    if user.role in ("owner", "staff"):
-        notifs = Notification.objects.all()
-    else:
-        notifs = Notification.objects.filter(user=user)
+    notifs = Notification.objects.filter(user=user)
 
     serializer = NotificationSerializer(notifs, many=True)
     return success_response("Notifications fetched", data=serializer.data)
@@ -31,7 +28,7 @@ def _get_visible_notification(user, notification_id):
             status_code=status.HTTP_404_NOT_FOUND,
         )
 
-    if user.role not in ("owner", "staff") and notification.user_id != user.id:
+    if notification.user_id != user.id:
         return None, error_response(
             message="Forbidden",
             errors={"detail": "You cannot update this notification"},
@@ -89,9 +86,7 @@ def notification_mark_all_read(request):
     if auth_error:
         return auth_error
 
-    queryset = Notification.objects.all()
-    if user.role not in ("owner", "staff"):
-        queryset = queryset.filter(user=user)
+    queryset = Notification.objects.filter(user=user)
 
     updated_count = queryset.filter(unread=True).update(unread=False)
 
@@ -124,9 +119,7 @@ def notification_clear_read(request):
     if auth_error:
         return auth_error
 
-    queryset = Notification.objects.filter(unread=False)
-    if user.role not in ("owner", "staff"):
-        queryset = queryset.filter(user=user)
+    queryset = Notification.objects.filter(user=user, unread=False)
 
     deleted_count, _ = queryset.delete()
 

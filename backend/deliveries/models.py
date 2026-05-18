@@ -17,6 +17,8 @@ class Delivery(models.Model):
     status = models.CharField(max_length=50, default="scheduled")
     progress = models.IntegerField(default=0)  # 0–100
     scheduled_date = models.DateTimeField(null=True, blank=True)
+    delivered_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

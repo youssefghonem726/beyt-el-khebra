@@ -7,6 +7,7 @@ import StatusBadge from '../../components/StatusBadge';
 import { BatchLookupPanel, AccountingPanel, SettingsPanel, ProductionPanel, ManagerOrdersPanel } from './OwnerPanels';
 import type { ManagerOrdersFilter } from './OwnerPanels';
 import { getDashboardStats } from '../../lib/api/dashboardService';
+import { getAccountingOverview } from '../../lib/api/invoicesService';
 import { getOrders } from '../../lib/api';
 
 interface Stat {
@@ -44,19 +45,23 @@ function OwnerDashboardInner() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const statsRes = await getDashboardStats();
-        const ordersRes = await getOrders();
+        const [statsRes, ordersRes, accountingRes] = await Promise.all([
+          getDashboardStats(),
+          getOrders(),
+          getAccountingOverview(),
+        ]);
         const dashboardStats = statsRes.data.data;
         console.log('Dashboard stats response:', dashboardStats);
         const orders = ordersRes.data.data;
+        const accountingStats = accountingRes.data.data?.stats ?? {};
 
         const pendingOrders = orders.filter((order: any) =>
           ['UNPRICED_PENDING', 'PRICED_PENDING_CONFIRMATION'].includes(String(order.status ?? '').toUpperCase())
         ).length;
         const unpricedOrders = dashboardStats.orders?.unpriced_orders ?? 0;
         const activeJobs = dashboardStats.production?.total_items ?? 0;
-        const totalRevenue = dashboardStats.payments?.total_paid_amount ?? 0;
-        const accountingItems = dashboardStats.payments?.unpaid_orders ?? 0;
+        const totalRevenue = accountingStats.revenue_snapshot ?? dashboardStats.payments?.total_paid_amount ?? 0;
+        const accountingItems = accountingStats.unpaid_orders ?? dashboardStats.payments?.unpaid_orders ?? 0;
 
         const revenueFormatted = totalRevenue >= 1000
           ? `EGP ${(totalRevenue / 1000).toFixed(0)}K`

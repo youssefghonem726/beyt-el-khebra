@@ -1,4 +1,4 @@
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
@@ -6,38 +6,83 @@ import StatCard from '../../components/StatCard';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
 import { useNavigation } from '../../context/NavigationContext';
-import { getDeliveries } from '../../lib/api/deliveriesService';
-import type { DeliveryResponse } from '../../lib/api/deliveriesService';
-import { getClients } from '../../lib/api/invoicesClientsSettingsService';
+import {
+  createDelivery,
+  getDeliveries,
+  getDeliveryReadyOrders,
+  updateDelivery,
+  type DeliveryResponse,
+  type DeliveryStatus,
+} from '../../lib/api/deliveriesService';
+import type { Order } from '../../lib/api/types';
 
-interface Client {
-  id: number | string;
-  name: string;
-}
-
-interface DisplayDelivery {
-  order: string;
-  client: string;
-  id: string;
+type DeliveryForm = {
+  orderId: number;
   address: string;
   driver: string;
   company: string;
   phone: string;
-  status: string;
-  progress: number;
-  color: 'green' | 'orange' | 'red';
+  scheduledDate: string;
+  notes: string;
+};
+
+const STATUS_OPTIONS: { value: DeliveryStatus; label: string }[] = [
+  { value: 'pending', label: 'Pending' },
+  { value: 'out_for_delivery', label: 'Out for delivery' },
+  { value: 'delivered', label: 'Delivered' },
+  { value: 'delayed', label: 'Delayed' },
+  { value: 'lost', label: 'Lost' },
+];
+
+function unwrapList<T>(value: unknown): T[] {
+  if (Array.isArray(value)) return value as T[];
+  if (value && typeof value === 'object' && Array.isArray((value as any).results)) {
+    return (value as any).results as T[];
+  }
+  return [];
 }
 
-type ActionPanel = 'reschedule' | 'address' | 'cancel' | null;
-
-function getShortOrderId(orderId: number): string {
-  return `#${orderId}`;
+function formatDate(value?: string | null): string {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return date.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
 }
 
-function getStatusColor(status: string): 'green' | 'orange' | 'red' {
-  if (status === 'on_time' || status === 'delivered' || status === 'scheduled') return 'green';
-  if (status === 'delayed' || status === 'in_transit') return 'orange';
-  return 'red';
+function progressColor(status: string): 'green' | 'orange' | 'red' {
+  if (status === 'delayed') return 'orange';
+  if (status === 'lost' || status === 'lost_in_transit') return 'red';
+  return 'green';
+}
+
+function orderClientName(order: Order): string {
+  return order.customer_name || order.customer_email || `Client #${order.customer}`;
+}
+
+function productSummary(order: Order): string {
+  if (order.product_summary) return order.product_summary;
+  if (order.item_details?.length) {
+    return order.item_details
+      .map(item => `${item.item_type || 'Order Item'} (${item.quantity || 1} pcs)`)
+      .join(', ');
+  }
+  return `Order #${order.id}`;
+}
+
+function emptyForm(order: Order): DeliveryForm {
+  return {
+    orderId: order.id,
+    address: '',
+    driver: '',
+    company: '',
+    phone: '',
+    scheduledDate: order.due_date ? order.due_date.slice(0, 10) : '',
+    notes: '',
+  };
 }
 
 export default function DeliveryTracking() {
@@ -51,92 +96,158 @@ export default function DeliveryTracking() {
 function DeliveryTrackingInner() {
   const { t } = useTranslation(['common', 'deliveryTracking']);
   const { navigateTopLevel: _nav } = useNavigation();
-  const [deliveries, setDeliveries] = useState<DisplayDelivery[]>([]);
-  const [loading, setLoading]       = useState(true);
-  const [error, setError]           = useState<string | null>(null);
-  const [query, setQuery]           = useState('');
+  const [deliveries, setDeliveries] = useState<DeliveryResponse[]>([]);
+  const [readyOrders, setReadyOrders] = useState<Order[]>([]);
+  const [selected, setSelected] = useState<DeliveryResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [selected, setSelected]     = useState<DisplayDelivery | null>(null);
-  const [activeAction, setActiveAction] = useState<ActionPanel>(null);
-  const [rescheduleDate, setRescheduleDate] = useState('');
-  const [newAddress, setNewAddress]   = useState('');
-  const [toast, setToast]             = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const [deliveryForm, setDeliveryForm] = useState<DeliveryForm | null>(null);
+  const [addressEdit, setAddressEdit] = useState('');
+  const [notesEdit, setNotesEdit] = useState('');
+
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const [deliveriesRes, readyOrdersRes] = await Promise.all([
+        getDeliveries(),
+        getDeliveryReadyOrders(),
+      ]);
+
+      const deliveryList = unwrapList<DeliveryResponse>(deliveriesRes.data.data);
+      const orderList = unwrapList<Order>(readyOrdersRes.data.data);
+
+      setDeliveries(deliveryList);
+      setReadyOrders(orderList);
+      setSelected(current => {
+        if (!current) return deliveryList[0] ?? null;
+        return deliveryList.find(item => item.id === current.id) ?? deliveryList[0] ?? null;
+      });
+    } catch (err) {
+      console.error('Failed to load delivery data:', err);
+      setError('Could not load delivery data. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [deliveriesRes, clientsRes] = await Promise.all([
-          getDeliveries(),
-          getClients(),
-        ]);
-
-        const raw: DeliveryResponse[] = deliveriesRes.data.data;
-        const clients: Client[] = clientsRes.data.data.results;
-
-        const clientsMap = new Map<number, string>();
-        clients.forEach(c => clientsMap.set(Number(c.id), c.name));
-
-        const deliveryList: DisplayDelivery[] = raw.map((d) => ({
-          order: getShortOrderId(d.orderId),
-          client: clientsMap.get(d.clientId) || 'Unknown',
-          id: String(d.id),
-          address: d.address,
-          driver: d.driver,
-          company: d.company,
-          phone: d.phone,
-          status: d.status,
-          progress: d.progress,
-          color: getStatusColor(d.status),
-        }));
-
-        setDeliveries(deliveryList);
-        if (deliveryList.length > 0) setSelected(deliveryList[0]);
-      } catch (err: any) {
-        if (err?.response?.status === 404) {
-          setDeliveries([]);
-        } else {
-          console.error('Failed to load delivery data:', err);
-          setError(t('deliveryTracking:error'));
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
+    loadData();
   }, []);
 
   useEffect(() => {
     if (!toast) return;
-    const timer = setTimeout(() => setToast(null), 2800);
-    return () => clearTimeout(timer);
+    const timeout = window.setTimeout(() => setToast(null), 2600);
+    return () => window.clearTimeout(timeout);
   }, [toast]);
 
-  const applyUpdate = (orderShortId: string, changes: Partial<DisplayDelivery>, message: string) => {
-    setDeliveries(ds => ds.map(d => d.order === orderShortId ? { ...d, ...changes } : d));
-    setSelected(s => s?.order === orderShortId ? { ...s, ...changes } : s);
-    setActiveAction(null);
-    setToast(message);
+  const filteredDeliveries = useMemo(() => {
+    const q = query.trim().toLowerCase();
+
+    return deliveries.filter(delivery => {
+      const matchesQuery =
+        !q ||
+        String(delivery.orderId).includes(q) ||
+        String(delivery.id).includes(q) ||
+        (delivery.clientName || '').toLowerCase().includes(q) ||
+        delivery.status.toLowerCase().includes(q);
+
+      const matchesStatus = !filterStatus || delivery.status === filterStatus;
+      return matchesQuery && matchesStatus;
+    });
+  }, [deliveries, filterStatus, query]);
+
+  const stats = useMemo(() => {
+    const onTimeStatuses = ['pending', 'out_for_delivery', 'scheduled', 'in_transit'];
+    return {
+      total: deliveries.length,
+      onTime: deliveries.filter(item => onTimeStatuses.includes(item.status)).length,
+      delivered: deliveries.filter(item => item.status === 'delivered').length,
+      delayed: deliveries.filter(item => item.status === 'delayed').length,
+      lost: deliveries.filter(item => item.status === 'lost' || item.status === 'lost_in_transit').length,
+    };
+  }, [deliveries]);
+
+  const saveDeliveryStatus = async (delivery: DeliveryResponse, status: DeliveryStatus) => {
+    setSaving(true);
+    try {
+      const res = await updateDelivery(delivery.id, { status });
+      setDeliveries(items => items.map(item => (item.id === delivery.id ? res.data.data : item)));
+      setSelected(res.data.data);
+      setToast(`Order #${delivery.orderId} delivery updated.`);
+    } catch (err) {
+      console.error('Failed to update delivery:', err);
+      setToast('Could not update delivery.');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const onTime  = deliveries.filter(d => d.status === 'on_time').length;
-  const delayed = deliveries.filter(d => d.status === 'delayed').length;
-  const lost    = deliveries.filter(d => d.status === 'lost_in_transit').length;
+  const saveAddress = async () => {
+    if (!selected) return;
+    setSaving(true);
+    try {
+      const res = await updateDelivery(selected.id, { address: addressEdit.trim() || 'Address missing' });
+      setDeliveries(items => items.map(item => (item.id === selected.id ? res.data.data : item)));
+      setSelected(res.data.data);
+      setAddressEdit('');
+      setToast(`Order #${selected.orderId} address updated.`);
+    } catch (err) {
+      console.error('Failed to update delivery address:', err);
+      setToast('Could not update delivery address.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
-  const filtered = deliveries.filter(d => {
-    const q = query.toLowerCase();
-    const matchQ = !q || d.order.toLowerCase().includes(q) || d.client.toLowerCase().includes(q) || d.driver.toLowerCase().includes(q);
-    const matchS = !filterStatus || d.status === filterStatus;
-    return matchQ && matchS;
-  });
+  const saveNotes = async () => {
+    if (!selected) return;
+    setSaving(true);
+    try {
+      const res = await updateDelivery(selected.id, { notes: notesEdit.trim() });
+      setDeliveries(items => items.map(item => (item.id === selected.id ? res.data.data : item)));
+      setSelected(res.data.data);
+      setNotesEdit('');
+      setToast(`Order #${selected.orderId} notes updated.`);
+    } catch (err) {
+      console.error('Failed to update delivery notes:', err);
+      setToast('Could not update delivery notes.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
-  const statusColor = (s: string): 'green' | 'orange' | 'red' =>
-    s === 'on_time' || s === 'delivered' ? 'green' : s === 'delayed' ? 'orange' : 'red';
+  const submitCreateDelivery = async () => {
+    if (!deliveryForm) return;
 
-  const selectDelivery = (d: DisplayDelivery) => {
-    setSelected(d);
-    setActiveAction(null);
+    setSaving(true);
+    try {
+      const res = await createDelivery({
+        order_id: deliveryForm.orderId,
+        address: deliveryForm.address.trim() || 'Address missing',
+        driver: deliveryForm.driver.trim() || 'Unassigned',
+        company: deliveryForm.company.trim(),
+        phone: deliveryForm.phone.trim(),
+        scheduled_date: deliveryForm.scheduledDate || undefined,
+        notes: deliveryForm.notes.trim(),
+      });
+
+      setDeliveryForm(null);
+      setSelected(res.data.data);
+      setToast(`Delivery created for order #${res.data.data.orderId}.`);
+      await loadData();
+    } catch (err) {
+      console.error('Failed to create delivery:', err);
+      setToast('Could not create delivery for this order.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
@@ -157,17 +268,58 @@ function DeliveryTrackingInner() {
     );
   }
 
-  const isClosed = selected && (selected.status === 'cancelled' || selected.status === 'delivered');
-
   return (
     <AppShell role="owner" activePage="delivery-tracking">
       <Topbar title={t('deliveryTracking:title')} />
 
-      <section className="grid-4" style={{ marginBottom: 14 }}>
-        <StatCard label={t('deliveryTracking:stats.total')}   value={deliveries.length} sub={t('deliveryTracking:stats.totalSub')} />
-        <StatCard label={t('deliveryTracking:stats.onTime')}  value={onTime}            sub={t('deliveryTracking:stats.onTimeSub')} />
-        <StatCard label={t('deliveryTracking:stats.delayed')} value={delayed}           sub={t('deliveryTracking:stats.delayedSub')} />
-        <StatCard label={t('deliveryTracking:stats.lost')}    value={lost}              sub={t('deliveryTracking:stats.lostSub')} />
+      <section className="grid-4 delivery-stats-grid" style={{ marginBottom: 14 }}>
+        <StatCard label="Total Deliveries" value={stats.total} sub="Created deliveries" />
+        <StatCard label="On Time" value={stats.onTime} sub="Pending or out for delivery" />
+        <StatCard label="Delivered" value={stats.delivered} sub="Completed handoffs" />
+        <StatCard label="Delayed" value={stats.delayed} sub="Needs follow-up" />
+        <StatCard label="Lost in Transit" value={stats.lost} sub="Needs immediate action" />
+      </section>
+
+      <section className="box" style={{ marginBottom: 14 }}>
+        <div className="table-head" style={{ marginBottom: 14 }}>
+          <div>
+            <h3>Delivery-Ready Orders</h3>
+            <p className="muted" style={{ fontSize: 13 }}>
+              Completed orders stay here until the owner chooses shipping. Pickup orders can stay completed without delivery.
+            </p>
+          </div>
+        </div>
+
+        {readyOrders.length === 0 ? (
+          <p className="muted">No completed orders waiting for delivery creation.</p>
+        ) : (
+          <table className="orders-table">
+            <thead>
+              <tr>
+                <th>Order</th>
+                <th>Client</th>
+                <th>Products</th>
+                <th>Completed</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {readyOrders.map(order => (
+                <tr key={order.id}>
+                  <td>#{order.id}</td>
+                  <td>{orderClientName(order)}</td>
+                  <td>{productSummary(order)}</td>
+                  <td>{formatDate(order.completed_at || order.updated_at || order.created_at)}</td>
+                  <td>
+                    <button className="btn" onClick={() => setDeliveryForm(emptyForm(order))}>
+                      Create Delivery
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </section>
 
       <section className="production-layout">
@@ -179,20 +331,22 @@ function DeliveryTrackingInner() {
                 <input
                   className="input"
                   type="search"
-                  placeholder={t('deliveryTracking:table.searchPlaceholder')}
+                  placeholder="Search by order, client or status..."
                   value={query}
-                  onChange={e => setQuery(e.target.value)}
+                  onChange={event => setQuery(event.target.value)}
                 />
-                <button className="filter-icon" type="button" onClick={() => setDropdownOpen(o => !o)}>▼</button>
+                <button className="filter-icon" type="button" onClick={() => setDropdownOpen(open => !open)}>
+                  v
+                </button>
                 {dropdownOpen && (
                   <div className="filter-dropdown show">
                     <div className="field">
-                      <label>{t('deliveryTracking:table.filter.label')}</label>
-                      <select className="select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-                        <option value="">{t('deliveryTracking:table.filter.all')}</option>
-                        <option value="on_time">{t('deliveryTracking:table.filter.onTime')}</option>
-                        <option value="delayed">{t('deliveryTracking:table.filter.delayed')}</option>
-                        <option value="lost_in_transit">{t('deliveryTracking:table.filter.lost')}</option>
+                      <label>Status</label>
+                      <select className="select" value={filterStatus} onChange={event => setFilterStatus(event.target.value)}>
+                        <option value="">All</option>
+                        {STATUS_OPTIONS.map(option => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
                       </select>
                     </div>
                     <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>
@@ -204,28 +358,36 @@ function DeliveryTrackingInner() {
             </div>
 
             <div className="job-cards">
-              {filtered.length === 0 ? (
-                <p className="muted" style={{ padding: '12px 0' }}>{t('deliveryTracking:table.empty')}</p>
-              ) : filtered.map(d => (
-                <article
-                  key={d.order}
-                  className={`card${selected?.order === d.order ? ' card--selected' : ''}`}
-                  onClick={() => selectDelivery(d)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
-                    <h4>{d.order}</h4>
-                    <StatusBadge status={d.status} />
-                  </div>
-                  <p style={{ marginBottom: 2 }}><strong>{t('deliveryTracking:card.client')}:</strong> {d.client}</p>
-                  <p style={{ marginBottom: 2 }}><strong>{t('deliveryTracking:card.driver')}:</strong> {d.driver} — {d.company}</p>
-                  <p style={{ marginBottom: 6 }}><strong>{t('deliveryTracking:card.address')}:</strong> {d.address}</p>
-                  <ProgressBar percent={d.progress} color={statusColor(d.status)} />
-                  <p style={{ fontSize: 11, marginTop: 4, color: 'var(--muted)' }}>
-                    {t('deliveryTracking:card.progress', { percent: d.progress })}
-                  </p>
-                </article>
-              ))}
+              {filteredDeliveries.length === 0 ? (
+                <p className="muted" style={{ padding: '12px 0' }}>No matching deliveries.</p>
+              ) : (
+                filteredDeliveries.map(delivery => (
+                  <article
+                    key={delivery.id}
+                    className={`card${selected?.id === delivery.id ? ' card--selected' : ''}`}
+                    onClick={() => {
+                      setSelected(delivery);
+                      setAddressEdit('');
+                      setNotesEdit('');
+                    }}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                      <h4>Order #{delivery.orderId}</h4>
+                      <StatusBadge status={delivery.status} />
+                    </div>
+                    <p style={{ marginBottom: 2 }}><strong>Client:</strong> {delivery.clientName || `Client #${delivery.clientId}`}</p>
+                    <p style={{ marginBottom: 2 }}><strong>Driver:</strong> {delivery.driver || 'Unassigned'} - {delivery.company || 'No company'}</p>
+                    <p style={{ marginBottom: 2 }}><strong>Scheduled:</strong> {formatDate(delivery.scheduledDate)}</p>
+                    <p style={{ marginBottom: 6 }}><strong>Address:</strong> {delivery.address || 'Address missing'}</p>
+                    {delivery.notes && (
+                      <p style={{ marginBottom: 6 }}><strong>Notes:</strong> {delivery.notes}</p>
+                    )}
+                    <ProgressBar percent={delivery.progress || 0} color={progressColor(delivery.status)} />
+                    <p style={{ fontSize: 11, marginTop: 4, color: 'var(--muted)' }}>{delivery.progress || 0}% delivery progress</p>
+                  </article>
+                ))
+              )}
             </div>
           </article>
         </div>
@@ -233,179 +395,179 @@ function DeliveryTrackingInner() {
         {selected && (
           <aside className="box" style={{ alignSelf: 'flex-start', position: 'sticky', top: 18 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
-              <h3 style={{ fontSize: 17 }}>{selected.order}</h3>
+              <h3 style={{ fontSize: 17 }}>Order #{selected.orderId}</h3>
               <StatusBadge status={selected.status} />
             </div>
-            <p className="muted" style={{ fontSize: 13, marginBottom: 14 }}>{selected.client}</p>
+            <p className="muted" style={{ fontSize: 13, marginBottom: 14 }}>
+              {selected.clientName || `Client #${selected.clientId}`}
+            </p>
 
             <div className="line" />
 
             <h4 style={{ margin: '12px 0 8px' }}>{t('deliveryTracking:detail.heading')}</h4>
             <ul style={{ listStyle: 'none', display: 'grid', gap: 6, fontSize: 13 }}>
-              <li><strong>{t('deliveryTracking:detail.trackingId')}:</strong> {selected.id}</li>
-              <li><strong>{t('deliveryTracking:detail.address')}:</strong> {selected.address}</li>
-              <li><strong>{t('deliveryTracking:detail.driver')}:</strong> {selected.driver}</li>
-              <li><strong>{t('deliveryTracking:detail.company')}:</strong> {selected.company}</li>
-              <li><strong>{t('deliveryTracking:detail.phone')}:</strong> {selected.phone}</li>
+              <li><strong>Tracking ID:</strong> {selected.id}</li>
+              <li><strong>Address:</strong> {selected.address || 'Address missing'}</li>
+              <li><strong>Driver:</strong> {selected.driver || 'Unassigned'}</li>
+              <li><strong>Company:</strong> {selected.company || '-'}</li>
+              <li><strong>Phone:</strong> {selected.phone || '-'}</li>
+              <li><strong>Scheduled:</strong> {formatDate(selected.scheduledDate)}</li>
+              <li><strong>Delivered:</strong> {formatDate(selected.deliveredAt)}</li>
+              <li><strong>Notes:</strong> {selected.notes || '-'}</li>
             </ul>
 
             <div className="line" />
 
-            <h4 style={{ margin: '12px 0 8px' }}>{t('deliveryTracking:detail.progress')}</h4>
-            <ProgressBar percent={selected.progress} color={statusColor(selected.status)} />
+            <h4 style={{ margin: '12px 0 8px' }}>Progress</h4>
+            <ProgressBar percent={selected.progress || 0} color={progressColor(selected.status)} />
             <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
-              {t('deliveryTracking:detail.progressPct', { percent: selected.progress })}
-              {selected.status === 'lost_in_transit' && (
-                <span style={{ color: '#d9534f', marginLeft: 8 }}>{t('deliveryTracking:detail.lostWarning')}</span>
-              )}
+              {selected.progress || 0}% complete
             </p>
 
             <div className="line" />
 
-            <h4 style={{ margin: '12px 0 8px' }}>{t('deliveryTracking:detail.actions')}</h4>
-
-            {isClosed ? (
-              <p style={{ fontSize: 13, color: 'var(--muted)' }}>
-                {selected.status === 'delivered'
-                  ? t('deliveryTracking:detail.deliveredClosed')
-                  : t('deliveryTracking:detail.cancelledClosed')}
-              </p>
-            ) : (
-              <>
+            <h4 style={{ margin: '12px 0 8px' }}>Update Status</h4>
+            <div style={{ display: 'grid', gap: 8 }}>
+              {STATUS_OPTIONS.map(option => (
                 <button
-                  className="btn primary block"
-                  onClick={() => applyUpdate(
-                    selected.order,
-                    { status: 'delivered', progress: 100, color: 'green' },
-                    t('deliveryTracking:toast.delivered', { order: selected.order }),
-                  )}
+                  key={option.value}
+                  className={`btn block${selected.status === option.value ? ' primary' : ''}`}
+                  disabled={saving || selected.status === option.value}
+                  onClick={() => saveDeliveryStatus(selected, option.value)}
                 >
-                  {t('deliveryTracking:detail.markDelivered')}
+                  {option.label}
                 </button>
+              ))}
+            </div>
 
-                <button
-                  className="btn block"
-                  style={{ marginTop: 8 }}
-                  onClick={() => { setActiveAction(activeAction === 'reschedule' ? null : 'reschedule'); setRescheduleDate(''); }}
-                >
-                  {activeAction === 'reschedule'
-                    ? t('deliveryTracking:detail.cancelReschedule')
-                    : t('deliveryTracking:detail.reschedule')}
-                </button>
-                {activeAction === 'reschedule' && (
-                  <div style={{ marginTop: 10, padding: '12px', background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--border)' }}>
-                    <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 6 }}>
-                      {t('deliveryTracking:detail.rescheduleLabel')}
-                    </label>
-                    <input
-                      className="input"
-                      type="date"
-                      value={rescheduleDate}
-                      onChange={e => setRescheduleDate(e.target.value)}
-                      style={{ marginBottom: 10, width: '100%' }}
-                    />
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <button
-                        className="btn primary"
-                        disabled={!rescheduleDate}
-                        onClick={() => applyUpdate(
-                          selected.order,
-                          { status: 'delayed', color: 'orange' },
-                          t('deliveryTracking:toast.rescheduled', { order: selected.order, date: rescheduleDate }),
-                        )}
-                      >
-                        {t('deliveryTracking:detail.save')}
-                      </button>
-                      <button className="btn" onClick={() => setActiveAction(null)}>
-                        {t('deliveryTracking:detail.cancel')}
-                      </button>
-                    </div>
-                  </div>
-                )}
+            <div className="line" />
 
-                <button
-                  className="btn block"
-                  style={{ marginTop: 8 }}
-                  onClick={() => { setActiveAction(activeAction === 'address' ? null : 'address'); setNewAddress(selected.address); }}
-                >
-                  {activeAction === 'address'
-                    ? t('deliveryTracking:detail.cancelAddressChange')
-                    : t('deliveryTracking:detail.changeAddress')}
-                </button>
-                {activeAction === 'address' && (
-                  <div style={{ marginTop: 10, padding: '12px', background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--border)' }}>
-                    <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 6 }}>
-                      {t('deliveryTracking:detail.newAddressLabel')}
-                    </label>
-                    <input
-                      className="input"
-                      type="text"
-                      value={newAddress}
-                      onChange={e => setNewAddress(e.target.value)}
-                      style={{ marginBottom: 10, width: '100%' }}
-                    />
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <button
-                        className="btn primary"
-                        disabled={!newAddress.trim()}
-                        onClick={() => applyUpdate(
-                          selected.order,
-                          { address: newAddress.trim() },
-                          t('deliveryTracking:toast.addressUpdated', { order: selected.order }),
-                        )}
-                      >
-                        {t('deliveryTracking:detail.save')}
-                      </button>
-                      <button className="btn" onClick={() => setActiveAction(null)}>
-                        {t('deliveryTracking:detail.cancel')}
-                      </button>
-                    </div>
-                  </div>
-                )}
+            <h4 style={{ margin: '12px 0 8px' }}>Address</h4>
+            <input
+              className="input"
+              value={addressEdit}
+              placeholder={selected.address || 'Address missing'}
+              onChange={event => setAddressEdit(event.target.value)}
+              style={{ marginBottom: 8, width: '100%' }}
+            />
+            <button
+              className="btn block"
+              disabled={saving || !addressEdit.trim()}
+              onClick={saveAddress}
+            >
+              Save Address
+            </button>
 
-                <button
-                  className="btn block"
-                  style={{ marginTop: 8, color: '#d9534f' }}
-                  onClick={() => setActiveAction(activeAction === 'cancel' ? null : 'cancel')}
-                >
-                  {activeAction === 'cancel'
-                    ? t('deliveryTracking:detail.keepDelivery')
-                    : t('deliveryTracking:detail.cancelDelivery')}
-                </button>
-                {activeAction === 'cancel' && (
-                  <div style={{ marginTop: 10, padding: '12px', background: '#fff5f5', borderRadius: 8, border: '1px solid #f5c6cb' }}>
-                    <p style={{ fontSize: 13, marginBottom: 10 }}>
-                      {t('deliveryTracking:detail.cancelConfirm', { order: selected.order, client: selected.client })}
-                    </p>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <button
-                        className="btn"
-                        style={{ background: '#d9534f', color: '#fff', border: 'none' }}
-                        onClick={() => applyUpdate(
-                          selected.order,
-                          { status: 'cancelled', progress: 0, color: 'red' },
-                          t('deliveryTracking:toast.cancelled', { order: selected.order }),
-                        )}
-                      >
-                        {t('deliveryTracking:detail.yesCancel')}
-                      </button>
-                      <button className="btn" onClick={() => setActiveAction(null)}>
-                        {t('deliveryTracking:detail.keep')}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
+            <div className="line" />
+
+            <h4 style={{ margin: '12px 0 8px' }}>Notes</h4>
+            <textarea
+              className="textarea"
+              value={notesEdit}
+              placeholder={selected.notes || 'Add delivery notes...'}
+              onChange={event => setNotesEdit(event.target.value)}
+              style={{ marginBottom: 8, width: '100%' }}
+            />
+            <button
+              className="btn block"
+              disabled={saving}
+              onClick={saveNotes}
+            >
+              Save Notes
+            </button>
           </aside>
         )}
       </section>
 
+      {deliveryForm && (
+        <div className="modal-backdrop">
+          <div className="modal-panel" style={{ maxWidth: 620 }}>
+            <div className="modal-head">
+              <h2>Create Delivery for Order #{deliveryForm.orderId}</h2>
+              <button className="btn dark" onClick={() => setDeliveryForm(null)}>X Close</button>
+            </div>
+            <div className="modal-body">
+              <div className="form-grid-2">
+                <label className="field">
+                  <span>Delivery Address</span>
+                  <input
+                    className="input"
+                    value={deliveryForm.address}
+                    placeholder="Address missing"
+                    onChange={event => setDeliveryForm({ ...deliveryForm, address: event.target.value })}
+                  />
+                </label>
+                <label className="field">
+                  <span>Scheduled Date</span>
+                  <input
+                    className="input"
+                    type="date"
+                    value={deliveryForm.scheduledDate}
+                    onChange={event => setDeliveryForm({ ...deliveryForm, scheduledDate: event.target.value })}
+                  />
+                </label>
+                <label className="field">
+                  <span>Driver</span>
+                  <input
+                    className="input"
+                    value={deliveryForm.driver}
+                    placeholder="Unassigned"
+                    onChange={event => setDeliveryForm({ ...deliveryForm, driver: event.target.value })}
+                  />
+                </label>
+                <label className="field">
+                  <span>Company</span>
+                  <input
+                    className="input"
+                    value={deliveryForm.company}
+                    placeholder="Optional"
+                    onChange={event => setDeliveryForm({ ...deliveryForm, company: event.target.value })}
+                  />
+                </label>
+                <label className="field">
+                  <span>Phone</span>
+                  <input
+                    className="input"
+                    value={deliveryForm.phone}
+                    placeholder="Optional"
+                    onChange={event => setDeliveryForm({ ...deliveryForm, phone: event.target.value })}
+                  />
+                </label>
+                <label className="field">
+                  <span>Notes</span>
+                  <textarea
+                    className="textarea"
+                    value={deliveryForm.notes}
+                    placeholder="Optional delivery notes"
+                    onChange={event => setDeliveryForm({ ...deliveryForm, notes: event.target.value })}
+                  />
+                </label>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18 }}>
+                <button className="btn" onClick={() => setDeliveryForm(null)}>Cancel</button>
+                <button className="btn primary" disabled={saving} onClick={submitCreateDelivery}>
+                  {saving ? 'Creating...' : 'Create Delivery'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {toast && (
         <div style={{
-          position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
-          background: '#2f3640', color: '#fff', padding: '10px 20px', borderRadius: 8,
-          fontSize: 13, zIndex: 1000, boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+          position: 'fixed',
+          bottom: 24,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: '#2f3640',
+          color: '#fff',
+          padding: '10px 20px',
+          borderRadius: 8,
+          fontSize: 13,
+          zIndex: 1000,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
         }}>
           {toast}
         </div>

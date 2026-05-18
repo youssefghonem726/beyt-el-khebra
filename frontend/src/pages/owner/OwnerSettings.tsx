@@ -5,14 +5,18 @@ import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import { useNavigation } from '../../context/NavigationContext';
 import {
-  getUsers,
   getSettings,
-  updatePricingSettings,
+  getUsers,
   updatePricingRolesSettings,
   updateUser,
   updateWhatsappSettings,
 } from '../../lib/api';
 import type { UserProfile } from '../../lib/api';
+import {
+  getDefaultPricing,
+  updateDefaultPricing,
+  type PricingRow as ApiPricingRow,
+} from '../../lib/api/pricingService';
 
 interface User {
   id: number;
@@ -20,6 +24,29 @@ interface User {
   role: UserProfile['role'];
   status: 'active' | 'inactive';
 }
+
+type PricingKey = Exclude<keyof ApiPricingRow, 'id' | 'created_at' | 'user' | 'source'>;
+
+const PRICING_FIELDS: Array<{ key: PricingKey; label: string }> = [
+  { key: 'front', label: 'Front' },
+  { key: 'front_and_back', label: 'Front & Back' },
+  { key: 'digital_cover_300g', label: 'Digital Cover 300g' },
+  { key: 'digital_cover_200g', label: 'Digital Cover 200g' },
+  { key: 'offset_cover_200g', label: 'Offset Cover 200g' },
+  { key: 'offset_cover_300g', label: 'Offset Cover 300g' },
+  { key: 'coil_size_10', label: 'Coil Size 10' },
+  { key: 'coil_size_12', label: 'Coil Size 12' },
+  { key: 'coil_size_14', label: 'Coil Size 14' },
+  { key: 'coil_size_16', label: 'Coil Size 16' },
+  { key: 'coil_size_18', label: 'Coil Size 18' },
+  { key: 'coil_size_20', label: 'Coil Size 20' },
+  { key: 'coil_size_22', label: 'Coil Size 22' },
+  { key: 'coil_size_25', label: 'Coil Size 25' },
+  { key: 'coil_size_28', label: 'Coil Size 28' },
+  { key: 'coil_size_30', label: 'Coil Size 30' },
+  { key: 'coil_size_32', label: 'Coil Size 32' },
+  { key: 'coil_size_35', label: 'Coil Size 35' },
+];
 
 function toUserRow(user: UserProfile): User {
   return {
@@ -30,18 +57,11 @@ function toUserRow(user: UserProfile): User {
   };
 }
 
-interface PricingRow {
-  id: string;
-  product: string;
-  size: string;
-  paper: string;
-  pricePerUnit: number;
-  minQty: number;
-  active: boolean;
-}
-
-function fmt(n: number) {
-  return n.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function fmt(n: number | null | undefined) {
+  return Number(n ?? 0).toLocaleString('en-EG', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 export default function OwnerSettings() {
@@ -60,37 +80,44 @@ function OwnerSettingsInner() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [pricing, setPricing] = useState({ owner: 'Senior Manager', threshold: '5000' });
-  const [whatsapp, setWhatsapp] = useState({ number: '+20 100 123 4455', template: 'Hello {{client_name}}, your order {{order_id}} is now {{status}}.' });
+  const [pricingRoles, setPricingRoles] = useState({ owner: 'Senior Manager', threshold: '5000' });
+  const [whatsapp, setWhatsapp] = useState({
+    number: '+20 100 123 4455',
+    template: 'Hello {{client_name}}, your order {{order_id}} is now {{status}}.',
+  });
+  const [defaultPricing, setDefaultPricing] = useState<ApiPricingRow | null>(null);
+  const [pricingEditKey, setPricingEditKey] = useState<PricingKey | null>(null);
+  const [editPrice, setEditPrice] = useState('');
+
   const [editEmail, setEditEmail] = useState<string | null>(null);
   const [editRole, setEditRole] = useState<UserProfile['role']>('staff');
   const [editStatus, setEditStatus] = useState<'active' | 'inactive'>('active');
   const [savingUserId, setSavingUserId] = useState<number | null>(null);
+  const [savingPricingKey, setSavingPricingKey] = useState<PricingKey | null>(null);
   const [savingPricingRoles, setSavingPricingRoles] = useState(false);
   const [savingWhatsapp, setSavingWhatsapp] = useState(false);
   const [toast, setToast] = useState('');
 
-  const [defaultPricing, setDefaultPricing] = useState<PricingRow[]>([]);
-  const [pricingLoading, setPricingLoading] = useState(true);
-  const [pricingEditId, setPricingEditId] = useState<string | null>(null);
-  const [editPrice, setEditPrice] = useState('');
-  const [editMinQty, setEditMinQty] = useState('');
-
-  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(''), 3000);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [usersRes, settingsRes] = await Promise.all([
+        const [usersRes, settingsRes, pricingRes] = await Promise.all([
           getUsers(),
           getSettings(),
+          getDefaultPricing(),
         ]);
-        setUsers(usersRes.data.data.map(toUserRow));
-        const settings = settingsRes.data.data;
-        setDefaultPricing(settings.pricing ?? []);
 
+        setUsers(usersRes.data.data.map(toUserRow));
+        setDefaultPricing(pricingRes.data.data);
+
+        const settings = settingsRes.data.data;
         if (settings.pricing_roles) {
-          setPricing({
+          setPricingRoles({
             owner: settings.pricing_roles.owner ?? 'Senior Manager',
             threshold: String(settings.pricing_roles.approval_threshold ?? 5000),
           });
@@ -107,9 +134,9 @@ function OwnerSettingsInner() {
         setError(t('ownerSettings:error'));
       } finally {
         setLoading(false);
-        setPricingLoading(false);
       }
     };
+
     fetchData();
   }, []);
 
@@ -142,8 +169,8 @@ function OwnerSettingsInner() {
   };
 
   const handleSavePricingRoles = async () => {
-    const threshold = Number(pricing.threshold);
-    if (!pricing.owner.trim() || Number.isNaN(threshold) || threshold < 0) {
+    const threshold = Number(pricingRoles.threshold);
+    if (!pricingRoles.owner.trim() || Number.isNaN(threshold) || threshold < 0) {
       showToast(t('ownerSettings:pricingRoles.toastInvalid'));
       return;
     }
@@ -151,10 +178,10 @@ function OwnerSettingsInner() {
     setSavingPricingRoles(true);
     try {
       const res = await updatePricingRolesSettings({
-        owner: pricing.owner.trim(),
+        owner: pricingRoles.owner.trim(),
         approval_threshold: threshold,
       });
-      setPricing({
+      setPricingRoles({
         owner: res.data.data.value.owner,
         threshold: String(res.data.data.value.approval_threshold),
       });
@@ -164,6 +191,32 @@ function OwnerSettingsInner() {
       showToast(t('ownerSettings:pricingRoles.toastError'));
     } finally {
       setSavingPricingRoles(false);
+    }
+  };
+
+  const startPricingEdit = (key: PricingKey) => {
+    setPricingEditKey(key);
+    setEditPrice(String(defaultPricing?.[key] ?? 0));
+  };
+
+  const savePricingField = async (key: PricingKey) => {
+    const price = Number(editPrice);
+    if (Number.isNaN(price) || price < 0) {
+      showToast(t('ownerSettings:defaultPricing.invalidPrice'));
+      return;
+    }
+
+    setSavingPricingKey(key);
+    try {
+      const res = await updateDefaultPricing({ [key]: price });
+      setDefaultPricing(res.data.data);
+      setPricingEditKey(null);
+      showToast(t('ownerSettings:defaultPricing.toastSaved'));
+    } catch (err) {
+      console.error('Failed to save default pricing:', err);
+      showToast(t('ownerSettings:defaultPricing.toastError'));
+    } finally {
+      setSavingPricingKey(null);
     }
   };
 
@@ -189,38 +242,6 @@ function OwnerSettingsInner() {
       showToast(t('ownerSettings:whatsapp.toastError'));
     } finally {
       setSavingWhatsapp(false);
-    }
-  };
-
-  const startPricingEdit = (row: PricingRow) => {
-    setPricingEditId(row.id);
-    setEditPrice(String(row.pricePerUnit));
-    setEditMinQty(String(row.minQty));
-  };
-
-  const savePricingEdit = (id: string) => {
-    const price = parseFloat(editPrice);
-    const qty = parseInt(editMinQty, 10);
-    if (isNaN(price) || price <= 0 || isNaN(qty) || qty <= 0) return;
-    setDefaultPricing(prev =>
-      prev.map(p => p.id === id ? { ...p, pricePerUnit: price, minQty: qty } : p)
-    );
-    setPricingEditId(null);
-  };
-
-  const toggleActive = (id: string) => {
-    setDefaultPricing(prev =>
-      prev.map(p => p.id === id ? { ...p, active: !p.active } : p)
-    );
-  };
-
-  const handleSaveDefaultPricing = async () => {
-    try {
-      await updatePricingSettings(defaultPricing);
-      showToast(t('ownerSettings:defaultPricing.toastSaved'));
-    } catch (err) {
-      console.error(err);
-      showToast(t('ownerSettings:defaultPricing.toastError'));
     }
   };
 
@@ -250,7 +271,6 @@ function OwnerSettingsInner() {
     <AppShell role="owner" activePage="owner-settings">
       <Topbar title={t('ownerSettings:title')} />
       <section className="stack">
-
         {/* Pricing Roles */}
         <article className="box">
           <h3>{t('ownerSettings:pricingRoles.title')}</h3>
@@ -260,8 +280,8 @@ function OwnerSettingsInner() {
               <input
                 className="input"
                 type="text"
-                value={pricing.owner}
-                onChange={(e) => setPricing((p) => ({ ...p, owner: e.target.value }))}
+                value={pricingRoles.owner}
+                onChange={(e) => setPricingRoles((p) => ({ ...p, owner: e.target.value }))}
               />
             </div>
             <div className="field">
@@ -269,17 +289,12 @@ function OwnerSettingsInner() {
               <input
                 className="input"
                 type="number"
-                value={pricing.threshold}
-                onChange={(e) => setPricing((p) => ({ ...p, threshold: e.target.value }))}
+                value={pricingRoles.threshold}
+                onChange={(e) => setPricingRoles((p) => ({ ...p, threshold: e.target.value }))}
               />
             </div>
           </div>
-          <button
-            className="btn primary"
-            style={{ marginTop: 12 }}
-            onClick={handleSavePricingRoles}
-            disabled={savingPricingRoles}
-          >
+          <button className="btn primary" style={{ marginTop: 12 }} onClick={handleSavePricingRoles} disabled={savingPricingRoles}>
             {savingPricingRoles ? t('ownerSettings:pricingRoles.saving') : t('ownerSettings:pricingRoles.save')}
           </button>
         </article>
@@ -287,122 +302,68 @@ function OwnerSettingsInner() {
         {/* Default Product Pricing */}
         <article className="box">
           <h3>{t('ownerSettings:defaultPricing.title')}</h3>
-          {pricingLoading ? (
-            <div className="loading-state">{t('ownerSettings:defaultPricing.loading')}</div>
+          <p className="muted" style={{ marginTop: -4 }}>
+            {t('ownerSettings:defaultPricing.subtitle')}
+          </p>
+          {!defaultPricing ? (
+            <p className="no-results">{t('ownerSettings:defaultPricing.empty')}</p>
           ) : (
-            <>
-              <div className="table-responsive">
-                <table className="orders-table">
-                  <thead>
-                    <tr>
-                      <th>{t('ownerSettings:defaultPricing.colProduct')}</th>
-                      <th>{t('ownerSettings:defaultPricing.colSize')}</th>
-                      <th>{t('ownerSettings:defaultPricing.colPaper')}</th>
-                      <th style={{ textAlign: 'right' }}>{t('ownerSettings:defaultPricing.colPrice')}</th>
-                      <th style={{ textAlign: 'center' }}>{t('ownerSettings:defaultPricing.colMinQty')}</th>
-                      <th style={{ textAlign: 'center' }}>{t('ownerSettings:defaultPricing.colStatus')}</th>
-                      <th style={{ textAlign: 'center' }}>{t('ownerSettings:defaultPricing.colActions')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {defaultPricing.map((row) => (
-                      <tr key={row.id} style={{ opacity: row.active ? 1 : 0.5 }}>
-                        <td style={{ fontWeight: 500 }}>{row.product}</td>
-                        <td>{row.size}</td>
-                        <td>{row.paper}</td>
-
-                        {pricingEditId === row.id ? (
-                          <>
-                            <td style={{ textAlign: 'right' }}>
-                              <input
-                                className="input"
-                                type="number"
-                                min="0.01"
-                                step="0.01"
-                                value={editPrice}
-                                onChange={(e) => setEditPrice(e.target.value)}
-                                style={{ width: 90, textAlign: 'right', padding: '4px 8px' }}
-                              />
-                            </td>
-                            <td style={{ textAlign: 'center' }}>
-                              <input
-                                className="input"
-                                type="number"
-                                min="1"
-                                value={editMinQty}
-                                onChange={(e) => setEditMinQty(e.target.value)}
-                                style={{ width: 70, textAlign: 'center', padding: '4px 8px' }}
-                              />
-                            </td>
-                          </>
-                        ) : (
-                          <>
-                            <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(row.pricePerUnit)}</td>
-                            <td style={{ textAlign: 'center' }}>{row.minQty}</td>
-                          </>
-                        )}
-
-                        <td style={{ textAlign: 'center' }}>
-                          <span
-                            className={`status ${row.active ? 'done' : 'canceled'}`}
-                            style={{ cursor: 'pointer' }}
-                            onClick={() => toggleActive(row.id)}
-                            title={t('ownerSettings:defaultPricing.toggleTitle')}
-                          >
-                            {row.active
-                              ? t('ownerSettings:defaultPricing.active')
-                              : t('ownerSettings:defaultPricing.inactive')}
-                          </span>
+            <div className="table-responsive">
+              <table className="orders-table">
+                <thead>
+                  <tr>
+                    <th>{t('ownerSettings:defaultPricing.colItem')}</th>
+                    <th style={{ textAlign: 'right' }}>{t('ownerSettings:defaultPricing.colPrice')}</th>
+                    <th style={{ textAlign: 'center' }}>{t('ownerSettings:defaultPricing.colActions')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {PRICING_FIELDS.map((field) => {
+                    const isEditing = pricingEditKey === field.key;
+                    return (
+                      <tr key={field.key}>
+                        <td>{field.label}</td>
+                        <td style={{ textAlign: 'right', fontWeight: 600 }}>
+                          {isEditing ? (
+                            <input
+                              className="input"
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={editPrice}
+                              onChange={(e) => setEditPrice(e.target.value)}
+                              style={{ width: 120, textAlign: 'right' }}
+                            />
+                          ) : (
+                            fmt(defaultPricing[field.key] as number | null)
+                          )}
                         </td>
-
                         <td style={{ textAlign: 'center' }}>
-                          {pricingEditId === row.id ? (
-                            <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+                          {isEditing ? (
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: 8 }}>
                               <button
                                 className="btn primary"
-                                style={{ padding: '4px 12px', fontSize: 12 }}
-                                onClick={() => savePricingEdit(row.id)}
+                                onClick={() => savePricingField(field.key)}
+                                disabled={savingPricingKey === field.key}
                               >
-                                {t('ownerSettings:defaultPricing.save')}
+                                {savingPricingKey === field.key ? t('ownerSettings:defaultPricing.saving') : t('ownerSettings:defaultPricing.save')}
                               </button>
-                              <button
-                                className="btn"
-                                style={{ padding: '4px 12px', fontSize: 12 }}
-                                onClick={() => setPricingEditId(null)}
-                              >
+                              <button className="btn" onClick={() => setPricingEditKey(null)} disabled={savingPricingKey === field.key}>
                                 {t('ownerSettings:defaultPricing.cancel')}
                               </button>
                             </div>
                           ) : (
-                            <button
-                              className="btn"
-                              style={{ padding: '4px 12px', fontSize: 12 }}
-                              onClick={() => startPricingEdit(row)}
-                            >
+                            <button className="btn" onClick={() => startPricingEdit(field.key)}>
                               {t('ownerSettings:defaultPricing.edit')}
                             </button>
                           )}
                         </td>
                       </tr>
-                    ))}
-                    {defaultPricing.length === 0 && (
-                      <tr>
-                        <td colSpan={7} className="no-results">
-                          {t('ownerSettings:defaultPricing.empty')}
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              <button
-                className="btn primary"
-                style={{ marginTop: 16 }}
-                onClick={handleSaveDefaultPricing}
-              >
-                {t('ownerSettings:defaultPricing.saveAll')}
-              </button>
-            </>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </article>
 
@@ -426,12 +387,7 @@ function OwnerSettingsInner() {
               onChange={(e) => setWhatsapp((w) => ({ ...w, template: e.target.value }))}
             />
           </div>
-          <button
-            className="btn primary"
-            style={{ marginTop: 12 }}
-            onClick={handleSaveWhatsapp}
-            disabled={savingWhatsapp}
-          >
+          <button className="btn primary" style={{ marginTop: 12 }} onClick={handleSaveWhatsapp} disabled={savingWhatsapp}>
             {savingWhatsapp ? t('ownerSettings:whatsapp.saving') : t('ownerSettings:whatsapp.save')}
           </button>
         </article>
@@ -499,7 +455,6 @@ function OwnerSettingsInner() {
             </tbody>
           </table>
         </article>
-
       </section>
       {toast && <div className="success-toast">{toast}</div>}
     </AppShell>

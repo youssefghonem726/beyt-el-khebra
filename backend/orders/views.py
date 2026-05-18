@@ -5,8 +5,9 @@ from django.utils import timezone
 
 from core.responses import success_response, error_response
 from users.models import User
-from orders.models import Order, OrderItem
+from orders.models import Order, OrderItem, OrderStatusHistory
 from orders.serializers import OrderSerializer
+from notifications.services import create_notification, notify_owner_staff
 
 
 def get_authenticated_user(request):
@@ -100,6 +101,7 @@ def sync_order_production_status(order):
     if not items:
         return
 
+    old_status = order.status
     all_complete = all(
         item.current_step in ("ready", "delivered")
         for item in items
@@ -109,10 +111,26 @@ def sync_order_production_status(order):
         order.status = "COMPLETED"
         order.completed_at = order.completed_at or timezone.now()
         order.save(update_fields=["status", "completed_at"])
+        if old_status != "COMPLETED":
+            create_notification(
+                order.customer,
+                "Order completed",
+                f"Your order #{order.id} is completed.",
+                action_label="View orders",
+                action_page="my-orders",
+            )
     else:
         if order.status != "IN_PROGRESS":
             order.status = "IN_PROGRESS"
             order.save(update_fields=["status"])
+            if old_status != "IN_PROGRESS":
+                create_notification(
+                    order.customer,
+                    "Order in production",
+                    f"Your order #{order.id} is now in production.",
+                    action_label="View orders",
+                    action_page="my-orders",
+                )
 
 
 @api_view(["GET", "POST"])
@@ -171,7 +189,14 @@ def orders_list_create(request):
         serializer = OrderSerializer(data=data)
 
         if serializer.is_valid():
-            serializer.save()
+            order = serializer.save()
+
+            notify_owner_staff(
+                "New order placed",
+                f"New order #{order.id} placed by {order_client_name(order)}.",
+                action_label="Open unpriced queue",
+                action_page="unpriced-queue",
+            )
 
             return success_response(
                 message="Order created successfully",
@@ -347,6 +372,7 @@ def order_detail(request, order_id):
 
     if request.method in ["PUT", "PATCH"]:
         data = request.data.copy()
+        old_status = order.status
         if user.role in ("owner", "staff"):
             data["customer"] = order.customer_id
         else:
@@ -359,7 +385,16 @@ def order_detail(request, order_id):
         )
 
         if serializer.is_valid():
-            serializer.save()
+            order = serializer.save()
+
+            if old_status != order.status:
+                OrderStatusHistory.objects.create(
+                    order=order,
+                    updated_by=user,
+                    old_status=old_status,
+                    new_status=order.status,
+                    notes="Order cancelled from owner queue" if order.status == "CANCELLED" else "Order status updated",
+                )
 
             return success_response(
                 message="Order updated successfully",
