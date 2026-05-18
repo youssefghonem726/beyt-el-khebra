@@ -1,0 +1,26 @@
+{
+  "title": "All Orders",
+  "loading": "Loading orders…",
+  "error": "Could not load orders. Please try again later.",
+  "pending": {
+    "title": "Pending Orders",
+    "empty": "No pending orders"
+  },
+  "working": {
+    "title": "Working Orders",
+    "empty": "No working orders",
+    "workView": "Work View"
+  },
+  "completed": {
+    "title": "Completed Orders",
+    "empty": "No completed orders",
+    "completedAt": "Completed At"
+  },
+  "table": {
+    "order": "Order",
+    "status": "Status",
+    "client": "Client",
+    "action": "Action",
+    "view": "View"
+  }
+}
