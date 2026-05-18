@@ -1,17 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useTranslation } from 'react-i18next';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
-import { useNavigation } from '../../context/NavigationContext';
-// Direct service imports – bypasses VITE_USE_MOCK
 import { getBatches } from '../../lib/api/batchesService';
 import { getOrders } from '../../lib/api/ordersQuotesService';
 import { getClients } from '../../lib/api/invoicesClientsSettingsService';
 
 interface Props { role?: 'manager' | 'owner'; }
 
-// ─── Backend shapes ─────────────────────────────────────────────────
 interface BackendBatch {
   id: number;
   orderId: number;
@@ -32,11 +30,10 @@ interface BackendOrder {
   created_at?: string;
 }
 
-// ─── Display shapes ────────────────────────────────────────────────
 interface Stage {
   stage: string;
   status: string;
-  updated: string;   // formatted date for display
+  updated: string;
 }
 
 interface JobInfo {
@@ -60,7 +57,6 @@ interface Job {
   info: JobInfo;
 }
 
-// ─── Helpers ───────────────────────────────────────────────────────
 function formatDate(isoDate: string | null): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
@@ -76,7 +72,15 @@ function formatDateTime(isoDate: string | null): string {
 }
 
 export default function CompletedJobs({ role = 'manager' }: Props) {
-  const { navigateTopLevel } = useNavigation();
+  return (
+    <Suspense fallback={null}>
+      <CompletedJobsInner role={role} />
+    </Suspense>
+  );
+}
+
+function CompletedJobsInner({ role = 'manager' }: Props) {
+  const { t } = useTranslation(['common', 'completedJobs']);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -94,50 +98,41 @@ export default function CompletedJobs({ role = 'manager' }: Props) {
         const orders: BackendOrder[] = ordersRes.data.data;
         const clients = clientsRes.data.data.results;
 
-        console.log('CompletedJobs - batches:', batchesRaw);
-        console.log('CompletedJobs - orders:', orders);
-        console.log('CompletedJobs - clients:', clients);
-
-        // Build lookup maps
-        const orderMap = new Map(orders.map(o => [o.id, o]));
+        const orderMap = new Map(orders.map((o) => [o.id, o]));
         const clientMap = new Map(clients.map((c: any) => [c.id, c]));
 
-        // Filter completed batches
-        const completedBatches = batchesRaw.filter((b: BackendBatch) => b.status === 'completed');
+        const completedBatches = batchesRaw.filter((b) => b.status === 'completed');
 
-        const jobList: Job[] = completedBatches.map((batch: BackendBatch) => {
+        const jobList: Job[] = completedBatches.map((batch) => {
           const order = orderMap.get(batch.orderId);
           const client = order ? clientMap.get(order.customer) : null;
+          const completion = batch.deadline
+            ? formatDate(batch.deadline)
+            : order?.created_at ? formatDate(order.created_at) : '—';
 
-          // Completion date: use batch.deadline if available, otherwise order created_at
-          const completion = batch.deadline ? formatDate(batch.deadline) : (order?.created_at ? formatDate(order.created_at) : '—');
-
-          // Transform stages
-          const stages: Stage[] = (batch.stages || []).map(s => ({
+          const stages: Stage[] = (batch.stages || []).map((s) => ({
             stage: s.stage,
             status: s.status,
             updated: s.updatedAt ? formatDateTime(s.updatedAt) : '—',
           }));
-
-          const info: JobInfo = {
-            client: client ? client.name : 'Unknown',
-            batch: String(batch.id),
-            product: batch.product,
-            qty: batch.qty,
-            status: 'completed',
-            priority: batch.priority,
-            deadline: batch.deadline ? formatDate(batch.deadline) : '—',
-            team: batch.assignedTo || 'Unassigned',
-            completion,
-            notes: batch.notes || '—',
-          };
 
           return {
             id: String(batch.id),
             done: batch.progress,
             total: batch.qty,
             stages,
-            info,
+            info: {
+              client: client ? client.name : 'Unknown',
+              batch: String(batch.id),
+              product: batch.product,
+              qty: batch.qty,
+              status: 'completed',
+              priority: batch.priority,
+              deadline: batch.deadline ? formatDate(batch.deadline) : '—',
+              team: batch.assignedTo || 'Unassigned',
+              completion,
+              notes: batch.notes || '—',
+            },
           };
         });
 
@@ -147,7 +142,7 @@ export default function CompletedJobs({ role = 'manager' }: Props) {
           setJobs([]);
         } else {
           console.error('Failed to load completed jobs:', err);
-          setError('Could not load completed jobs data. Please try again later.');
+          setError(t('completedJobs:error'));
         }
       } finally {
         setLoading(false);
@@ -157,43 +152,49 @@ export default function CompletedJobs({ role = 'manager' }: Props) {
     fetchData();
   }, []);
 
+  const activePage = role === 'owner' ? 'owner-dashboard' : 'completed-jobs';
+
   if (loading) {
     return (
-      <AppShell role={role} activePage={role === 'owner' ? 'owner-dashboard' : 'completed-jobs'}>
-        <Topbar title="Completed Jobs" />
-        <div className="loading-state">Loading completed jobs...</div>
+      <AppShell role={role} activePage={activePage}>
+        <Topbar title={t('completedJobs:title')} />
+        <div className="loading-state">{t('completedJobs:loading')}</div>
       </AppShell>
     );
   }
 
   if (error) {
     return (
-      <AppShell role={role} activePage={role === 'owner' ? 'owner-dashboard' : 'completed-jobs'}>
-        <Topbar title="Completed Jobs" />
+      <AppShell role={role} activePage={activePage}>
+        <Topbar title={t('completedJobs:title')} />
         <div className="error-state">{error}</div>
       </AppShell>
     );
   }
 
   return (
-    <AppShell role={role} activePage={role === 'owner' ? 'owner-dashboard' : 'completed-jobs'}>
-      <Topbar title="Completed Jobs" />
+    <AppShell role={role} activePage={activePage}>
+      <Topbar title={t('completedJobs:title')} />
       {jobs.length === 0 && (
-        <p style={{ color: 'var(--muted)', textAlign: 'center', padding: 40 }}>No completed jobs yet.</p>
+        <p style={{ color: 'var(--muted)', textAlign: 'center', padding: 40 }}>{t('completedJobs:empty')}</p>
       )}
       {jobs.map((j) => (
         <section key={j.id} className="split" style={{ marginBottom: 14 }}>
           <article className="box">
-            <h3>Work Progress - {j.id}</h3>
-            <p><strong>{j.done} / {j.total}</strong> completed (100%)</p>
+            <h3>{t('completedJobs:progress.title', { id: j.id })}</h3>
+            <p><strong>{j.done} / {j.total}</strong> {t('completedJobs:progress.completed')} (100%)</p>
             <ProgressBar percent={100} style={{ margin: '8px 0 14px' }} />
             <table className="orders-table" style={{ width: '100%' }}>
               <thead>
-                <tr><th>Stage</th><th>Status</th><th>Updated At</th></tr>
+                <tr>
+                  <th>{t('completedJobs:progress.table.stage')}</th>
+                  <th>{t('completedJobs:progress.table.status')}</th>
+                  <th>{t('completedJobs:progress.table.updatedAt')}</th>
+                </tr>
               </thead>
               <tbody>
                 {j.stages.length === 0 ? (
-                  <tr><td colSpan={3} style={{ textAlign: 'center', color: 'var(--muted)' }}>No stage details</td></tr>
+                  <tr><td colSpan={3} style={{ textAlign: 'center', color: 'var(--muted)' }}>{t('completedJobs:progress.table.noStages')}</td></tr>
                 ) : (
                   j.stages.map((s) => (
                     <tr key={s.stage}>
@@ -207,18 +208,18 @@ export default function CompletedJobs({ role = 'manager' }: Props) {
             </table>
           </article>
           <aside className="box">
-            <h3>Job Info</h3>
+            <h3>{t('completedJobs:info.title')}</h3>
             <ul style={{ listStyle: 'none', paddingLeft: 0 }}>
-              <li><strong>Client Name:</strong> {j.info.client}</li>
-              <li><strong>Batch Code:</strong> {j.info.batch}</li>
-              <li><strong>Product:</strong> {j.info.product}</li>
-              <li><strong>Quantity:</strong> {j.info.qty}</li>
-              <li><strong>Status:</strong> {j.info.status}</li>
-              <li><strong>Priority:</strong> {j.info.priority}</li>
-              <li><strong>Deadline:</strong> {j.info.deadline}</li>
-              <li><strong>Assigned To:</strong> {j.info.team}</li>
-              <li><strong>Completion Date:</strong> {j.info.completion}</li>
-              <li><strong>Notes:</strong> {j.info.notes}</li>
+              <li><strong>{t('completedJobs:info.client')}:</strong> {j.info.client}</li>
+              <li><strong>{t('completedJobs:info.batch')}:</strong> {j.info.batch}</li>
+              <li><strong>{t('completedJobs:info.product')}:</strong> {j.info.product}</li>
+              <li><strong>{t('completedJobs:info.quantity')}:</strong> {j.info.qty}</li>
+              <li><strong>{t('completedJobs:info.status')}:</strong> {j.info.status}</li>
+              <li><strong>{t('completedJobs:info.priority')}:</strong> {j.info.priority}</li>
+              <li><strong>{t('completedJobs:info.deadline')}:</strong> {j.info.deadline}</li>
+              <li><strong>{t('completedJobs:info.assignedTo')}:</strong> {j.info.team}</li>
+              <li><strong>{t('completedJobs:info.completionDate')}:</strong> {j.info.completion}</li>
+              <li><strong>{t('completedJobs:info.notes')}:</strong> {j.info.notes}</li>
             </ul>
           </aside>
         </section>
