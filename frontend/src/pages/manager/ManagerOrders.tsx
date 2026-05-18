@@ -1,17 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useTranslation } from 'react-i18next';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import { useNavigation } from '../../context/NavigationContext';
-// Direct service imports – bypasses VITE_USE_MOCK
 import { getOrders } from '../../lib/api/ordersQuotesService';
 import { getClients } from '../../lib/api/invoicesClientsSettingsService';
 
 interface Props { role?: 'manager' | 'owner'; }
 
 interface DisplayOrder {
-  id: string;          // full numeric ID as string
-  displayId: string;   // "#123"
+  id: string;
+  displayId: string;
   status: string;
   client: string;
   completedAt?: string;
@@ -22,19 +22,21 @@ function formatDate(isoDate: string | null): string {
   const d = new Date(isoDate);
   if (isNaN(d.getTime())) return '—';
   return d.toLocaleString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
   });
 }
 
-function getShortId(id: number): string {
-  return `#${id}`;
+export default function ManagerOrders({ role = 'manager' }: Props) {
+  return (
+    <Suspense fallback={null}>
+      <ManagerOrdersInner role={role} />
+    </Suspense>
+  );
 }
 
-export default function ManagerOrders({ role = 'manager' }: Props) {
+function ManagerOrdersInner({ role = 'manager' }: Props) {
+  const { t } = useTranslation(['common', 'managerOrders']);
   const { navigateTopLevel } = useNavigation();
   const [pending, setPending] = useState<DisplayOrder[]>([]);
   const [working, setWorking] = useState<DisplayOrder[]>([]);
@@ -45,24 +47,15 @@ export default function ManagerOrders({ role = 'manager' }: Props) {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch orders and clients in parallel
-        const [ordersRes, clientsRes] = await Promise.all([
-          getOrders(),
-          getClients(),
-        ]);
-
+        const [ordersRes, clientsRes] = await Promise.all([getOrders(), getClients()]);
         const orders: any[] = ordersRes.data.data;
         const clients = clientsRes.data.data.results;
 
-        console.log('ManagerOrders - orders:', orders);
-        console.log('ManagerOrders - clients:', clients);
-
-        // Build client name map (user ID → name)
         const clientMap = new Map(clients.map((c: any) => [c.id, c.name]));
 
         const displayOrders: DisplayOrder[] = orders.map((order: any) => ({
           id: String(order.id),
-          displayId: getShortId(order.id),
+          displayId: `#${order.id}`,
           status: order.status,
           client: clientMap.get(order.customer) || 'Unknown',
           completedAt:
@@ -71,19 +64,12 @@ export default function ManagerOrders({ role = 'manager' }: Props) {
               : undefined,
         }));
 
-        // Split into groups based on real statuses (all uppercase)
-        setPending(
-          displayOrders.filter(o =>
-            o.status === 'UNPRICED_PENDING' || o.status === 'PRICED_PENDING_CONFIRMATION'
-          )
-        );
-        setWorking(displayOrders.filter(o => o.status === 'IN_PROGRESS'));
-        setCompleted(
-          displayOrders.filter(o => o.status === 'COMPLETED' || o.status === 'CANCELED')
-        );
+        setPending(displayOrders.filter((o) => o.status === 'UNPRICED_PENDING' || o.status === 'PRICED_PENDING_CONFIRMATION'));
+        setWorking(displayOrders.filter((o) => o.status === 'IN_PROGRESS'));
+        setCompleted(displayOrders.filter((o) => o.status === 'COMPLETED' || o.status === 'CANCELED'));
       } catch (err: any) {
         console.error('Failed to load orders:', err);
-        setError('Could not load orders. Please try again later.');
+        setError(t('managerOrders:error'));
       } finally {
         setLoading(false);
       }
@@ -92,88 +78,88 @@ export default function ManagerOrders({ role = 'manager' }: Props) {
     fetchData();
   }, []);
 
+  const activePage = role === 'owner' ? 'owner-dashboard' : 'manager-orders';
+
   if (loading) {
     return (
-      <AppShell role={role} activePage={role === 'owner' ? 'owner-dashboard' : 'manager-orders'}>
-        <Topbar title="All Orders" />
-        <div className="loading-state">Loading orders…</div>
+      <AppShell role={role} activePage={activePage}>
+        <Topbar title={t('managerOrders:title')} />
+        <div className="loading-state">{t('managerOrders:loading')}</div>
       </AppShell>
     );
   }
 
   if (error) {
     return (
-      <AppShell role={role} activePage={role === 'owner' ? 'owner-dashboard' : 'manager-orders'}>
-        <Topbar title="All Orders" />
+      <AppShell role={role} activePage={activePage}>
+        <Topbar title={t('managerOrders:title')} />
         <div className="error-state">{error}</div>
       </AppShell>
     );
   }
 
   return (
-    <AppShell role={role} activePage={role === 'owner' ? 'owner-dashboard' : 'manager-orders'}>
-      <Topbar title="All Orders" />
+    <AppShell role={role} activePage={activePage}>
+      <Topbar title={t('managerOrders:title')} />
 
       <section className="grid-2">
         <article className="table-wrap">
-          <div className="table-head"><h3>Pending Orders</h3></div>
+          <div className="table-head"><h3>{t('managerOrders:pending.title')}</h3></div>
           <table className="orders-table">
             <thead>
-              <tr><th>Order</th><th>Status</th><th>Client</th><th>Action</th></tr>
+              <tr>
+                <th>{t('managerOrders:table.order')}</th>
+                <th>{t('managerOrders:table.status')}</th>
+                <th>{t('managerOrders:table.client')}</th>
+                <th>{t('managerOrders:table.action')}</th>
+              </tr>
             </thead>
             <tbody>
               {pending.map((o) => (
                 <tr key={o.id}>
-                  <td>
-                    {o.displayId}{' '}
-                    <span style={{ fontSize: 11, color: 'var(--muted)' }}>({o.id})</span>
-                  </td>
+                  <td>{o.displayId} <span style={{ fontSize: 11, color: 'var(--muted)' }}>({o.id})</span></td>
                   <td><StatusBadge status={o.status} /></td>
                   <td>{o.client}</td>
                   <td>
-                    <button
-                      className="btn"
-                      onClick={() => navigateTopLevel(`/manager/orders/${o.id}`)}
-                    >
-                      View
+                    <button className="btn" onClick={() => navigateTopLevel(`/manager/orders/${o.id}`)}>
+                      {t('managerOrders:table.view')}
                     </button>
                   </td>
                 </tr>
               ))}
               {pending.length === 0 && (
-                <tr><td colSpan={4} className="no-results">No pending orders</td></tr>
+                <tr><td colSpan={4} className="no-results">{t('managerOrders:pending.empty')}</td></tr>
               )}
             </tbody>
           </table>
         </article>
 
         <article className="table-wrap">
-          <div className="table-head"><h3>Working Orders</h3></div>
+          <div className="table-head"><h3>{t('managerOrders:working.title')}</h3></div>
           <table className="orders-table">
             <thead>
-              <tr><th>Order</th><th>Status</th><th>Client</th><th>Action</th></tr>
+              <tr>
+                <th>{t('managerOrders:table.order')}</th>
+                <th>{t('managerOrders:table.status')}</th>
+                <th>{t('managerOrders:table.client')}</th>
+                <th>{t('managerOrders:table.action')}</th>
+              </tr>
             </thead>
             <tbody>
               {working.map((o) => (
                 <tr key={o.id}>
-                  <td>
-                    {o.displayId}{' '}
-                    <span style={{ fontSize: 11, color: 'var(--muted)' }}>({o.id})</span>
-                  </td>
+                  <td>{o.displayId} <span style={{ fontSize: 11, color: 'var(--muted)' }}>({o.id})</span></td>
                   <td><StatusBadge status={o.status} /></td>
                   <td>{o.client}</td>
                   <td>
-                    <button
-                      className="btn"
-                      onClick={() => navigateTopLevel('/manager/work-view')}
-                    >
-                      Work View
+                    <button className="btn" onClick={() => navigateTopLevel('/manager/work-view')}>
+                      {t('managerOrders:working.workView')}
                     </button>
                   </td>
                 </tr>
               ))}
               {working.length === 0 && (
-                <tr><td colSpan={4} className="no-results">No working orders</td></tr>
+                <tr><td colSpan={4} className="no-results">{t('managerOrders:working.empty')}</td></tr>
               )}
             </tbody>
           </table>
@@ -181,39 +167,33 @@ export default function ManagerOrders({ role = 'manager' }: Props) {
       </section>
 
       <section className="table-wrap" style={{ marginTop: 12 }}>
-        <div className="table-head"><h3>Completed Orders</h3></div>
+        <div className="table-head"><h3>{t('managerOrders:completed.title')}</h3></div>
         <table className="orders-table">
           <thead>
             <tr>
-              <th>Order</th>
-              <th>Status</th>
-              <th>Client</th>
-              <th>Completed At</th>
-              <th>Action</th>
+              <th>{t('managerOrders:table.order')}</th>
+              <th>{t('managerOrders:table.status')}</th>
+              <th>{t('managerOrders:table.client')}</th>
+              <th>{t('managerOrders:completed.completedAt')}</th>
+              <th>{t('managerOrders:table.action')}</th>
             </tr>
           </thead>
           <tbody>
             {completed.map((o) => (
               <tr key={o.id}>
-                <td>
-                  {o.displayId}{' '}
-                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>({o.id})</span>
-                </td>
+                <td>{o.displayId} <span style={{ fontSize: 11, color: 'var(--muted)' }}>({o.id})</span></td>
                 <td><StatusBadge status={o.status} /></td>
                 <td>{o.client}</td>
                 <td>{o.completedAt || '—'}</td>
                 <td>
-                  <button
-                    className="btn"
-                    onClick={() => navigateTopLevel(`/manager/orders/${o.id}`)}
-                  >
-                    View
+                  <button className="btn" onClick={() => navigateTopLevel(`/manager/orders/${o.id}`)}>
+                    {t('managerOrders:table.view')}
                   </button>
                 </td>
               </tr>
             ))}
             {completed.length === 0 && (
-              <tr><td colSpan={5} className="no-results">No completed orders</td></tr>
+              <tr><td colSpan={5} className="no-results">{t('managerOrders:completed.empty')}</td></tr>
             )}
           </tbody>
         </table>

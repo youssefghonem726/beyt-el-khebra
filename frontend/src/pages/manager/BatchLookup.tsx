@@ -1,17 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useTranslation } from 'react-i18next';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
 import { downloadText } from '../../utils/download';
-// Direct service imports – bypasses VITE_USE_MOCK
 import { getBatches } from '../../lib/api/batchesService';
 import { getOrders } from '../../lib/api/ordersQuotesService';
 import { getClients } from '../../lib/api/invoicesClientsSettingsService';
 
 interface Props { role?: 'manager' | 'owner'; }
 
-// ─── Backend shapes ─────────────────────────────────────────────────
 interface BackendBatch {
   id: number;
   orderId: number;
@@ -32,7 +31,6 @@ interface BackendOrder {
   created_at?: string;
 }
 
-// ─── Display shape ──────────────────────────────────────────────────
 interface BatchView {
   code: string;
   order: string;
@@ -50,7 +48,6 @@ interface BatchView {
   clientInfo: { address: string; phone: string; taxId: string };
 }
 
-// ─── Helpers ───────────────────────────────────────────────────────
 function formatDateShort(isoDate: string | null): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
@@ -66,6 +63,15 @@ function formatDateTime(isoDate: string | null): string {
 }
 
 export default function BatchLookup({ role = 'manager' }: Props) {
+  return (
+    <Suspense fallback={null}>
+      <BatchLookupInner role={role} />
+    </Suspense>
+  );
+}
+
+function BatchLookupInner({ role = 'manager' }: Props) {
+  const { t } = useTranslation(['common', 'batchLookup']);
   const [batches, setBatches] = useState<BatchView[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -77,35 +83,26 @@ export default function BatchLookup({ role = 'manager' }: Props) {
     const fetchData = async () => {
       try {
         const [batchesRes, ordersRes, clientsRes] = await Promise.all([
-          getBatches(),
-          getOrders(),
-          getClients(),
+          getBatches(), getOrders(), getClients(),
         ]);
 
         const batchesRaw: BackendBatch[] = batchesRes.data.data;
         const orders: BackendOrder[] = ordersRes.data.data;
         const clients = clientsRes.data.data.results;
 
-        console.log('BatchLookup - batches:', batchesRaw);
-        console.log('BatchLookup - orders:', orders);
-        console.log('BatchLookup - clients:', clients);
-
-        // Build lookup maps
-        const orderMap = new Map(orders.map(o => [o.id, o]));
+        const orderMap = new Map(orders.map((o) => [o.id, o]));
         const clientMap = new Map(clients.map((c: any) => [c.id, c]));
 
-        const batchViews: BatchView[] = batchesRaw.map((b: BackendBatch) => {
+        const batchViews: BatchView[] = batchesRaw.map((b) => {
           const order = orderMap.get(b.orderId);
           const client = order ? clientMap.get(order.customer) : null;
-          const clientName = client ? client.name : 'Unknown';
-          const dateStr = order?.created_at ? formatDateShort(order.created_at) : '—';
 
           return {
             code: String(b.id),
             order: `#${b.orderId}`,
-            client: clientName,
+            client: client ? client.name : 'Unknown',
             status: b.status,
-            date: dateStr,
+            date: order?.created_at ? formatDateShort(order.created_at) : '—',
             product: b.product,
             qty: b.qty,
             progress: b.progress,
@@ -113,7 +110,7 @@ export default function BatchLookup({ role = 'manager' }: Props) {
             assignedTo: b.assignedTo || 'Unassigned',
             deadline: formatDateShort(b.deadline ?? null),
             notes: b.notes,
-            stages: (b.stages || []).map(s => ({
+            stages: (b.stages || []).map((s) => ({
               ...s,
               updatedAt: s.updatedAt ? formatDateTime(s.updatedAt) : '—',
             })),
@@ -131,7 +128,7 @@ export default function BatchLookup({ role = 'manager' }: Props) {
           setBatches([]);
         } else {
           console.error('Failed to load batch data:', err);
-          setError('Could not load batch data. Please try again later.');
+          setError(t('batchLookup:error'));
         }
       } finally {
         setLoading(false);
@@ -148,27 +145,29 @@ export default function BatchLookup({ role = 'manager' }: Props) {
 
   const pct = (b: BatchView) => b.qty > 0 ? Math.round((b.progress / b.qty) * 100) : 0;
 
+  const activePage = role === 'owner' ? 'owner-dashboard' : 'batch-lookup';
+
   if (loading) {
     return (
-      <AppShell role={role} activePage={role === 'owner' ? 'owner-dashboard' : 'batch-lookup'}>
-        <Topbar title="Batch Lookup & Search" />
-        <div className="loading-state">Loading batches...</div>
+      <AppShell role={role} activePage={activePage}>
+        <Topbar title={t('batchLookup:title')} />
+        <div className="loading-state">{t('batchLookup:loading')}</div>
       </AppShell>
     );
   }
 
   if (error) {
     return (
-      <AppShell role={role} activePage={role === 'owner' ? 'owner-dashboard' : 'batch-lookup'}>
-        <Topbar title="Batch Lookup & Search" />
+      <AppShell role={role} activePage={activePage}>
+        <Topbar title={t('batchLookup:title')} />
         <div className="error-state">{error}</div>
       </AppShell>
     );
   }
 
   return (
-    <AppShell role={role} activePage={role === 'owner' ? 'owner-dashboard' : 'batch-lookup'}>
-      <Topbar title="Batch Lookup & Search" />
+    <AppShell role={role} activePage={activePage}>
+      <Topbar title={t('batchLookup:title')} />
       <section className="table-wrap">
         <div className="table-head">
           <div className="actions-inline" style={{ flex: 1 }}>
@@ -176,7 +175,7 @@ export default function BatchLookup({ role = 'manager' }: Props) {
               <input
                 className="input"
                 type="search"
-                placeholder="Search by batch code, order ID, client..."
+                placeholder={t('batchLookup:searchPlaceholder')}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
@@ -184,14 +183,14 @@ export default function BatchLookup({ role = 'manager' }: Props) {
               {dropdownOpen && (
                 <div className="filter-dropdown show">
                   <div className="field">
-                    <label>Status</label>
+                    <label>{t('common:filter.status')}</label>
                     <select className="select">
-                      <option value="">All Status</option>
-                      <option>Active</option>
-                      <option>Completed</option>
+                      <option value="">{t('common:filter.allStatus')}</option>
+                      <option>{t('batchLookup:filter.active')}</option>
+                      <option>{t('batchLookup:filter.completed')}</option>
                     </select>
                   </div>
-                  <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>Apply</button>
+                  <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>{t('common:filter.apply')}</button>
                 </div>
               )}
             </div>
@@ -204,19 +203,24 @@ export default function BatchLookup({ role = 'manager' }: Props) {
               downloadText('batch-export.csv', [header, ...rows]);
             }}
           >
-            Export Search Query
+            {t('batchLookup:export')}
           </button>
         </div>
         <div className="table-responsive">
           <table className="orders-table">
             <thead>
               <tr>
-                <th>Batch Code</th><th>Order</th><th>Client Name</th><th>Status</th><th>Date</th><th>Action</th>
+                <th>{t('batchLookup:table.batchCode')}</th>
+                <th>{t('batchLookup:table.order')}</th>
+                <th>{t('batchLookup:table.clientName')}</th>
+                <th>{t('batchLookup:table.status')}</th>
+                <th>{t('batchLookup:table.date')}</th>
+                <th>{t('batchLookup:table.action')}</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0
-                ? <tr><td colSpan={6} className="no-results">No matching results</td></tr>
+                ? <tr><td colSpan={6} className="no-results">{t('batchLookup:noResults')}</td></tr>
                 : filtered.map((b) => (
                   <tr key={b.code}>
                     <td>{b.code}</td>
@@ -224,7 +228,7 @@ export default function BatchLookup({ role = 'manager' }: Props) {
                     <td>{b.client}</td>
                     <td><StatusBadge status={b.status} /></td>
                     <td>{b.date}</td>
-                    <td><button className="btn" onClick={() => setSelected(b)}>View</button></td>
+                    <td><button className="btn" onClick={() => setSelected(b)}>{t('batchLookup:table.view')}</button></td>
                   </tr>
                 ))}
             </tbody>
@@ -239,37 +243,43 @@ export default function BatchLookup({ role = 'manager' }: Props) {
         >
           <div style={{ background: 'var(--surface, #fff)', borderRadius: 12, width: '100%', maxWidth: 660, boxShadow: '0 25px 50px rgba(0,0,0,0.35)', overflow: 'hidden' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', borderBottom: '1px solid var(--border, #e4e6eb)', position: 'sticky', top: 0, background: 'var(--surface, #fff)', zIndex: 1 }}>
-              <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>Batch {selected.code}</h2>
-              <button onClick={() => setSelected(null)} style={{ padding: '5px 14px', background: '#2f3640', color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>✕ Close</button>
+              <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>{t('batchLookup:modal.title', { code: selected.code })}</h2>
+              <button onClick={() => setSelected(null)} style={{ padding: '5px 14px', background: '#2f3640', color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>{t('batchLookup:modal.close')}</button>
             </div>
 
             <div style={{ padding: 20 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                <p className="muted" style={{ fontSize: 13 }}>Order {selected.order} · {selected.date}</p>
+                <p className="muted" style={{ fontSize: 13 }}>{t('batchLookup:modal.order', { order: selected.order })} · {selected.date}</p>
                 <StatusBadge status={selected.status} />
               </div>
 
-              <h4 style={{ marginBottom: 8 }}>Job Details</h4>
+              <h4 style={{ marginBottom: 8 }}>{t('batchLookup:modal.jobDetails')}</h4>
               <div className="form-grid-2" style={{ fontSize: 13, gap: 6, marginBottom: 14 }}>
-                <p><strong>Client:</strong> {selected.client}</p>
-                <p><strong>Product:</strong> {selected.product}</p>
-                <p><strong>Quantity:</strong> {selected.qty} pcs</p>
-                <p><strong>Priority:</strong> {selected.priority}</p>
-                <p><strong>Deadline:</strong> {selected.deadline}</p>
-                <p><strong>Assigned To:</strong> {selected.assignedTo}</p>
-                {selected.notes && <p style={{ gridColumn: '1 / -1' }}><strong>Notes:</strong> {selected.notes}</p>}
+                <p><strong>{t('batchLookup:modal.client')}:</strong> {selected.client}</p>
+                <p><strong>{t('batchLookup:modal.product')}:</strong> {selected.product}</p>
+                <p><strong>{t('batchLookup:modal.quantity')}:</strong> {selected.qty} {t('batchLookup:modal.pcs')}</p>
+                <p><strong>{t('batchLookup:modal.priority')}:</strong> {selected.priority}</p>
+                <p><strong>{t('batchLookup:modal.deadline')}:</strong> {selected.deadline}</p>
+                <p><strong>{t('batchLookup:modal.assignedTo')}:</strong> {selected.assignedTo}</p>
+                {selected.notes && <p style={{ gridColumn: '1 / -1' }}><strong>{t('batchLookup:modal.notes')}:</strong> {selected.notes}</p>}
               </div>
 
               <div className="line" />
 
-              <h4 style={{ margin: '12px 0 8px' }}>Production Progress</h4>
+              <h4 style={{ margin: '12px 0 8px' }}>{t('batchLookup:modal.progress')}</h4>
               <ProgressBar percent={pct(selected)} color={pct(selected) === 100 ? 'green' : pct(selected) >= 50 ? 'orange' : undefined} />
               <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6, marginBottom: 14 }}>
-                {selected.progress} / {selected.qty} printed ({pct(selected)}%)
+                {selected.progress} / {selected.qty} {t('batchLookup:modal.printed')} ({pct(selected)}%)
               </p>
 
               <table style={{ marginBottom: 14 }}>
-                <thead><tr><th>Stage</th><th>Status</th><th>Updated At</th></tr></thead>
+                <thead>
+                  <tr>
+                    <th>{t('batchLookup:modal.stages.stage')}</th>
+                    <th>{t('batchLookup:modal.stages.status')}</th>
+                    <th>{t('batchLookup:modal.stages.updatedAt')}</th>
+                  </tr>
+                </thead>
                 <tbody>
                   {selected.stages.map((s) => (
                     <tr key={s.stage}>
@@ -283,12 +293,12 @@ export default function BatchLookup({ role = 'manager' }: Props) {
 
               <div className="line" />
 
-              <h4 style={{ margin: '12px 0 8px' }}>Client Info</h4>
+              <h4 style={{ margin: '12px 0 8px' }}>{t('batchLookup:modal.clientInfo')}</h4>
               <div style={{ fontSize: 13, display: 'grid', gap: 4 }}>
                 <p><strong>{selected.client}</strong></p>
                 <p style={{ color: 'var(--muted)' }}>{selected.clientInfo.address}</p>
                 <p style={{ color: 'var(--muted)' }}>{selected.clientInfo.phone}</p>
-                <p style={{ color: 'var(--muted)' }}>Tax ID: {selected.clientInfo.taxId}</p>
+                <p style={{ color: 'var(--muted)' }}>{t('batchLookup:modal.taxId')}: {selected.clientInfo.taxId}</p>
               </div>
             </div>
           </div>

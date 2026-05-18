@@ -1,0 +1,44 @@
+{
+  "title": "Batch Lookup & Search",
+  "loading": "Loading batches...",
+  "error": "Could not load batch data. Please try again later.",
+  "searchPlaceholder": "Search by batch code, order ID, client...",
+  "export": "Export Search Query",
+  "noResults": "No matching results",
+  "filter": {
+    "active": "Active",
+    "completed": "Completed"
+  },
+  "table": {
+    "batchCode": "Batch Code",
+    "order": "Order",
+    "clientName": "Client Name",
+    "status": "Status",
+    "date": "Date",
+    "action": "Action",
+    "view": "View"
+  },
+  "modal": {
+    "title": "Batch {{code}}",
+    "close": "✕ Close",
+    "order": "Order {{order}}",
+    "jobDetails": "Job Details",
+    "client": "Client",
+    "product": "Product",
+    "quantity": "Quantity",
+    "pcs": "pcs",
+    "priority": "Priority",
+    "deadline": "Deadline",
+    "assignedTo": "Assigned To",
+    "notes": "Notes",
+    "progress": "Production Progress",
+    "printed": "printed",
+    "stages": {
+      "stage": "Stage",
+      "status": "Status",
+      "updatedAt": "Updated At"
+    },
+    "clientInfo": "Client Info",
+    "taxId": "Tax ID"
+  }
+}

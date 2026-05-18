@@ -1,0 +1,34 @@
+{
+  "title": "Deliveries",
+  "loading": "Loading deliveries...",
+  "error": "Could not load delivery data. Please try again later.",
+  "allDeliveries": "All Deliveries",
+  "table": {
+    "delivery": "Delivery",
+    "order": "Order",
+    "client": "Client",
+    "address": "Address",
+    "scheduled": "Scheduled",
+    "status": "Status",
+    "actions": "Actions"
+  },
+  "actions": {
+    "delivered": "Delivered",
+    "cancelled": "Cancelled",
+    "markDelivered": "Mark Delivered",
+    "reschedule": "Reschedule",
+    "changeAddress": "Change Address",
+    "cancel": "Cancel"
+  },
+  "reschedule": {
+    "label": "New Delivery Date",
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+  "address": {
+    "label": "New Address",
+    "placeholder": "Enter updated delivery address",
+    "save": "Save",
+    "cancel": "Cancel"
+  }
+}
