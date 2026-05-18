@@ -114,6 +114,7 @@ function UnpricedQueueInner() {
   const [pricingId, setPricingId] = useState<string | null>(null);
   const [pricing, setPricing] = useState<PricingState>({ unitPrice: '', vatRate: '14', notes: '' });
   const [selectedPricingKey, setSelectedPricingKey] = useState<string>('');
+  const [customPriceMode, setCustomPriceMode] = useState(false);
   const [pricingTable, setPricingTable] = useState<PricingRow | null>(null);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
@@ -197,6 +198,7 @@ function UnpricedQueueInner() {
     setPricingId(id === pricingId ? null : id);
     setPricing({ unitPrice: '', vatRate: '14', notes: '' });
     setSelectedPricingKey('');
+    setCustomPriceMode(false);
   };
 
   const cancelOrder = async (job: UnpricedJob) => {
@@ -445,12 +447,27 @@ function UnpricedQueueInner() {
                   </div>
 
                   {/* Set Price Section */}
-                  <h4 style={{ marginBottom: 14, fontSize: 14 }}>
-                    {t('unpricedQueue:pricing.setPrice', { id: j.displayId })}
-                  </h4>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                    <h4 style={{ margin: 0, fontSize: 14 }}>
+                      {t('unpricedQueue:pricing.setPrice', { id: j.displayId })}
+                    </h4>
+                    {pricingTable && PRICING_OPTIONS.some(opt => Number(pricingTable[opt.key]) > 0) && (
+                      <button
+                        className={`btn${customPriceMode ? ' primary' : ''}`}
+                        style={{ fontSize: 11, padding: '3px 10px' }}
+                        onClick={() => {
+                          setCustomPriceMode((v) => !v);
+                          setPricing((p) => ({ ...p, unitPrice: '' }));
+                          setSelectedPricingKey('');
+                        }}
+                      >
+                        {t('unpricedQueue:pricing.customPriceBtn')}
+                      </button>
+                    )}
+                  </div>
 
-                  {/* Pricing table dropdown */}
-                  {pricingTable && PRICING_OPTIONS.some(opt => Number(pricingTable[opt.key]) > 0) && (
+                  {/* Dropdown mode (default) */}
+                  {!customPriceMode && pricingTable && PRICING_OPTIONS.some(opt => Number(pricingTable[opt.key]) > 0) && (
                     <div className="field" style={{ margin: '0 0 12px' }}>
                       <label>{t('unpricedQueue:pricing.priceTableLabel')}</label>
                       <select
@@ -481,8 +498,9 @@ function UnpricedQueueInner() {
                     </div>
                   )}
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-                    <div className="field" style={{ margin: 0 }}>
+                  {/* Custom price input (only when custom mode is active, or no pricing table) */}
+                  {(customPriceMode || !pricingTable || !PRICING_OPTIONS.some(opt => Number(pricingTable[opt.key]) > 0)) && (
+                    <div className="field" style={{ margin: '0 0 12px' }}>
                       <label>{t('unpricedQueue:pricing.unitPrice')}</label>
                       <input
                         className="input"
@@ -491,24 +509,22 @@ function UnpricedQueueInner() {
                         step="0.01"
                         placeholder={t('unpricedQueue:pricing.unitPricePlaceholder')}
                         value={pricing.unitPrice}
-                        onChange={(e) => {
-                          setSelectedPricingKey('');
-                          setPricing((p) => ({ ...p, unitPrice: e.target.value }));
-                        }}
+                        onChange={(e) => setPricing((p) => ({ ...p, unitPrice: e.target.value }))}
                       />
                     </div>
-                    <div className="field" style={{ margin: 0 }}>
-                      <label>{t('unpricedQueue:pricing.vatRate')}</label>
-                      <input
-                        className="input"
-                        type="number"
-                        min="0"
-                        max="100"
-                        placeholder={t('unpricedQueue:pricing.vatPlaceholder')}
-                        value={pricing.vatRate}
-                        onChange={(e) => setPricing((p) => ({ ...p, vatRate: e.target.value }))}
-                      />
-                    </div>
+                  )}
+
+                  <div className="field" style={{ margin: '0 0 12px' }}>
+                    <label>{t('unpricedQueue:pricing.vatRate')}</label>
+                    <input
+                      className="input"
+                      type="number"
+                      min="0"
+                      max="100"
+                      placeholder={t('unpricedQueue:pricing.vatPlaceholder')}
+                      value={pricing.vatRate}
+                      onChange={(e) => setPricing((p) => ({ ...p, vatRate: e.target.value }))}
+                    />
                   </div>
 
                   {unitPrice > 0 && (

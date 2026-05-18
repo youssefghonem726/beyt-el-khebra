@@ -36,6 +36,7 @@
     "panelTitle": "تحديد السعر لـ {{id}}",
     "priceTableLabel": "اختر من جدول التسعير",
     "selectPlaceholder": "— اختر نوع السعر —",
+    "customPriceBtn": "سعر مخصص",
     "unitPrice": "سعر الوحدة (جنيه)",
     "unitPricePlaceholder": "مثال: 2.50",
     "vatRate": "نسبة ضريبة القيمة المضافة (%)",
