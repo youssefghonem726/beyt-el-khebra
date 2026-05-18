@@ -5,6 +5,30 @@ import Topbar from '../../components/Topbar';
 import StatCard from '../../components/StatCard';
 import { getUnpricedQueue, submitQuoteForOrder, updateOrder } from '../../lib/api/ordersQuotesService';
 import { getClients } from '../../lib/api/invoicesClientsSettingsService';
+import { getDefaultPricing, type PricingRow } from '../../lib/api/pricingService';
+
+type PricingKey = Exclude<keyof PricingRow, 'id' | 'created_at' | 'user' | 'source'>;
+
+const PRICING_OPTIONS: Array<{ key: PricingKey; label: string }> = [
+  { key: 'front', label: 'Front' },
+  { key: 'front_and_back', label: 'Front & Back' },
+  { key: 'digital_cover_300g', label: 'Digital Cover 300g' },
+  { key: 'digital_cover_200g', label: 'Digital Cover 200g' },
+  { key: 'offset_cover_200g', label: 'Offset Cover 200g' },
+  { key: 'offset_cover_300g', label: 'Offset Cover 300g' },
+  { key: 'coil_size_10', label: 'Coil Size 10' },
+  { key: 'coil_size_12', label: 'Coil Size 12' },
+  { key: 'coil_size_14', label: 'Coil Size 14' },
+  { key: 'coil_size_16', label: 'Coil Size 16' },
+  { key: 'coil_size_18', label: 'Coil Size 18' },
+  { key: 'coil_size_20', label: 'Coil Size 20' },
+  { key: 'coil_size_22', label: 'Coil Size 22' },
+  { key: 'coil_size_25', label: 'Coil Size 25' },
+  { key: 'coil_size_28', label: 'Coil Size 28' },
+  { key: 'coil_size_30', label: 'Coil Size 30' },
+  { key: 'coil_size_32', label: 'Coil Size 32' },
+  { key: 'coil_size_35', label: 'Coil Size 35' },
+];
 
 interface UnpricedItem {
   id: number | string;
@@ -89,6 +113,8 @@ function UnpricedQueueInner() {
   const [error, setError] = useState<string | null>(null);
   const [pricingId, setPricingId] = useState<string | null>(null);
   const [pricing, setPricing] = useState<PricingState>({ unitPrice: '', vatRate: '14', notes: '' });
+  const [selectedPricingKey, setSelectedPricingKey] = useState<string>('');
+  const [pricingTable, setPricingTable] = useState<PricingRow | null>(null);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
 
@@ -96,10 +122,12 @@ function UnpricedQueueInner() {
     try {
       setLoading(true);
       setError(null);
-      const [ordersRes, clientsRes] = await Promise.all([
+      const [ordersRes, clientsRes, pricingRes] = await Promise.all([
         getUnpricedQueue(),
         getClients(),
+        getDefaultPricing().catch(() => null),
       ]);
+      setPricingTable(pricingRes?.data?.data ?? null);
 
       const orders = ordersRes.data.data;
       const clients = clientsRes.data.data.results;
@@ -168,6 +196,7 @@ function UnpricedQueueInner() {
   const openPricing = (id: string) => {
     setPricingId(id === pricingId ? null : id);
     setPricing({ unitPrice: '', vatRate: '14', notes: '' });
+    setSelectedPricingKey('');
   };
 
   const cancelOrder = async (job: UnpricedJob) => {
@@ -419,6 +448,39 @@ function UnpricedQueueInner() {
                   <h4 style={{ marginBottom: 14, fontSize: 14 }}>
                     {t('unpricedQueue:pricing.setPrice', { id: j.displayId })}
                   </h4>
+
+                  {/* Pricing table dropdown */}
+                  {pricingTable && PRICING_OPTIONS.some(opt => Number(pricingTable[opt.key]) > 0) && (
+                    <div className="field" style={{ margin: '0 0 12px' }}>
+                      <label>{t('unpricedQueue:pricing.priceTableLabel')}</label>
+                      <select
+                        className="input"
+                        value={selectedPricingKey}
+                        onChange={(e) => {
+                          const key = e.target.value as PricingKey;
+                          setSelectedPricingKey(key);
+                          if (key && pricingTable[key] != null) {
+                            setPricing((p) => ({ ...p, unitPrice: String(pricingTable[key]) }));
+                          } else {
+                            setPricing((p) => ({ ...p, unitPrice: '' }));
+                          }
+                        }}
+                      >
+                        <option value="">{t('unpricedQueue:pricing.selectPlaceholder')}</option>
+                        {PRICING_OPTIONS
+                          .filter(opt => Number(pricingTable[opt.key]) > 0)
+                          .map(opt => {
+                            const val = Number(pricingTable[opt.key]);
+                            return (
+                              <option key={opt.key} value={opt.key}>
+                                {opt.label} — EGP {fmt(val)}
+                              </option>
+                            );
+                          })}
+                      </select>
+                    </div>
+                  )}
+
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
                     <div className="field" style={{ margin: 0 }}>
                       <label>{t('unpricedQueue:pricing.unitPrice')}</label>
@@ -429,7 +491,10 @@ function UnpricedQueueInner() {
                         step="0.01"
                         placeholder={t('unpricedQueue:pricing.unitPricePlaceholder')}
                         value={pricing.unitPrice}
-                        onChange={(e) => setPricing((p) => ({ ...p, unitPrice: e.target.value }))}
+                        onChange={(e) => {
+                          setSelectedPricingKey('');
+                          setPricing((p) => ({ ...p, unitPrice: e.target.value }));
+                        }}
                       />
                     </div>
                     <div className="field" style={{ margin: 0 }}>

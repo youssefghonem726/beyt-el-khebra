@@ -34,6 +34,8 @@
   },
   "pricing": {
     "panelTitle": "تحديد السعر لـ {{id}}",
+    "priceTableLabel": "اختر من جدول التسعير",
+    "selectPlaceholder": "— اختر نوع السعر —",
     "unitPrice": "سعر الوحدة (جنيه)",
     "unitPricePlaceholder": "مثال: 2.50",
     "vatRate": "نسبة ضريبة القيمة المضافة (%)",

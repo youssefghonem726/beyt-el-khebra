@@ -34,6 +34,8 @@
   },
   "pricing": {
     "panelTitle": "Set Price for {{id}}",
+    "priceTableLabel": "Select from pricing table",
+    "selectPlaceholder": "— Choose a price type —",
     "unitPrice": "Unit Price (EGP)",
     "unitPricePlaceholder": "e.g. 2.50",
     "vatRate": "VAT Rate (%)",
