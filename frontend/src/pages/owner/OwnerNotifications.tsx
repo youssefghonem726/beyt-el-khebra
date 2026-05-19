@@ -55,15 +55,30 @@ function formatDateTime(value: string, lang: string): string {
   });
 }
 
-export default function OwnerNotifications() {
+const MANAGER_ACTION_PAGE_MAP: Record<string, string> = {
+  'owner-delivery-tracking': 'delivery-list',
+  'delivery-tracking': 'delivery-list',
+  'owner-production': 'active-jobs',
+  'owner-dashboard': 'active-jobs',
+};
+
+interface Props {
+  role?: 'owner' | 'manager';
+  activePage?: string;
+}
+
+export default function OwnerNotifications({
+  role = 'owner',
+  activePage = 'owner-notifications',
+}: Props) {
   return (
     <Suspense fallback={null}>
-      <OwnerNotificationsInner />
+      <OwnerNotificationsInner role={role} activePage={activePage} />
     </Suspense>
   );
 }
 
-function OwnerNotificationsInner() {
+function OwnerNotificationsInner({ role, activePage }: Required<Props>) {
   const { t, i18n } = useTranslation(['common', 'ownerNotifications']);
   const { navigateTopLevel } = useNavigation();
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -178,7 +193,7 @@ function OwnerNotificationsInner() {
 
   if (loading) {
     return (
-      <AppShell role="owner" activePage="owner-notifications">
+      <AppShell role={role} activePage={activePage}>
         <Topbar title={t('ownerNotifications:title')} />
         <section className="stack">
           <div className="loading-state">{t('ownerNotifications:loading')}</div>
@@ -188,7 +203,7 @@ function OwnerNotificationsInner() {
   }
 
   return (
-    <AppShell role="owner" activePage="owner-notifications">
+    <AppShell role={role} activePage={activePage}>
       <Topbar title={t('ownerNotifications:title')} />
       <section className="stack">
         {error && <div className="error-state">{error}</div>}
@@ -252,7 +267,12 @@ function OwnerNotificationsInner() {
                   <button
                     className="btn primary"
                     type="button"
-                    onClick={() => navigateTopLevel(notification.action_page || '')}
+                    onClick={() => {
+                      const targetPage = role === 'manager'
+                        ? MANAGER_ACTION_PAGE_MAP[notification.action_page || ''] || notification.action_page
+                        : notification.action_page;
+                      navigateTopLevel(targetPage || '');
+                    }}
                   >
                     {translateActionLabel(notification.action_label, t)}
                   </button>

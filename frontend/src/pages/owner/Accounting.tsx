@@ -6,7 +6,7 @@ import StatCard from '../../components/StatCard';
 import StatusBadge from '../../components/StatusBadge';
 import SearchFilter from '../../components/SearchFilter';
 import ClientSummary from '../../components/ClientSummary';
-import { downloadText } from '../../utils/download';
+import { openInvoicePdf } from '../../utils/invoicePdf';
 import { generateInvoice, getAccountingOverview, payInvoice } from '../../lib/api/invoicesService';
 
 type TFn = (key: string, opts?: Record<string, unknown>) => string;
@@ -68,20 +68,6 @@ function formatDate(value: string | undefined, lang: string): string {
   return date.toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-EG', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-function buildInvoiceLines(invoice: DisplayInvoice, t: TFn, lang: string): string[] {
-  return [
-    `${t('accounting:download.invoice')}: ${invoice.id}`,
-    `${t('accounting:download.order')}: ${invoice.order}`,
-    `${t('accounting:download.client')}: ${invoice.client}`,
-    `${t('accounting:download.date')}: ${formatDate(invoice.createdAt, lang)}`,
-    `${t('accounting:download.items')}: ${invoice.itemSummary}`,
-    `${t('accounting:download.total')}: ${invoice.total}`,
-    `${t('accounting:download.paid')}: ${invoice.paidAmount}`,
-    `${t('accounting:download.remaining')}: ${invoice.remainingAmount}`,
-    `${t('accounting:download.paymentStatus')}: ${invoice.status}`,
-  ];
-}
-
 export default function Accounting() {
   return (
     <Suspense fallback={null}>
@@ -137,6 +123,7 @@ function AccountingInner() {
 
       setStats([
         { labelKey: 'revenueSnapshot', value: formatLarge(overview.stats?.revenue_snapshot ?? 0), subKey: 'revenueSnapshotSub' },
+        { labelKey: 'confirmedOrderValue', value: formatLarge(overview.stats?.confirmed_order_value ?? 0), subKey: 'confirmedOrderValueSub' },
         { labelKey: 'pendingCollection', value: formatLarge(overview.stats?.pending_collection ?? 0), subKey: 'pendingCollectionSub' },
         { labelKey: 'paidOrders', value: overview.stats?.paid_orders ?? 0, subKey: 'paidOrdersSub' },
         { labelKey: 'unpaidOrders', value: overview.stats?.unpaid_orders ?? 0, subKey: 'unpaidOrdersSub' },
@@ -242,10 +229,11 @@ function AccountingInner() {
       <AppShell role="owner" activePage="accounting">
         <Topbar title={t('accounting:title')} />
         <section className="grid-4">
-          <StatCard label={t('accounting:stats.revenueSnapshot')}   value="..." sub={t('accounting:stats.revenueSnapshotSub')} />
-          <StatCard label={t('accounting:stats.pendingCollection')} value="..." sub={t('accounting:stats.pendingCollectionSub')} />
-          <StatCard label={t('accounting:stats.paidOrders')}        value="..." sub={t('accounting:stats.paidOrdersSub')} />
-          <StatCard label={t('accounting:stats.unpaidOrders')}      value="..." sub={t('accounting:stats.unpaidOrdersSub')} />
+          <StatCard label={t('accounting:stats.revenueSnapshot')}        value="..." sub={t('accounting:stats.revenueSnapshotSub')} />
+          <StatCard label={t('accounting:stats.confirmedOrderValue')}    value="..." sub={t('accounting:stats.confirmedOrderValueSub')} />
+          <StatCard label={t('accounting:stats.pendingCollection')}      value="..." sub={t('accounting:stats.pendingCollectionSub')} />
+          <StatCard label={t('accounting:stats.paidOrders')}             value="..." sub={t('accounting:stats.paidOrdersSub')} />
+          <StatCard label={t('accounting:stats.unpaidOrders')}           value="..." sub={t('accounting:stats.unpaidOrdersSub')} />
         </section>
         <section className="table-wrap">
           <div className="loading-state">{t('accounting:loading')}</div>
@@ -427,7 +415,18 @@ function AccountingInner() {
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
               <button
                 className="btn"
-                onClick={() => downloadText(`invoice-${previewInvoice.id}.txt`, buildInvoiceLines(previewInvoice, t as TFn, i18n.language))}
+                onClick={() => openInvoicePdf({
+                  id: previewInvoice.id,
+                  order: previewInvoice.order,
+                  client: previewInvoice.client,
+                  createdAt: previewInvoice.createdAt,
+                  status: previewInvoice.status,
+                  itemSummary: previewInvoice.itemSummary,
+                  items: previewInvoice.items,
+                  total: previewInvoice.total,
+                  paid: previewInvoice.paidAmount,
+                  remaining: previewInvoice.remainingAmount,
+                })}
               >
                 {t('accounting:preview.download')}
               </button>

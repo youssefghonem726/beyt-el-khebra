@@ -8,6 +8,7 @@ from users.models import User
 from orders.models import Order, OrderItem, OrderStatusHistory
 from orders.serializers import OrderSerializer
 from notifications.services import create_notification, notify_owner_staff
+from batches.services import sync_batches_for_order
 
 
 def get_authenticated_user(request):
@@ -44,6 +45,15 @@ def get_authenticated_user(request):
 PRODUCTION_ORDER_STATUSES = ["CONFIRMED", "IN_PROGRESS"]
 PRODUCTION_ACTIVE_STEPS = ["pending", "design", "printing", "cutting", "packaging"]
 PRODUCTION_STEPS = PRODUCTION_ACTIVE_STEPS + ["ready", "delivered"]
+PRODUCTION_STEP_PROGRESS = {
+    "pending": 0,
+    "design": 20,
+    "printing": 40,
+    "cutting": 60,
+    "packaging": 80,
+    "ready": 100,
+    "delivered": 100,
+}
 
 
 def is_owner_or_staff(user):
@@ -65,12 +75,22 @@ def production_status_for_step(step):
     return "in_progress"
 
 
+def serialize_file(file_obj):
+    if not file_obj:
+        return None
+
+    return {
+        "id": file_obj.id,
+        "file_name": file_obj.file_name,
+        "url": file_obj.url,
+        "file_size": file_obj.file_size,
+    }
+
+
 def serialize_production_item(item):
     quantity = item.quantity or 0
     completed_quantity = item.completed_quantity or 0
-    progress = 0
-    if quantity > 0:
-        progress = int((completed_quantity / quantity) * 100)
+    progress = PRODUCTION_STEP_PROGRESS.get(item.current_step, 0)
 
     due_date = item.due_date or item.order.due_date
 
@@ -90,6 +110,27 @@ def serialize_production_item(item):
         "progress_percentage": progress,
         "due_date": due_date,
         "notes": item.notes or "",
+        "specs": {
+            "page_count": item.page_count,
+            "size": item.size,
+            "paper": item.paper,
+            "material": item.material,
+            "color_mode": item.color_mode,
+            "cover": item.cover,
+            "binding": item.binding,
+            "coil": item.coil,
+            "finish": item.finish,
+            "shape": item.shape,
+            "print_type": item.print_type,
+        },
+        "files": [
+            file_data
+            for file_data in (
+                serialize_file(item.file),
+                serialize_file(item.cover_file),
+            )
+            if file_data
+        ],
         "unit_price": float(item.unit_price) if item.unit_price is not None else None,
         "total_price": float(item.total_price) if item.total_price is not None else None,
         "created_at": item.created_at,
@@ -111,6 +152,7 @@ def sync_order_production_status(order):
         order.status = "COMPLETED"
         order.completed_at = order.completed_at or timezone.now()
         order.save(update_fields=["status", "completed_at"])
+        sync_batches_for_order(order)
         if old_status != "COMPLETED":
             create_notification(
                 order.customer,
@@ -119,10 +161,17 @@ def sync_order_production_status(order):
                 action_label="View orders",
                 action_page="my-orders",
             )
+            notify_owner_staff(
+                "Production completed",
+                f"Order #{order.id} is ready for delivery or pickup.",
+                action_label="Open delivery tracking",
+                action_page="owner-delivery-tracking",
+            )
     else:
         if order.status != "IN_PROGRESS":
             order.status = "IN_PROGRESS"
             order.save(update_fields=["status"])
+            sync_batches_for_order(order)
             if old_status != "IN_PROGRESS":
                 create_notification(
                     order.customer,
@@ -131,6 +180,8 @@ def sync_order_production_status(order):
                     action_label="View orders",
                     action_page="my-orders",
                 )
+
+    sync_batches_for_order(order)
 
 
 @api_view(["GET", "POST"])
@@ -165,8 +216,14 @@ def orders_list_create(request):
 
         orders = orders.select_related("customer").prefetch_related(
             "order_items",
+            "order_items__batches",
+            "order_items__file",
+            "order_items__cover_file",
+            "files",
             "packages",
             "packages__items",
+            "deliveries",
+            "status_history",
         )
 
         serializer = OrderSerializer(orders, many=True)
@@ -225,7 +282,12 @@ def production_jobs(request):
             status_code=status.HTTP_403_FORBIDDEN
         )
 
-    jobs = OrderItem.objects.select_related("order", "order__customer").filter(
+    jobs = OrderItem.objects.select_related(
+        "order",
+        "order__customer",
+        "file",
+        "cover_file",
+    ).filter(
         order__status__in=PRODUCTION_ORDER_STATUSES,
         current_step__in=PRODUCTION_STEPS,
     ).order_by("due_date", "created_at", "id")
@@ -247,6 +309,13 @@ def production_jobs(request):
             search_filter |= Q(id=int(search)) | Q(order_id=int(search))
 
         jobs = jobs.filter(search_filter)
+
+    jobs = list(jobs)
+    synced_order_ids = set()
+    for item in jobs:
+        if item.order_id not in synced_order_ids:
+            sync_batches_for_order(item.order)
+            synced_order_ids.add(item.order_id)
 
     return success_response(
         message="Production jobs fetched successfully",
@@ -270,7 +339,12 @@ def update_production_job(request, item_id):
         )
 
     try:
-        item = OrderItem.objects.select_related("order", "order__customer").get(
+        item = OrderItem.objects.select_related(
+            "order",
+            "order__customer",
+            "file",
+            "cover_file",
+        ).get(
             id=item_id,
             order__status__in=PRODUCTION_ORDER_STATUSES,
         )
@@ -297,8 +371,9 @@ def update_production_job(request, item_id):
         item.current_step = current_step
         update_fields.append("current_step")
 
-        if current_step in ("ready", "delivered"):
-            item.completed_quantity = item.quantity or item.completed_quantity
+        step_progress = PRODUCTION_STEP_PROGRESS.get(current_step)
+        if step_progress is not None:
+            item.completed_quantity = int(round(((item.quantity or 0) * step_progress) / 100))
             if "completed_quantity" not in update_fields:
                 update_fields.append("completed_quantity")
 
@@ -362,6 +437,17 @@ def order_detail(request, order_id):
         )
 
     if request.method == "GET":
+        order = Order.objects.select_related("customer").prefetch_related(
+            "order_items",
+            "order_items__batches",
+            "order_items__file",
+            "order_items__cover_file",
+            "files",
+            "packages",
+            "packages__items",
+            "deliveries",
+            "status_history",
+        ).get(id=order.id)
         serializer = OrderSerializer(order)
 
         return success_response(
@@ -373,6 +459,19 @@ def order_detail(request, order_id):
     if request.method in ["PUT", "PATCH"]:
         data = request.data.copy()
         old_status = order.status
+        requested_status = data.get("status")
+
+        if user.role == "client":
+            allowed_client_cancel_statuses = ("UNPRICED_PENDING", "PRICED_PENDING_CONFIRMATION")
+            if requested_status != "CANCELLED" or order.status not in allowed_client_cancel_statuses:
+                return error_response(
+                    message="Forbidden",
+                    errors={
+                        "detail": "Clients can only cancel orders while they are awaiting pricing or quote confirmation."
+                    },
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
         if user.role in ("owner", "staff"):
             data["customer"] = order.customer_id
         else:
@@ -393,8 +492,23 @@ def order_detail(request, order_id):
                     updated_by=user,
                     old_status=old_status,
                     new_status=order.status,
-                    notes="Order cancelled from owner queue" if order.status == "CANCELLED" else "Order status updated",
+                    notes="Order cancelled by client" if user.role == "client" and order.status == "CANCELLED" else "Order cancelled from owner queue" if order.status == "CANCELLED" else "Order status updated",
                 )
+                if user.role == "client" and order.status == "CANCELLED":
+                    notify_owner_staff(
+                        "Order cancelled",
+                        f"Order #{order.id} was cancelled by {order_client_name(order)}.",
+                        action_label="Open dashboard",
+                        action_page="owner-dashboard",
+                    )
+                elif user.role in ("owner", "staff") and order.status == "CANCELLED":
+                    create_notification(
+                        order.customer,
+                        "Order cancelled",
+                        f"Your order #{order.id} was cancelled by the shop team.",
+                        action_label="View orders",
+                        action_page="my-orders",
+                    )
 
             return success_response(
                 message="Order updated successfully",

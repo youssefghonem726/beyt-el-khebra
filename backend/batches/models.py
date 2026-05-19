@@ -1,10 +1,16 @@
 from django.db import models
-from orders.models import Order  # adjust import if your order model is elsewhere
+from orders.models import Order, OrderItem  # adjust import if your order model is elsewhere
 
 
 class Batch(models.Model):
     order = models.ForeignKey(
         Order, on_delete=models.CASCADE, related_name="batches", db_column="order_id"
+    )
+    order_items = models.ManyToManyField(
+        OrderItem,
+        related_name="batches",
+        blank=True,
+        db_table="batch_order_items",
     )
     product = models.CharField(max_length=200)
     qty = models.IntegerField()

@@ -8,20 +8,23 @@ import { useNavigation } from '../../context/NavigationContext';
 import { getOrders } from '../../lib/api/ordersQuotesService';
 import { getMe } from '../../lib/api/usersService';
 
+// Merged status constants – now includes CONFIRMED and uses “CANCELLED” spelling
 const STATUS_GUIDE_KEYS = [
   'UNPRICED_PENDING',
   'PRICED_PENDING_CONFIRMATION',
+  'CONFIRMED',
   'IN_PROGRESS',
   'COMPLETED',
-  'CANCELED',
+  'CANCELLED',
 ] as const;
 
 const STATUS_FILTER_VALUES = [
   'UNPRICED_PENDING',
   'PRICED_PENDING_CONFIRMATION',
+  'CONFIRMED',
   'IN_PROGRESS',
   'COMPLETED',
-  'CANCELED',
+  'CANCELLED',
 ] as const;
 
 interface DisplayOrder {
@@ -40,9 +43,22 @@ function formatDate(isoDate: string | null, lang: string): string {
   return d.toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function formatTotal(amount: number | null, lang: string): string {
-  if (amount === null || amount === undefined) return '—';
-  return `EGP ${amount.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+// Accepts both numbers and strings, preserves locale-aware formatting
+function formatTotal(amount: number | string | null, lang: string): string {
+  const value = Number(amount);
+  if (!Number.isFinite(value)) return '—';
+  return `EGP ${value.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+// Derive a readable product name from order data
+function getProductName(order: any): string {
+  if (order.product_summary) return order.product_summary;
+  if (Array.isArray(order.item_details) && order.item_details.length > 0) {
+    return order.item_details
+      .map((item: any) => `${item.item_type || 'Order Item'} (${item.quantity || 1} pcs)`)
+      .join(', ');
+  }
+  return `Order #${order.id}`;
 }
 
 export default function ClientDashboard() {
@@ -64,7 +80,8 @@ function ClientDashboardInner() {
   const [orders, setOrders] = useState<DisplayOrder[]>([]);
   const [stats, setStats] = useState({
     totalOrders: 0,
-    pendingQuote: 0,
+    awaitingPricing: 0,
+    awaitingApproval: 0,
     inProgress: 0,
     completed: 0,
   });
@@ -90,7 +107,7 @@ function ClientDashboardInner() {
 
         const displayOrders: DisplayOrder[] = allOrders.map((o: any) => ({
           id: String(o.id),
-          product: o.upload?.file_name || `Order #${o.id}`,
+          product: getProductName(o),
           status: o.status,
           orderDate: formatDate(o.created_at, i18n.language),
           deliveryDate: formatDate(o.due_date || null, i18n.language),
@@ -99,12 +116,16 @@ function ClientDashboardInner() {
 
         setOrders(displayOrders);
 
-        setStats({
-          totalOrders: displayOrders.length,
-          pendingQuote: allOrders.filter((o: any) => o.status === 'UNPRICED_PENDING').length,
-          inProgress: allOrders.filter((o: any) => o.status === 'IN_PROGRESS').length,
-          completed: allOrders.filter((o: any) => o.status === 'COMPLETED').length,
-        });
+        // Compute stats including awaiting approval and confirmed/in‑progress combination
+        const totalOrders = displayOrders.length;
+        const awaitingPricing = allOrders.filter((o: any) => o.status === 'UNPRICED_PENDING').length;
+        const awaitingApproval = allOrders.filter((o: any) => o.status === 'PRICED_PENDING_CONFIRMATION').length;
+        const inProgress = allOrders.filter((o: any) =>
+          ['CONFIRMED', 'IN_PROGRESS'].includes(o.status)
+        ).length;
+        const completed = allOrders.filter((o: any) => o.status === 'COMPLETED').length;
+
+        setStats({ totalOrders, awaitingPricing, awaitingApproval, inProgress, completed });
       } catch (err) {
         console.error('Failed to load dashboard:', err);
         setError(t('clientDashboard:error'));
@@ -152,9 +173,10 @@ function ClientDashboardInner() {
 
       <section className="grid-4">
         <StatCard label={t('clientDashboard:stats.totalOrders')}  value={stats.totalOrders}  sub={t('clientDashboard:stats.allTime')} />
-        <StatCard label={t('clientDashboard:stats.pendingQuote')} value={stats.pendingQuote} sub={t('clientDashboard:stats.awaitingPricing')} />
-        <StatCard label={t('clientDashboard:stats.inProgress')}   value={stats.inProgress}   sub={t('clientDashboard:stats.inProduction')} />
-        <StatCard label={t('clientDashboard:stats.completed')}    value={stats.completed}    sub={t('clientDashboard:stats.successCompleted')} />
+        <StatCard label={t('clientDashboard:stats.awaitingPricing')} value={stats.awaitingPricing} sub={t('clientDashboard:stats.awaitingPricingSub')} />
+        <StatCard label={t('clientDashboard:stats.awaitingApproval')} value={stats.awaitingApproval} sub={t('clientDashboard:stats.awaitingApprovalSub')} />
+        <StatCard label={t('clientDashboard:stats.inProgress')}   value={stats.inProgress}   sub={t('clientDashboard:stats.inProgressSub')} />
+        <StatCard label={t('clientDashboard:stats.completed')}    value={stats.completed}    sub={t('clientDashboard:stats.completedSub')} />
       </section>
 
       <section className="content">

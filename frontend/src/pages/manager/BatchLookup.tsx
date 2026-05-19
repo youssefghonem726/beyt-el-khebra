@@ -14,6 +14,12 @@ interface Props { role?: 'manager' | 'owner'; }
 interface BackendBatch {
   id: number;
   orderId: number;
+  orderIds?: number[];
+  batchCode?: string;
+  batch_code?: string;
+  clientName?: string;
+  clientNames?: string[];
+  itemCount?: number;
   product: string;
   qty: number;
   progress: number;
@@ -97,10 +103,19 @@ function BatchLookupInner({ role = 'manager' }: Props) {
           const order = orderMap.get(b.orderId);
           const client = order ? clientMap.get(order.customer) : null;
 
+          // Support multiple orders / clients (if provided by backend)
+          const orderIds = b.orderIds?.length ? b.orderIds : [b.orderId];
+          const clientNames = b.clientNames?.length
+            ? b.clientNames
+            : [b.clientName || (client ? client.name : 'Unknown')];
+          const clientName = clientNames.join(', ');
+          const orderStr = orderIds.map((id) => `#${id}`).join(', ');
+          const batchCode = b.batchCode || b.batch_code || `BATCH-${String(b.id).padStart(4, '0')}`;
+
           return {
-            code: String(b.id),
-            order: `#${b.orderId}`,
-            client: client ? client.name : 'Unknown',
+            code: batchCode,
+            order: orderStr,
+            client: clientName,
             status: b.status,
             date: order?.created_at ? formatDateShort(order.created_at, i18n.language) : '—',
             product: b.product,
@@ -198,8 +213,16 @@ function BatchLookupInner({ role = 'manager' }: Props) {
           <button
             className="btn"
             onClick={() => {
-              const header = 'Batch Code,Order,Client,Status,Date';
-              const rows = filtered.map((b) => `${b.code},${b.order},${b.client},${b.status},${b.date}`);
+              const header = 'Batch Code,Orders,Clients,Product,Quantity,Status,Date';
+              const rows = filtered.map((b) => [
+                b.code,
+                b.order,
+                b.client,
+                b.product,
+                b.qty,
+                b.status,
+                b.date,
+              ].map(value => `"${String(value).replace(/"/g, '""')}"`).join(','));
               downloadText('batch-export.csv', [header, ...rows]);
             }}
           >
@@ -213,24 +236,34 @@ function BatchLookupInner({ role = 'manager' }: Props) {
                 <th>{t('batchLookup:table.batchCode')}</th>
                 <th>{t('batchLookup:table.order')}</th>
                 <th>{t('batchLookup:table.clientName')}</th>
+                <th>{t('batchLookup:table.product')}</th>
+                <th>{t('batchLookup:table.qty')}</th>
                 <th>{t('batchLookup:table.status')}</th>
                 <th>{t('batchLookup:table.date')}</th>
                 <th>{t('batchLookup:table.action')}</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0
-                ? <tr><td colSpan={6} className="no-results">{t('batchLookup:noResults')}</td></tr>
-                : filtered.map((b) => (
+              {filtered.length === 0 ? (
+                <tr><td colSpan={8} className="no-results">{t('batchLookup:noResults')}</td></tr>
+              ) : (
+                filtered.map((b) => (
                   <tr key={b.code}>
                     <td>{b.code}</td>
                     <td>{b.order}</td>
                     <td>{b.client}</td>
+                    <td>{b.product}</td>
+                    <td>{b.qty}</td>
                     <td><StatusBadge status={b.status} /></td>
                     <td>{b.date}</td>
-                    <td><button className="btn" onClick={() => setSelected(b)}>{t('batchLookup:table.view')}</button></td>
+                    <td>
+                      <button className="btn" onClick={() => setSelected(b)}>
+                        {t('batchLookup:table.view')}
+                      </button>
+                    </td>
                   </tr>
-                ))}
+                ))
+              )}
             </tbody>
           </table>
         </div>

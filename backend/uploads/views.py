@@ -46,7 +46,14 @@ def is_owner_or_staff(user):
     return user.role in ("owner", "staff")
 
 
-def format_document(file_record, owner_type="client"):
+def absolute_file_url(request, url):
+    if request and url and url.startswith("/"):
+        return request.build_absolute_uri(url)
+
+    return url
+
+
+def format_document(file_record, owner_type="client", request=None):
     file_name = file_record.file_name or f"Document #{file_record.id}"
     extension = ""
 
@@ -61,10 +68,14 @@ def format_document(file_record, owner_type="client"):
         "fileName": file_name,
         "type": document_type,
         "sizeKB": 0,
+        "fileSize": file_record.file_size,
         "uploadedDate": file_record.created_at.strftime("%d %b %Y") if file_record.created_at else "",
         "reorderCount": file_record.reorder_count or 0,
         "ownerType": owner_type,
         "ownerId": str(file_record.owner_id_id) if file_record.owner_id_id else None,
+        "orderId": file_record.order_id,
+        "orderItemId": file_record.order_item_id,
+        "url": absolute_file_url(request, file_record.url),
     }
 
 
@@ -103,7 +114,7 @@ def documents_list(request):
 
     return success_response(
         message="Documents fetched successfully",
-        data=[format_document(file_record, owner_type or "client") for file_record in files],
+        data=[format_document(file_record, owner_type or "client", request=request) for file_record in files],
         status_code=status.HTTP_200_OK
     )
 
@@ -118,7 +129,7 @@ def uploads_list_create(request):
 
     if request.method == "GET":
         files = File.objects.filter(uploaded_by=user).order_by("-created_at")
-        serializer = FileSerializer(files, many=True)
+        serializer = FileSerializer(files, many=True, context={"request": request})
 
         return success_response(
             message="Files fetched successfully",
@@ -159,10 +170,13 @@ def uploads_list_create(request):
             ContentFile(uploaded_file.read())
         )
         file_url = default_storage.url(file_path)
+        file_url = absolute_file_url(request, file_url)
 
         # Additional optional fields from request
         file_name = request.data.get("file_name", uploaded_file.name)
         mime_type = uploaded_file.content_type or None
+        order_id = request.data.get("order_id") or None
+        order_item_id = request.data.get("order_item_id") or None
 
         file_record = File.objects.create(
             url=file_url,
@@ -170,11 +184,14 @@ def uploads_list_create(request):
             uploaded_by=user,
             file_name=file_name,
             mime_type=mime_type,
+            file_size=uploaded_file.size,
+            order_id=order_id,
+            order_item_id=order_item_id,
             owner_id=user,           # Set owner to the uploading user
             reorder_count=0,
         )
 
-        serializer = FileSerializer(file_record)
+        serializer = FileSerializer(file_record, context={"request": request})
 
         return success_response(
             message="File uploaded successfully",
@@ -200,7 +217,7 @@ def upload_detail(request, file_id):
         )
 
     if request.method == "GET":
-        serializer = FileSerializer(file_record)
+        serializer = FileSerializer(file_record, context={"request": request})
         return success_response(
             message="File fetched successfully",
             data=serializer.data,
@@ -219,6 +236,8 @@ def upload_detail(request, file_id):
         # Allow renaming and updating mime_type
         new_name = request.data.get("file_name")
         new_mime = request.data.get("mime_type")
+        order_id = request.data.get("order_id")
+        order_item_id = request.data.get("order_item_id")
 
         updated_fields = []
         if new_name is not None:
@@ -227,11 +246,17 @@ def upload_detail(request, file_id):
         if new_mime is not None:
             file_record.mime_type = new_mime
             updated_fields.append("mime_type")
+        if order_id is not None:
+            file_record.order_id = order_id or None
+            updated_fields.append("order")
+        if order_item_id is not None:
+            file_record.order_item_id = order_item_id or None
+            updated_fields.append("order_item")
 
         if updated_fields:
             file_record.save(update_fields=updated_fields)
 
-        serializer = FileSerializer(file_record)
+        serializer = FileSerializer(file_record, context={"request": request})
         return success_response(
             message="File updated successfully",
             data=serializer.data,

@@ -3,8 +3,14 @@ import { useTranslation } from 'react-i18next';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import { useNavigation } from '../../context/NavigationContext';
-import { getNotifications } from '../../lib/api/notificationsService';
-import type { Notification as BackendNotification } from '../../lib/api/notificationsService';
+import {
+  getNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+  clearReadNotifications,
+  deleteNotification,
+  type Notification as BackendNotification,
+} from '../../lib/api/notificationsService';
 
 interface DisplayNotification {
   id: number;
@@ -78,6 +84,16 @@ function formatTime(iso: string, lang: string): string {
   });
 }
 
+function actionPath(page: string): string {
+  if (!page || page === '/') return '/client';
+  if (page.startsWith('/')) return page;
+  if (page === 'quotes' || page === 'quote-detail') return '/client/quotes';
+  if (page === 'client-invoices' || page === 'invoice-detail') return '/client/invoices';
+  if (page === 'my-orders') return '/client/orders';
+  if (page === 'client-notifications') return '/client/notifications';
+  return `/client/${page}`;
+}
+
 export default function ClientNotifications() {
   return (
     <Suspense fallback={null}>
@@ -91,6 +107,7 @@ function ClientNotificationsInner() {
   const { navigateTopLevel } = useNavigation();
   const [notifications, setNotifications] = useState<DisplayNotification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [savingBulkAction, setSavingBulkAction] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -99,17 +116,19 @@ function ClientNotificationsInner() {
         const res = await getNotifications();
         const backendNotifs: BackendNotification[] = res.data.data;
 
-        setNotifications(backendNotifs.map((n) => ({
-          id: n.id,
-          title: n.title,
-          time: formatTime(n.created_at, i18n.language),
-          body: n.body,
-          unread: n.unread,
-          action: {
-            label: n.action_label || '',
-            page: n.action_page || '/',
-          },
-        })));
+        setNotifications(
+          backendNotifs.map((n) => ({
+            id: n.id,
+            title: n.title,
+            time: formatTime(n.created_at, i18n.language),
+            body: n.body,
+            unread: n.unread,
+            action: {
+              label: n.action_label || '',
+              page: n.action_page || '/',
+            },
+          }))
+        );
       } catch (err: any) {
         if (
           err?.response?.status === 404 ||
@@ -128,8 +147,62 @@ function ClientNotificationsInner() {
     fetchNotifications();
   }, []);
 
-  const dismiss = (id: number) =>
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  const openNotification = async (notification: DisplayNotification) => {
+    try {
+      if (notification.unread) {
+        await markNotificationRead(notification.id);
+        setNotifications((prev) =>
+          prev.map((item) =>
+            item.id === notification.id ? { ...item, unread: false } : item
+          )
+        );
+      }
+    } catch (err) {
+      console.error('Failed to mark notification read:', err);
+    }
+
+    navigateTopLevel(actionPath(notification.action.page));
+  };
+
+  const dismiss = async (id: number) => {
+    try {
+      await deleteNotification(id);
+      setNotifications((prev) => prev.filter((notification) => notification.id !== id));
+    } catch (err) {
+      console.error('Failed to dismiss notification:', err);
+      setError(t('clientNotifications:dismissError'));
+    }
+  };
+
+  const markAllRead = async () => {
+    try {
+      setSavingBulkAction(true);
+      await markAllNotificationsRead();
+      setNotifications((prev) =>
+        prev.map((notification) => ({ ...notification, unread: false }))
+      );
+      setError(null);
+    } catch (err) {
+      console.error('Failed to mark notifications read:', err);
+      setError(t('clientNotifications:markAllReadError'));
+    } finally {
+      setSavingBulkAction(false);
+    }
+  };
+
+  const clearRead = async () => {
+    try {
+      setSavingBulkAction(true);
+      await clearReadNotifications();
+      setNotifications((prev) => prev.filter((notification) => notification.unread));
+      setError(null);
+    } catch (err) {
+      console.error('Failed to clear read notifications:', err);
+      setError(t('clientNotifications:clearReadError'));
+    } finally {
+      setSavingBulkAction(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -140,18 +213,52 @@ function ClientNotificationsInner() {
     );
   }
 
-  if (error) {
-    return (
-      <AppShell role="client" activePage="client-notifications">
-        <Topbar title={t('clientNotifications:title')} />
-        <div className="error-state">{error}</div>
-      </AppShell>
-    );
-  }
-
   return (
     <AppShell role="client" activePage="client-notifications">
       <Topbar title={t('clientNotifications:title')} />
+
+      {error && (
+        <div className="box" style={{ background: '#fff0f0', color: '#c0392b', marginBottom: 12 }}>
+          {error}
+        </div>
+      )}
+
+      <div
+        className="table-head"
+        style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}
+      >
+        <div>
+          <strong>{notifications.filter((n) => n.unread).length}</strong>{' '}
+          {t('clientNotifications:unread')}
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button
+            className="btn btn-sm"
+            type="button"
+            onClick={markAllRead}
+            disabled={
+              savingBulkAction ||
+              notifications.every((n) => !n.unread)
+            }
+          >
+            {savingBulkAction
+              ? t('clientNotifications:saving')
+              : t('clientNotifications:markAllRead')}
+          </button>
+          <button
+            className="btn btn-sm btn-outline"
+            type="button"
+            onClick={clearRead}
+            disabled={
+              savingBulkAction ||
+              notifications.every((n) => n.unread)
+            }
+          >
+            {t('clientNotifications:clearRead')}
+          </button>
+        </div>
+      </div>
+
       <section className="stack notifications-stack">
         {notifications.length === 0 && (
           <div className="box" style={{ textAlign: 'center', color: 'var(--muted)', padding: 48 }}>
@@ -160,7 +267,10 @@ function ClientNotificationsInner() {
         )}
         {notifications.map((n) => (
           <article key={n.id} className={`box notification-card${n.unread ? ' unread' : ''}`}>
-            <div className="notification-header" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+            <div
+              className="notification-header"
+              style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}
+            >
               <h3>{translateTitle(n.title, t)}</h3>
               <span className="timestamp" style={{ color: 'var(--muted)', fontSize: 13 }}>
                 {n.time}
@@ -168,14 +278,12 @@ function ClientNotificationsInner() {
             </div>
             <p>{translateBody(n.body, t)}</p>
             <div className="notification-actions" style={{ marginTop: 10, display: 'flex', gap: 8 }}>
-              {n.action.label && (
-                <button
-                  className={`btn btn-sm${n.unread ? ' primary' : ''}`}
-                  onClick={() => navigateTopLevel(n.action.page)}
-                >
-                  {translateActionLabel(n.action.label, t)}
-                </button>
-              )}
+              <button
+                className={`btn btn-sm${n.unread ? ' primary' : ''}`}
+                onClick={() => openNotification(n)}
+              >
+                {translateActionLabel(n.action.label || t('clientNotifications:view'), t)}
+              </button>
               <button className="btn btn-sm btn-outline" onClick={() => dismiss(n.id)}>
                 {t('clientNotifications:dismiss')}
               </button>

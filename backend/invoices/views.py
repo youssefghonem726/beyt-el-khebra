@@ -43,12 +43,14 @@ def invoice_list(request):
     # Role-based filtering
     if user.role == 'owner' or user.role == 'staff':
         invoices = Invoice.objects.select_related("order", "client").prefetch_related(
-            "order__order_items"
+            "order__order_items",
+            "order__quotes__items",
         ).all().order_by("-created_at")
     else:
         # Clients see only their own invoices
         invoices = Invoice.objects.select_related("order", "client").prefetch_related(
-            "order__order_items"
+            "order__order_items",
+            "order__quotes__items",
         ).filter(client=user).order_by("-created_at")
 
     serializer = InvoiceSerializer(invoices, many=True)
@@ -82,7 +84,8 @@ def accounting_overview(request):
     unpaid_orders = billable_orders.exclude(payment_status="paid").count()
 
     invoices = Invoice.objects.select_related("order", "client").prefetch_related(
-        "order__order_items"
+        "order__order_items",
+        "order__quotes__items",
     ).all().order_by("-created_at")
     invoice_order_ids = set(invoices.exclude(order_id__isnull=True).values_list("order_id", flat=True))
     invoice_candidates = [
@@ -121,6 +124,9 @@ def accounting_overview(request):
     data = {
         "stats": {
             "revenue_snapshot": decimal_to_float(total_paid_amount),
+            "confirmed_order_value": decimal_to_float(total_order_value),
+            "paid_amount": decimal_to_float(total_paid_amount),
+            "cash_collected": decimal_to_float(total_paid_amount),
             "pending_collection": decimal_to_float(total_remaining_amount),
             "paid_orders": paid_orders,
             "partial_paid_orders": partial_paid_orders,
@@ -278,7 +284,8 @@ def invoice_detail(request, invoice_id):
 
     try:
         invoice = Invoice.objects.select_related("order", "client").prefetch_related(
-            "order__order_items"
+            "order__order_items",
+            "order__quotes__items",
         ).get(id=invoice_id)
     except Invoice.DoesNotExist:
         return error_response(
