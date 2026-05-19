@@ -7,6 +7,14 @@ from users.views import get_authenticated_user
 from .models import Setting
 from .serializers import SettingSerializer
 
+DEFAULT_SUPPORT_CONTACT = {
+    "phone": "01206001616",
+    "email": "betelkhebra2@gmail.com",
+    "facebook_url": "https://www.facebook.com/share/18neEjKj21/",
+    "messenger_name": "بيت الخبرة - Bayt El Khebra",
+    "hours": "Contact shop for current working hours",
+}
+
 
 def _require_owner_or_staff(request):
     user, auth_error = get_authenticated_user(request)
@@ -44,8 +52,20 @@ def settings_overview(request):
         data={
             "pricing_roles": settings.get("pricing_roles", {}),
             "whatsapp": settings.get("whatsapp", {}),
+            "support_contact": settings.get("support_contact", DEFAULT_SUPPORT_CONTACT),
         },
     )
+
+
+@api_view(["GET"])
+def support_contact(request):
+    try:
+        setting = Setting.objects.get(key="support_contact")
+        data = {**DEFAULT_SUPPORT_CONTACT, **(setting.value or {})}
+    except Setting.DoesNotExist:
+        data = DEFAULT_SUPPORT_CONTACT
+
+    return success_response("Support contact fetched", data=data)
 
 
 @api_view(["GET"])

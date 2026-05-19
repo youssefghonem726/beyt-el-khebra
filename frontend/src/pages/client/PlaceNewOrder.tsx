@@ -6,7 +6,7 @@ import { useNavigation } from '../../context/NavigationContext';
 import { PdfPreviewPanel } from '../../components/PdfPreviewPanel';
 // Direct service imports – bypasses VITE_USE_MOCK
 import { createOrder } from '../../lib/api/ordersQuotesService';
-import { createUpload, getUploads } from '../../lib/api/uploadsService';  // FIXED: now from uploadsService
+import { createUpload, getUploads, updateUpload } from '../../lib/api/uploadsService';
 
 type OrderType = 'package' | 'single' | null;
 type ItemType = 'book' | 'booklet' | 'card' | 'sticker' | 'poster';
@@ -30,7 +30,7 @@ interface ClientDocument {
   url?: string;
 }
 
-// English labels kept intentionally — these values go to the backend via buildOrderItemNotes
+// English labels kept intentionally — these values go to the backend via buildOrderItemPayload
 const ITEM_TYPES: { id: ItemType; icon: string; labelEn: string }[] = [
   { id: 'book',    labelEn: 'Book',          icon: '📚' },
   { id: 'booklet', labelEn: 'Booklet',       icon: '📖' },
@@ -42,12 +42,80 @@ const ITEM_TYPES: { id: ItemType; icon: string; labelEn: string }[] = [
 const getItemLabelEn = (type: string): string =>
   ITEM_TYPES.find(t => t.id === type)?.labelEn ?? type;
 
-const buildOrderItemNotes = (data: Record<string, any>, extraNotes = ''): string => {
-  const specs = Object.entries(data)
-    .filter(([, value]) => value !== undefined && value !== null && value !== '' && !(value instanceof File))
-    .map(([key, value]) => `${key}: ${String(value)}`);
+const ITEM_DEFAULTS: Record<ItemType, Record<string, string>> = {
+  book: {
+    size: 'A4',
+    colors: 'Color',
+    coverFinish: 'Matte',
+    casing: 'Softcover',
+    printType: 'Front & Back',
+  },
+  booklet: {
+    size: 'A4',
+    weight: '150g',
+    colors: 'Color',
+    casing: 'Staple',
+    printType: 'Front & Back',
+  },
+  card: {
+    size: '6x9 cm',
+    weight: '300g',
+    finish: 'Matte',
+    printType: 'Front & Back',
+  },
+  sticker: {
+    material: 'Vinyl',
+    shape: 'Rectangle',
+    finish: 'Glossy',
+  },
+  poster: {
+    size: 'A3',
+    weight: '200g',
+    finish: 'Matte',
+    printType: 'Front',
+  },
+};
 
-  return [...specs, extraNotes.trim()].filter(Boolean).join('\n');
+const cleanValue = (value: unknown) =>
+  value === undefined || value === null || value === '' ? null : value;
+
+const cleanText = (value: unknown): string | null => {
+  const cleaned = cleanValue(value);
+  return cleaned === null ? null : String(cleaned);
+};
+
+const toPositiveNumber = (value: unknown, fallback = 1) => {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) && numberValue > 0 ? numberValue : fallback;
+};
+
+// Note: Fixed `getItemLabel` → `getItemLabelEn` for proper item_type
+const buildOrderItemPayload = (
+  itemType: ItemType,
+  data: Record<string, any>,
+  extraNotes = '',
+  fileId: number | null = null,
+  coverFileId: number | null = null
+) => {
+  const dataWithDefaults = { ...ITEM_DEFAULTS[itemType], ...data };
+
+  return {
+    item_type: getItemLabelEn(itemType),  // <- fixed
+    quantity: toPositiveNumber(dataWithDefaults.qty),
+    notes: extraNotes.trim() || cleanText(dataWithDefaults.notes),
+    page_count: cleanText(dataWithDefaults.pageCount),
+    size: cleanText(dataWithDefaults.size),
+    paper: cleanText(dataWithDefaults.weight),
+    material: cleanText(dataWithDefaults.material),
+    color_mode: cleanText(dataWithDefaults.colors),
+    cover: cleanText(dataWithDefaults.coverFinish),
+    binding: cleanText(dataWithDefaults.casing),
+    finish: cleanText(dataWithDefaults.finish),
+    shape: cleanText(dataWithDefaults.shape),
+    print_type: cleanText(dataWithDefaults.printType),
+    file_id: fileId,
+    cover_file_id: coverFileId,
+  };
 };
 
 function docTypeColor(type: string): string {
@@ -229,6 +297,10 @@ function ItemEditor({
         <label className="field-label">{t('itemEditor.quantity')}</label>
         <input className="input" type="number" min={1} placeholder={t('itemEditor.qtyPlaceholder')} value={d.qty ?? ''} onChange={e => set('qty', e.target.value)} />
       </div>
+      <div className="field mb-4">
+        <label className="field-label">Page Count</label>
+        <input className="input" type="number" min={1} placeholder="If applicable" value={d.pageCount ?? ''} onChange={e => set('pageCount', e.target.value)} />
+      </div>
 
       {item.type === 'book' && (
         <>
@@ -340,7 +412,7 @@ function PlaceNewOrderInner() {
           name: u.file_name || u.url.split('/').pop() || 'File',
           fileName: u.url.split('/').pop() || 'File',
           type: (u.url.split('.').pop() ?? 'PDF').toUpperCase(),
-          sizeKB: 0,
+          sizeKB: u.file_size ? Math.round(u.file_size / 1024) : 0,
           uploadedDate: '',
           reorderCount: u.reorder_count ?? 0,
           ownerType: 'client' as const,
@@ -409,6 +481,30 @@ function PlaceNewOrderInner() {
       setLocalCoverFile(null);
     }
   }, [localCoverUrl]);
+
+  const uploadFileIfNeeded = async (file: unknown, fileType: string): Promise<number | null> => {
+    if (!(file instanceof File)) return null;
+    const uploadRes = await createUpload({ file, file_type: fileType });
+    return uploadRes.data.data.id;
+  };
+
+  const linkUploadedFiles = async (
+    orderId: number,
+    itemDetails: Array<{ id: number }>,
+    payloadItems: Array<{ file_id?: number | null; cover_file_id?: number | null }>
+  ) => {
+    await Promise.all(payloadItems.flatMap((item, index) => {
+      const orderItemId = itemDetails[index]?.id;
+      const updates = [];
+      if (item.file_id) {
+        updates.push(updateUpload(item.file_id, { order_id: orderId, order_item_id: orderItemId || null }));
+      }
+      if (item.cover_file_id) {
+        updates.push(updateUpload(item.cover_file_id, { order_id: orderId, order_item_id: orderItemId || null }));
+      }
+      return updates;
+    }));
+  };
 
   if (submitted) {
     return (
@@ -570,16 +666,30 @@ function PlaceNewOrderInner() {
                   setError(null);
                   try {
                     const totalQty = items.reduce((sum, i) => sum + (Number(i.data.qty) || 1), 0);
-                    await createOrder({
+                    const payloadItems = await Promise.all(items.map(async (item, index) => {
+                      const uploadedFileId = await uploadFileIfNeeded(item.data.pdf, 'content');
+                      const uploadedCoverId = await uploadFileIfNeeded(item.data.cover, 'cover');
+                      const libraryFileId = index === 0 && selectedDoc ? Number(selectedDoc.id) : null;
+                      return buildOrderItemPayload(
+                        item.type,
+                        item.data,
+                        notes,
+                        uploadedFileId || libraryFileId,
+                        uploadedCoverId
+                      );
+                    }));
+
+                    const orderRes = await createOrder({
                       status: 'UNPRICED_PENDING',
                       quantity: totalQty || 1,
                       total_price: 0,
-                      order_items: items.map(item => ({
-                        item_type: getItemLabelEn(item.type),
-                        quantity: Number(item.data.qty) || 1,
-                        notes: buildOrderItemNotes(item.data, notes),
-                      })),
+                      order_items: payloadItems,
                     });
+                    await linkUploadedFiles(
+                      orderRes.data.data.id,
+                      orderRes.data.data.item_details || [],
+                      payloadItems
+                    );
                     setSubmitted(true);
                   } catch {
                     setError(t('placeNewOrder:errors.submitFailed'));
@@ -667,6 +777,11 @@ function PlaceNewOrderInner() {
                       <label className="field-label">{t('placeNewOrder:itemEditor.quantity')}</label>
                       <input className="input" type="number" min={1} placeholder={t('placeNewOrder:itemEditor.qtyPlaceholderSingle')}
                         value={singleData.qty ?? ''} onChange={e => setSingleData(d => ({ ...d, qty: e.target.value }))} />
+                    </div>
+                    <div className="field mb-4">
+                      <label className="field-label">Page Count</label>
+                      <input className="input" type="number" min={1} placeholder="If applicable"
+                        value={singleData.pageCount ?? ''} onChange={e => setSingleData(d => ({ ...d, pageCount: e.target.value }))} />
                     </div>
 
                     {singleType === 'book' && (
@@ -799,25 +914,30 @@ function PlaceNewOrderInner() {
                   setSubmitting(true);
                   setError(null);
                   try {
-                    if (singleData.pdf instanceof File) {
-                      await createUpload({ file: singleData.pdf, file_type: 'content' });
-                    }
-                    if (singleData.cover instanceof File) {
-                      await createUpload({ file: singleData.cover, file_type: 'cover' });
-                    }
+                    const uploadedFileId = await uploadFileIfNeeded(singleData.pdf, 'content');
+                    const uploadedCoverId = await uploadFileIfNeeded(singleData.cover, 'cover');
+                    const libraryFileId = selectedDoc ? Number(selectedDoc.id) : null;
                     const qty = Number(singleData.qty) || 1;
-                    await createOrder({
+                    const payloadItems = [
+                      buildOrderItemPayload(
+                        singleType as ItemType,
+                        singleData,
+                        notes,
+                        uploadedFileId || libraryFileId,
+                        uploadedCoverId
+                      ),
+                    ];
+                    const orderRes = await createOrder({
                       status: 'UNPRICED_PENDING',
                       quantity: qty,
                       total_price: 0,
-                      order_items: [
-                        {
-                          item_type: getItemLabelEn(singleType),
-                          quantity: qty,
-                          notes: buildOrderItemNotes(singleData, notes),
-                        },
-                      ],
+                      order_items: payloadItems,
                     });
+                    await linkUploadedFiles(
+                      orderRes.data.data.id,
+                      orderRes.data.data.item_details || [],
+                      payloadItems
+                    );
                     setSubmitted(true);
                   } catch {
                     setError(t('placeNewOrder:errors.submitFailed'));

@@ -6,7 +6,8 @@ import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
 import { getBatches } from '../../lib/api/batchesService';
 import { getOrders } from '../../lib/api/ordersQuotesService';
-import { getClients } from '../../lib/api/invoicesClientsSettingsService';
+import { createDelivery } from '../../lib/api/deliveriesService';
+import type { Order } from '../../lib/api/types';
 
 interface Props { role?: 'manager' | 'owner'; }
 
@@ -24,19 +25,13 @@ interface BackendBatch {
   notes?: string;
 }
 
-interface BackendOrder {
-  id: number;
-  customer: number;
-  created_at?: string;
-}
-
-interface Stage {
+interface StageView {
   stage: string;
   status: string;
   updated: string;
 }
 
-interface JobInfo {
+interface BatchInfo {
   client: string;
   batch: string;
   product: string;
@@ -49,26 +44,61 @@ interface JobInfo {
   notes: string;
 }
 
-interface Job {
-  id: string;
-  done: number;
-  total: number;
-  stages: Stage[];
-  info: JobInfo;
+interface OrderView {
+  id: number;
+  client: string;
+  product: string;
+  completedAt: string;
+  handoff: 'delivery' | 'pickup';
+  deliveryStatus?: string;
+  deliveryId?: number;
+  hasBatch: boolean;
+  batch?: BackendBatch;        // loaded if available
+  stages?: StageView[];        // from batch
+  info?: BatchInfo;            // detailed batch info
 }
 
+// Helpers – keep locale-aware formatting
 function formatDate(isoDate: string | null, lang: string): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
 }
 
 function formatDateTime(isoDate: string | null, lang: string): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function clientName(order: Order): string {
+  return order.customer_name || order.customer_email || `Client #${order.customer}`;
+}
+
+// Delivery form state
+interface DeliveryFormState {
+  address: string;
+  phone: string;
+  scheduled_date: string;
+  driver: string;
+  company: string;
+  notes: string;
+}
+
+function todayInputDate(): string {
+  return new Date().toISOString().slice(0, 10);
 }
 
 export default function CompletedJobs({ role = 'manager' }: Props) {
@@ -81,76 +111,199 @@ export default function CompletedJobs({ role = 'manager' }: Props) {
 
 function CompletedJobsInner({ role = 'manager' }: Props) {
   const { t, i18n } = useTranslation(['common', 'completedJobs']);
-  const [jobs, setJobs] = useState<Job[]>([]);
+  const lang = i18n.language;
+
+  const [orders, setOrders] = useState<OrderView[]>([]);
   const [loading, setLoading] = useState(true);
+  const [savingOrderId, setSavingOrderId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Delivery creation
+  const [deliveryOrder, setDeliveryOrder] = useState<OrderView | null>(null);
+  const [deliveryForm, setDeliveryForm] = useState<DeliveryFormState>({
+    address: '',
+    phone: '',
+    scheduled_date: todayInputDate(),
+    driver: '',
+    company: '',
+    notes: '',
+  });
+
+  // Detail modal for selected order
+  const [selectedOrder, setSelectedOrder] = useState<OrderView | null>(null);
+
+  // Load completed orders and merge with batches
   useEffect(() => {
-    const fetchData = async () => {
+    const load = async () => {
       try {
-        const [batchesRes, ordersRes, clientsRes] = await Promise.all([
-          getBatches(),
-          getOrders(),
-          getClients(),
+        const [ordersRes, batchesRes] = await Promise.all([
+          getOrders({ status: 'COMPLETED' }),
+          getBatches().catch(() => ({ data: { data: [] } })),
         ]);
 
-        const batchesRaw: BackendBatch[] = batchesRes.data.data;
-        const orders: BackendOrder[] = ordersRes.data.data;
-        const clients = clientsRes.data.data.results;
+        const ordersRaw: Order[] = ordersRes.data.data;
+        const batches: BackendBatch[] = batchesRes.data.data || [];
 
-        const orderMap = new Map(orders.map((o) => [o.id, o]));
-        const clientMap = new Map(clients.map((c: any) => [c.id, c]));
+        const orderViews: OrderView[] = ordersRaw.map(order => {
+          const delivery = order.delivery_info;
+          const batch = batches.find(b => Number(b.orderId) === order.id) || undefined;
+          const handoff = delivery ? 'delivery' : 'pickup';
+          const completedAt = formatDate(order.completed_at || order.updated_at || null, lang);
+          const stages: StageView[] = batch
+            ? (batch.stages || []).map(s => ({
+                stage: s.stage,
+                status: s.status,
+                updated: s.updatedAt ? formatDateTime(s.updatedAt, lang) : '—',
+              }))
+            : [];
 
-        const completedBatches = batchesRaw.filter((b) => b.status === 'completed');
-
-        const jobList: Job[] = completedBatches.map((batch) => {
-          const order = orderMap.get(batch.orderId);
-          const client = order ? clientMap.get(order.customer) : null;
-          const completion = batch.deadline
-            ? formatDate(batch.deadline, i18n.language)
-            : order?.created_at ? formatDate(order.created_at, i18n.language) : '—';
-
-          const stages: Stage[] = (batch.stages || []).map((s) => ({
-            stage: s.stage,
-            status: s.status,
-            updated: s.updatedAt ? formatDateTime(s.updatedAt, i18n.language) : '—',
-          }));
-
-          return {
-            id: String(batch.id),
-            done: batch.progress,
-            total: batch.qty,
-            stages,
-            info: {
-              client: client ? client.name : 'Unknown',
+          let info: BatchInfo | undefined;
+          if (batch) {
+            const client = clientName(order);
+            const deadline = batch.deadline ? formatDate(batch.deadline, lang) : '—';
+            info = {
+              client,
               batch: String(batch.id),
               product: batch.product,
               qty: batch.qty,
               status: 'completed',
               priority: batch.priority,
-              deadline: batch.deadline ? formatDate(batch.deadline, i18n.language) : '—',
+              deadline,
               team: batch.assignedTo || 'Unassigned',
-              completion,
+              completion: formatDate(order.completed_at || order.updated_at || null, lang),
               notes: batch.notes || '—',
-            },
+            };
+          }
+
+          return {
+            id: order.id,
+            client: clientName(order),
+            product: order.product_summary || `Order #${order.id}`,
+            completedAt,
+            handoff,
+            deliveryStatus: delivery?.status,
+            deliveryId: delivery?.id,
+            hasBatch: !!batch,
+            batch,
+            stages,
+            info,
           };
         });
 
-        setJobs(jobList);
+        setOrders(orderViews);
       } catch (err: any) {
-        if (err?.response?.status === 404) {
-          setJobs([]);
-        } else {
-          console.error('Failed to load completed jobs:', err);
-          setError(t('completedJobs:error'));
-        }
+        console.error('Failed to load completed orders:', err);
+        setError(t('completedJobs:error'));
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
+    load();
   }, []);
+
+  // Refresh orders after delivery creation
+  const refreshOrders = async () => {
+    const response = await getOrders({ status: 'COMPLETED' });
+    const ordersRaw: Order[] = response.data.data;
+    const batches: BackendBatch[] = (await getBatches().catch(() => ({ data: { data: [] } }))).data.data || [];
+    setOrders(ordersRaw.map(order => {
+      const delivery = order.delivery_info;
+      const batch = batches.find(b => Number(b.orderId) === order.id) || undefined;
+      const handoff = delivery ? 'delivery' : 'pickup';
+      const completedAt = formatDate(order.completed_at || order.updated_at || null, lang);
+      const stages: StageView[] = batch
+        ? (batch.stages || []).map(s => ({
+            stage: s.stage,
+            status: s.status,
+            updated: s.updatedAt ? formatDateTime(s.updatedAt, lang) : '—',
+          }))
+        : [];
+
+      let info: BatchInfo | undefined;
+      if (batch) {
+        const client = clientName(order);
+        const deadline = batch.deadline ? formatDate(batch.deadline, lang) : '—';
+        info = {
+          client,
+          batch: String(batch.id),
+          product: batch.product,
+          qty: batch.qty,
+          status: 'completed',
+          priority: batch.priority,
+          deadline,
+          team: batch.assignedTo || 'Unassigned',
+          completion: formatDate(order.completed_at || order.updated_at || null, lang),
+          notes: batch.notes || '—',
+        };
+      }
+
+      return {
+        id: order.id,
+        client: clientName(order),
+        product: order.product_summary || `Order #${order.id}`,
+        completedAt,
+        handoff,
+        deliveryStatus: delivery?.status,
+        deliveryId: delivery?.id,
+        hasBatch: !!batch,
+        batch,
+        stages,
+        info,
+      };
+    }));
+  };
+
+  const openDeliveryForm = (orderView: OrderView) => {
+    setDeliveryOrder(orderView);
+    setDeliveryForm({
+      address: '',
+      phone: '',
+      scheduled_date: todayInputDate(),
+      driver: '',
+      company: '',
+      notes: '',
+    });
+    setError(null);
+  };
+
+  const handleCreateDelivery = async () => {
+    if (!deliveryOrder) return;
+
+    if (!deliveryForm.address.trim()) {
+      setError(t('completedJobs:delivery.addressRequired'));
+      return;
+    }
+    if (!deliveryForm.phone.trim()) {
+      setError(t('completedJobs:delivery.phoneRequired'));
+      return;
+    }
+    if (!deliveryForm.scheduled_date) {
+      setError(t('completedJobs:delivery.dateRequired'));
+      return;
+    }
+
+    setSavingOrderId(deliveryOrder.id);
+    setError(null);
+    try {
+      await createDelivery({
+        order_id: deliveryOrder.id,
+        address: deliveryForm.address.trim(),
+        phone: deliveryForm.phone.trim(),
+        scheduled_date: deliveryForm.scheduled_date,
+        driver: deliveryForm.driver.trim(),
+        company: deliveryForm.company.trim(),
+        notes: deliveryForm.notes.trim(),
+      });
+      setDeliveryOrder(null);
+      await refreshOrders();
+    } catch (err) {
+      console.error('Failed to create delivery:', err);
+      setError(t('completedJobs:delivery.error'));
+    } finally {
+      setSavingOrderId(null);
+    }
+  };
 
   const activePage = role === 'owner' ? 'owner-dashboard' : 'completed-jobs';
 
@@ -163,67 +316,253 @@ function CompletedJobsInner({ role = 'manager' }: Props) {
     );
   }
 
-  if (error) {
-    return (
-      <AppShell role={role} activePage={activePage}>
-        <Topbar title={t('completedJobs:title')} />
-        <div className="error-state">{error}</div>
-      </AppShell>
-    );
-  }
-
   return (
     <AppShell role={role} activePage={activePage}>
       <Topbar title={t('completedJobs:title')} />
-      {jobs.length === 0 && (
-        <p style={{ color: 'var(--muted)', textAlign: 'center', padding: 40 }}>{t('completedJobs:empty')}</p>
+
+      {error && (
+        <div className="box" style={{ background: '#fff0f0', color: '#c0392b', marginBottom: 12 }}>
+          {error}
+        </div>
       )}
-      {jobs.map((j) => (
-        <section key={j.id} className="split" style={{ marginBottom: 14 }}>
-          <article className="box">
-            <h3>{t('completedJobs:progress.title', { id: j.id })}</h3>
-            <p><strong>{j.done} / {j.total}</strong> {t('completedJobs:progress.completed')} (100%)</p>
-            <ProgressBar percent={100} style={{ margin: '8px 0 14px' }} />
-            <table className="orders-table" style={{ width: '100%' }}>
-              <thead>
+
+      <section className="table-wrap">
+        <div className="table-head">
+          <h3>{t('completedJobs:list.title')}</h3>
+          <p className="muted">{t('completedJobs:list.subtitle')}</p>
+        </div>
+
+        <div className="table-responsive">
+          <table className="orders-table">
+            <thead>
+              <tr>
+                <th>{t('completedJobs:table.order')}</th>
+                <th>{t('completedJobs:table.client')}</th>
+                <th>{t('completedJobs:table.product')}</th>
+                <th>{t('completedJobs:table.completedAt')}</th>
+                <th>{t('completedJobs:table.handoff')}</th>
+                <th>{t('completedJobs:table.action')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {orders.length === 0 ? (
                 <tr>
-                  <th>{t('completedJobs:progress.table.stage')}</th>
-                  <th>{t('completedJobs:progress.table.status')}</th>
-                  <th>{t('completedJobs:progress.table.updatedAt')}</th>
+                  <td colSpan={6} className="no-results">
+                    {t('completedJobs:empty')}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {j.stages.length === 0 ? (
-                  <tr><td colSpan={3} style={{ textAlign: 'center', color: 'var(--muted)' }}>{t('completedJobs:progress.table.noStages')}</td></tr>
-                ) : (
-                  j.stages.map((s) => (
-                    <tr key={s.stage}>
-                      <td>{s.stage}</td>
-                      <td><StatusBadge status={s.status} /></td>
-                      <td>{s.updated}</td>
+              ) : (
+                orders.map((order) => {
+                  const delivery = order.deliveryStatus ? { id: order.deliveryId, status: order.deliveryStatus } : undefined;
+                  return (
+                    <tr key={order.id}>
+                      <td>#{order.id}</td>
+                      <td>{order.client}</td>
+                      <td>{order.product}</td>
+                      <td>{order.completedAt}</td>
+                      <td>
+                        {delivery ? (
+                          <StatusBadge status={delivery.status} />
+                        ) : (
+                          <StatusBadge status="pickup_ready" />
+                        )}
+                      </td>
+                      <td style={{ display: 'flex', gap: 8 }}>
+                        {order.hasBatch && (
+                          <button
+                            className="btn"
+                            onClick={() => setSelectedOrder(order)}
+                          >
+                            {t('completedJobs:actions.details')}
+                          </button>
+                        )}
+                        {delivery ? (
+                          <span className="muted">
+                            {t('completedJobs:delivery.created', { id: delivery.id })}
+                          </span>
+                        ) : (
+                          <button
+                            className="btn primary"
+                            disabled={savingOrderId === order.id}
+                            onClick={() => openDeliveryForm(order)}
+                          >
+                            {t('completedJobs:actions.createDelivery')}
+                          </button>
+                        )}
+                      </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </article>
-          <aside className="box">
-            <h3>{t('completedJobs:info.title')}</h3>
-            <ul style={{ listStyle: 'none', paddingLeft: 0 }}>
-              <li><strong>{t('completedJobs:info.client')}:</strong> {j.info.client}</li>
-              <li><strong>{t('completedJobs:info.batch')}:</strong> {j.info.batch}</li>
-              <li><strong>{t('completedJobs:info.product')}:</strong> {j.info.product}</li>
-              <li><strong>{t('completedJobs:info.quantity')}:</strong> {j.info.qty}</li>
-              <li><strong>{t('completedJobs:info.status')}:</strong> {j.info.status}</li>
-              <li><strong>{t('completedJobs:info.priority')}:</strong> {j.info.priority}</li>
-              <li><strong>{t('completedJobs:info.deadline')}:</strong> {j.info.deadline}</li>
-              <li><strong>{t('completedJobs:info.assignedTo')}:</strong> {j.info.team}</li>
-              <li><strong>{t('completedJobs:info.completionDate')}:</strong> {j.info.completion}</li>
-              <li><strong>{t('completedJobs:info.notes')}:</strong> {j.info.notes}</li>
-            </ul>
-          </aside>
-        </section>
-      ))}
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* Delivery creation modal */}
+      {deliveryOrder && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0, 0, 0, 0.35)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 18,
+        }}>
+          <div className="box" style={{ width: '100%', maxWidth: 620 }}>
+            <div className="table-head" style={{ marginBottom: 12 }}>
+              <div>
+                <h3>{t('completedJobs:delivery.modal.title')}</h3>
+                <p className="muted">
+                  {t('completedJobs:delivery.modal.order', { id: deliveryOrder.id, client: deliveryOrder.client })}
+                </p>
+              </div>
+              <button className="btn" onClick={() => setDeliveryOrder(null)}>
+                {t('completedJobs:modal.close')}
+              </button>
+            </div>
+
+            <div className="form-grid-2">
+              <div className="field">
+                <label>{t('completedJobs:delivery.form.address')}</label>
+                <input
+                  className="input"
+                  value={deliveryForm.address}
+                  onChange={e => setDeliveryForm(f => ({ ...f, address: e.target.value }))}
+                  placeholder={t('completedJobs:delivery.form.addressPlaceholder')}
+                />
+              </div>
+              <div className="field">
+                <label>{t('completedJobs:delivery.form.phone')}</label>
+                <input
+                  className="input"
+                  value={deliveryForm.phone}
+                  onChange={e => setDeliveryForm(f => ({ ...f, phone: e.target.value }))}
+                  placeholder={t('completedJobs:delivery.form.phonePlaceholder')}
+                />
+              </div>
+              <div className="field">
+                <label>{t('completedJobs:delivery.form.date')}</label>
+                <input
+                  className="input"
+                  type="date"
+                  value={deliveryForm.scheduled_date}
+                  onChange={e => setDeliveryForm(f => ({ ...f, scheduled_date: e.target.value }))}
+                />
+              </div>
+              <div className="field">
+                <label>{t('completedJobs:delivery.form.driver')}</label>
+                <input
+                  className="input"
+                  value={deliveryForm.driver}
+                  onChange={e => setDeliveryForm(f => ({ ...f, driver: e.target.value }))}
+                  placeholder={t('completedJobs:delivery.form.driverPlaceholder')}
+                />
+              </div>
+              <div className="field">
+                <label>{t('completedJobs:delivery.form.company')}</label>
+                <input
+                  className="input"
+                  value={deliveryForm.company}
+                  onChange={e => setDeliveryForm(f => ({ ...f, company: e.target.value }))}
+                  placeholder={t('completedJobs:delivery.form.companyPlaceholder')}
+                />
+              </div>
+              <div className="field" style={{ gridColumn: '1 / -1' }}>
+                <label>{t('completedJobs:delivery.form.notes')}</label>
+                <textarea
+                  className="input"
+                  rows={3}
+                  value={deliveryForm.notes}
+                  onChange={e => setDeliveryForm(f => ({ ...f, notes: e.target.value }))}
+                  placeholder={t('completedJobs:delivery.form.notesPlaceholder')}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+              <button className="btn" onClick={() => setDeliveryOrder(null)}>
+                {t('completedJobs:modal.cancel')}
+              </button>
+              <button
+                className="btn primary"
+                disabled={savingOrderId === deliveryOrder.id}
+                onClick={handleCreateDelivery}
+              >
+                {savingOrderId === deliveryOrder.id
+                  ? t('completedJobs:delivery.saving')
+                  : t('completedJobs:delivery.create')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Batch/order detail modal */}
+      {selectedOrder && selectedOrder.info && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.55)',
+            display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '32px 16px', overflowY: 'auto',
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) setSelectedOrder(null); }}
+        >
+          <div style={{ background: 'var(--surface, #fff)', borderRadius: 12, width: '100%', maxWidth: 660, boxShadow: '0 25px 50px rgba(0,0,0,0.35)', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 1 }}>
+              <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>
+                {t('completedJobs:detail.title', { id: selectedOrder.id })}
+              </h2>
+              <button onClick={() => setSelectedOrder(null)} style={{ padding: '5px 14px', background: '#2f3640', color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+                {t('completedJobs:modal.close')}
+              </button>
+            </div>
+            <div style={{ padding: 20 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                <p className="muted" style={{ fontSize: 13 }}>
+                  {t('completedJobs:detail.order', { id: selectedOrder.id })} · {selectedOrder.completedAt}
+                </p>
+                <StatusBadge status="completed" />
+              </div>
+
+              <h4 style={{ marginBottom: 8 }}>{t('completedJobs:detail.info')}</h4>
+              <div className="form-grid-2" style={{ fontSize: 13, gap: 6, marginBottom: 14 }}>
+                <p><strong>{t('completedJobs:detail.client')}:</strong> {selectedOrder.info.client}</p>
+                <p><strong>{t('completedJobs:detail.batch')}:</strong> {selectedOrder.info.batch}</p>
+                <p><strong>{t('completedJobs:detail.product')}:</strong> {selectedOrder.info.product}</p>
+                <p><strong>{t('completedJobs:detail.quantity')}:</strong> {selectedOrder.info.qty}</p>
+                <p><strong>{t('completedJobs:detail.status')}:</strong> {t('common:status.completed')}</p>
+                <p><strong>{t('completedJobs:detail.priority')}:</strong> {selectedOrder.info.priority}</p>
+                <p><strong>{t('completedJobs:detail.deadline')}:</strong> {selectedOrder.info.deadline}</p>
+                <p><strong>{t('completedJobs:detail.assignedTo')}:</strong> {selectedOrder.info.team}</p>
+                <p><strong>{t('completedJobs:detail.completionDate')}:</strong> {selectedOrder.info.completion}</p>
+                <p><strong>{t('completedJobs:detail.notes')}:</strong> {selectedOrder.info.notes}</p>
+              </div>
+
+              <div className="line" />
+
+              <h4 style={{ margin: '12px 0 8px' }}>{t('completedJobs:detail.stages')}</h4>
+              {selectedOrder.stages && selectedOrder.stages.length > 0 ? (
+                <table style={{ marginBottom: 14 }}>
+                  <thead>
+                    <tr>
+                      <th>{t('completedJobs:detail.stage')}</th>
+                      <th>{t('completedJobs:detail.status')}</th>
+                      <th>{t('completedJobs:detail.updatedAt')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedOrder.stages.map(s => (
+                      <tr key={s.stage}>
+                        <td>{s.stage}</td>
+                        <td><StatusBadge status={s.status} /></td>
+                        <td>{s.updated}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="muted">{t('completedJobs:detail.noStages')}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }

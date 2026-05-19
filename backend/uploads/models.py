@@ -25,6 +25,23 @@ class File(models.Model):
         db_column='owner_id'
     )
     mime_type = models.TextField(null=True, blank=True)
+    file_size = models.BigIntegerField(null=True, blank=True)
+    order = models.ForeignKey(
+        'orders.Order',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='files',
+        db_column='order_id'
+    )
+    order_item = models.ForeignKey(
+        'orders.OrderItem',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='files',
+        db_column='order_item_id'
+    )
 
     class Meta:
         db_table = 'files'   

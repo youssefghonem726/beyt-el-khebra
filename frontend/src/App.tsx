@@ -41,6 +41,7 @@ import DeliveryList from "./pages/manager/DeliveryList";
 import DeliveryViewMore from "./pages/manager/DeliveryViewMore";
 import EditOrder from "./pages/manager/EditOrder";
 import ManagerOrderDetails from "./pages/manager/ManagerOrderDetails";
+import ManagerNotifications from "./pages/manager/ManagerNotifications";
 import ManagerOrders from "./pages/manager/ManagerOrders";
 import OrderWorkView from "./pages/manager/OrderWorkView";
 
@@ -139,12 +140,14 @@ export default function App() {
             <Route path="/manager/jobs" element={<Page><ActiveJobs /></Page>} />
             <Route path="/manager/batch-lookup" element={<Page><BatchLookup /></Page>} />
             <Route path="/manager/completed" element={<Page><CompletedJobs /></Page>} />
+            <Route path="/manager/completed-jobs" element={<Page><CompletedJobs /></Page>} />
             <Route path="/manager/deliveries" element={<Page><DeliveryList /></Page>} />
             <Route path="/manager/deliveries/:id" element={<Page><DeliveryViewMore /></Page>} />
             <Route path="/manager/orders/edit/:id" element={<Page><EditOrder /></Page>} />
             <Route path="/manager/orders/:id" element={<Page><ManagerOrderDetails /></Page>} />
             <Route path="/manager/orders" element={<Page><ManagerOrders /></Page>} />
             <Route path="/manager/work-view" element={<Page><OrderWorkView /></Page>} />
+            <Route path="/manager/notifications" element={<Page><ManagerNotifications /></Page>} />
           </Route>
 
           {/* OWNER — owner only */}

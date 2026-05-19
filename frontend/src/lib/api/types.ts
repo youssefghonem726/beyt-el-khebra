@@ -32,6 +32,7 @@ export interface UserProfile {
   last_name: string
   email: string
   phone?: string | null
+  address?: string | null
   role: UserRole
   is_active: boolean
   created_at?: string | null
@@ -81,21 +82,61 @@ export interface Order {
   id: number
   status: OrderStatus
   quantity: number
-  total_price: number
+  total_price: number | null
   customer: number
   customer_name?: string
   customer_email?: string
+  customer_phone?: string | null
+  customer_address?: string | null
   customer_id?: number
   clientId?: string
   product_summary?: string
+  batch_code?: string | null
   item_details?: Array<{
     id: number
     item_type: string
     quantity: number
     notes?: string | null
     current_step?: string | null
+    due_date?: string | null
+    unit_price?: number | string | null
+    total_price?: number | string | null
+    page_count?: number | string | null
+    pages?: number | string | null
+    size?: string | null
+    paper?: string | null
+    material?: string | null
+    color_mode?: string | null
+    cover?: string | number | null
+    binding?: string | null
+    coil?: string | null
+    finish?: string | null
+    shape?: string | null
+    print_type?: string | null
+    file?: { id: number; file_name?: string | null; url?: string | null; file_size?: number | null } | null
+    cover_file?: { id: number; file_name?: string | null; url?: string | null; file_size?: number | null } | null
   }>
   item_count?: number
+  production_progress?: number
+  delivery_info?: {
+    id: number
+    status: string
+    progress: number
+    scheduledDate?: string | null
+    deliveredAt?: string | null
+    address?: string | null
+    driver?: string | null
+    company?: string | null
+    phone?: string | null
+    notes?: string | null
+  } | null
+  status_history?: Array<{
+    id: number
+    old_status?: string | null
+    new_status: string
+    notes?: string | null
+    created_at: string
+  }>
   approved_by: number | null
   upload?: { file_name?: string; url?: string }
   created_at: string
@@ -105,6 +146,7 @@ export interface Order {
   deliveryDate?: string | null
   orderDate?: string | null
   payment_method?: string | null
+  payment_status?: string | null
   paid_amount: number | null
   invoice_id?: string
   notes?: string | null
@@ -128,6 +170,19 @@ export interface CreateOrderPayload {
     item_type: string
     quantity: number
     notes?: string | null
+    page_count?: number | string | null
+    size?: string | null
+    paper?: string | null
+    material?: string | null
+    color_mode?: string | null
+    cover?: string | null
+    binding?: string | null
+    coil?: string | null
+    finish?: string | null
+    shape?: string | null
+    print_type?: string | null
+    file_id?: number | null
+    cover_file_id?: number | null
   }>
 }
 

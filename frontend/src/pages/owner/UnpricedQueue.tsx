@@ -3,9 +3,16 @@ import { useTranslation } from 'react-i18next';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatCard from '../../components/StatCard';
-import { getUnpricedQueue, submitQuoteForOrder, updateOrder } from '../../lib/api/ordersQuotesService';
+import {
+  getUnpricedQueue,
+  submitQuoteForOrder,
+  updateOrder,
+} from '../../lib/api/ordersQuotesService';
 import { getClients } from '../../lib/api/invoicesClientsSettingsService';
-import { getDefaultPricing, type PricingRow } from '../../lib/api/pricingService';
+import {
+  getDefaultPricing,
+  type PricingRow,
+} from '../../lib/api/pricingService';
 
 type PricingKey = Exclude<keyof PricingRow, 'id' | 'created_at' | 'user' | 'source'>;
 
@@ -45,6 +52,11 @@ interface UnpricedItem {
   cover?: string | null;
   binding?: string | null;
   coil?: string | null;
+  finish?: string | null;
+  shape?: string | null;
+  print_type?: string | null;
+  file?: { id: number; file_name?: string | null; url?: string | null } | null;
+  cover_file?: { id: number; file_name?: string | null; url?: string | null } | null;
 }
 
 interface UnpricedJob {
@@ -68,11 +80,25 @@ interface PricingState {
   notes: string;
 }
 
+const apiOrigin = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000')
+  .replace(/\/api\/?$/, '')
+  .replace(/\/$/, '');
+
+const resolveFileUrl = (url?: string | null): string => {
+  if (!url) return '';
+  if (/^https?:\/\//i.test(url)) return url;
+  return `${apiOrigin}${url.startsWith('/') ? url : `/${url}`}`;
+};
+
 function formatDate(isoDate: string | null, lang: string, fallback: string): string {
   if (!isoDate) return fallback;
   const d = new Date(isoDate);
   if (Number.isNaN(d.getTime())) return fallback;
-  return d.toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
 }
 
 function getShortOrderId(id: number | string): string {
@@ -90,6 +116,13 @@ function showValue(value: unknown, fallback: string): string {
 }
 
 function getUploadedFileLabel(order: any): string | null {
+  if (Array.isArray(order.item_details)) {
+    const names = order.item_details
+      .flatMap((item: any) => [item.file, item.cover_file])
+      .filter(Boolean)
+      .map((file: any) => file.file_name || file.url?.split('/').pop() || `File #${file.id}`);
+    if (names.length) return names.join(', ');
+  }
   if (order.upload?.file_name) return order.upload.file_name;
   if (order.upload?.name) return order.upload.name;
   if (order.file?.file_name) return order.file.file_name;
@@ -112,7 +145,11 @@ function UnpricedQueueInner() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pricingId, setPricingId] = useState<string | null>(null);
-  const [pricing, setPricing] = useState<PricingState>({ unitPrice: '', vatRate: '14', notes: '' });
+  const [pricing, setPricing] = useState<PricingState>({
+    unitPrice: '',
+    vatRate: '14',
+    notes: '',
+  });
   const [selectedPricingKey, setSelectedPricingKey] = useState<string>('');
   const [customPriceMode, setCustomPriceMode] = useState(false);
   const [pricingTable, setPricingTable] = useState<PricingRow | null>(null);
@@ -132,15 +169,21 @@ function UnpricedQueueInner() {
 
       const orders = ordersRes.data.data;
       const clients = clientsRes.data.data.results;
-      const clientsMap = new Map(clients.map((c: any) => {
-        const name = `${c.first_name ?? ''} ${c.last_name ?? ''}`.trim() || c.name || c.email;
-        return [String(c.id), { name, email: c.email ?? '' }];
-      }));
+      const clientsMap = new Map(
+        clients.map((c: any) => {
+          const name =
+            `${c.first_name ?? ''} ${c.last_name ?? ''}`.trim() || c.name || c.email;
+          return [String(c.id), { name, email: c.email ?? '' }];
+        })
+      );
 
       const jobList: UnpricedJob[] = orders.map((order: any) => {
         const items = Array.isArray(order.item_details) ? order.item_details : [];
         const qty = items.length
-          ? items.reduce((sum: number, item: any) => sum + (Number(item.quantity) || 1), 0)
+          ? items.reduce(
+              (sum: number, item: any) => sum + (Number(item.quantity) || 1),
+              0
+            )
           : order.quantity ?? order.item_count ?? 0;
         const deadlineIso = order.due_date ?? null;
         const mappedClient = clientsMap.get(String(order.customer));
@@ -154,7 +197,10 @@ function UnpricedQueueInner() {
           id: String(order.id),
           displayId: getShortOrderId(order.id),
           client: clientName,
-          clientEmail: order.customer_email || mappedClient?.email || t('unpricedQueue:notProvided'),
+          clientEmail:
+            order.customer_email ||
+            mappedClient?.email ||
+            t('unpricedQueue:notProvided'),
           product: getProductFallback(order),
           items: items.map((item: any) => ({
             id: item.id,
@@ -171,9 +217,18 @@ function UnpricedQueueInner() {
             cover: item.cover ?? null,
             binding: item.binding ?? null,
             coil: item.coil ?? null,
+            finish: item.finish ?? null,
+            shape: item.shape ?? null,
+            print_type: item.print_type ?? null,
+            file: item.file ?? null,
+            cover_file: item.cover_file ?? null,
           })),
           qty,
-          deadline: formatDate(deadlineIso, i18n.language, t('unpricedQueue:notProvided')),
+          deadline: formatDate(
+            deadlineIso,
+            i18n.language,
+            t('unpricedQueue:notProvided')
+          ),
           dueDate: deadlineIso,
           createdAt: order.created_at ?? null,
           notes: order.notes ?? null,
@@ -202,7 +257,9 @@ function UnpricedQueueInner() {
   };
 
   const cancelOrder = async (job: UnpricedJob) => {
-    const confirmed = window.confirm(t('unpricedQueue:cancelConfirm', { id: job.displayId }));
+    const confirmed = window.confirm(
+      t('unpricedQueue:cancelConfirm', { id: job.displayId })
+    );
     if (!confirmed) return;
 
     setCancellingId(job.id);
@@ -274,7 +331,10 @@ function UnpricedQueueInner() {
   };
 
   const fmt = (n: number) =>
-    n.toLocaleString(i18n.language === 'ar' ? 'ar-EG' : 'en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    n.toLocaleString(
+      i18n.language === 'ar' ? 'ar-EG' : 'en-EG',
+      { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+    );
 
   const now = new Date();
   const dueSoon = jobs.filter((job) => {
@@ -292,7 +352,10 @@ function UnpricedQueueInner() {
         if (!job.createdAt) return sum;
         const createdAt = new Date(job.createdAt);
         if (Number.isNaN(createdAt.getTime())) return sum;
-        return sum + Math.max(0, (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
+        return (
+          sum +
+          Math.max(0, (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24))
+        );
       }, 0) / jobs.length
     : 0;
 
@@ -300,14 +363,30 @@ function UnpricedQueueInner() {
     <AppShell role="owner" activePage="unpriced-queue">
       <Topbar title={t('unpricedQueue:title')} />
       <section className="grid-4" style={{ marginBottom: 14 }}>
-        <StatCard label={t('unpricedQueue:stats.totalUnpriced')} value={jobs.length} sub={t('unpricedQueue:stats.totalSub')} />
-        <StatCard label={t('unpricedQueue:stats.dueSoon')} value={dueSoon} sub={t('unpricedQueue:stats.dueSoonSub')} />
+        <StatCard
+          label={t('unpricedQueue:stats.totalUnpriced')}
+          value={jobs.length}
+          sub={t('unpricedQueue:stats.totalSub')}
+        />
+        <StatCard
+          label={t('unpricedQueue:stats.dueSoon')}
+          value={dueSoon}
+          sub={t('unpricedQueue:stats.dueSoonSub')}
+        />
         <StatCard
           label={t('unpricedQueue:stats.overdue')}
           value={overdue}
-          sub={overdue === 0 ? t('unpricedQueue:stats.overdueNone') : t('unpricedQueue:stats.overdueSome')}
+          sub={
+            overdue === 0
+              ? t('unpricedQueue:stats.overdueNone')
+              : t('unpricedQueue:stats.overdueSome')
+          }
         />
-        <StatCard label={t('unpricedQueue:stats.avgProcessing')} value={`${averageProcessingDays.toFixed(1)}d`} sub={t('unpricedQueue:stats.avgSub')} />
+        <StatCard
+          label={t('unpricedQueue:stats.avgProcessing')}
+          value={`${averageProcessingDays.toFixed(1)}d`}
+          sub={t('unpricedQueue:stats.avgSub')}
+        />
       </section>
       {children}
     </AppShell>
@@ -323,7 +402,9 @@ function UnpricedQueueInner() {
       </div>
 
       {jobs.length === 0 && (
-        <p className="muted" style={{ padding: '20px 0' }}>{t('unpricedQueue:table.empty')}</p>
+        <p className="muted" style={{ padding: '20px 0' }}>
+          {t('unpricedQueue:table.empty')}
+        </p>
       )}
 
       <div className="stack">
@@ -331,16 +412,25 @@ function UnpricedQueueInner() {
           const isOpen = pricingId === j.id;
           return (
             <article key={j.id} className="card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-start',
+                  marginBottom: 8,
+                }}
+              >
                 <h4>{j.displayId}</h4>
-                <span style={{
-                  fontSize: 12,
-                  padding: '2px 8px',
-                  borderRadius: 6,
-                  background: '#fef3cd',
-                  color: '#856404',
-                  fontWeight: 600,
-                }}>
+                <span
+                  style={{
+                    fontSize: 12,
+                    padding: '2px 8px',
+                    borderRadius: 6,
+                    background: '#fef3cd',
+                    color: '#856404',
+                    fontWeight: 600,
+                  }}
+                >
                   {t('unpricedQueue:job.badge')}
                 </span>
               </div>
@@ -351,62 +441,113 @@ function UnpricedQueueInner() {
                 <p style={{ marginBottom: 2 }}>
                   <strong>{t('unpricedQueue:job.product')}:</strong>{' '}
                   {j.items[0]
-                    ? `${j.items[0].item_type} (${t('unpricedQueue:job.pcs', { count: j.items[0].quantity })})`
+                    ? `${j.items[0].item_type} (${t('unpricedQueue:job.pcs', {
+                        count: j.items[0].quantity,
+                      })})`
                     : j.product}
                 </p>
               ) : (
                 <div style={{ marginBottom: 8 }}>
-                  <p style={{ marginBottom: 4 }}><strong>{t('unpricedQueue:job.products')}:</strong></p>
+                  <p style={{ marginBottom: 4 }}>
+                    <strong>{t('unpricedQueue:job.products')}:</strong>
+                  </p>
                   <ul style={{ margin: '0 0 0 18px', padding: 0 }}>
                     {j.items.map((item) => (
                       <li key={item.id}>
-                        {item.item_type} - {t('unpricedQueue:job.pcs', { count: item.quantity })}
+                        {item.item_type} -{' '}
+                        {t('unpricedQueue:job.pcs', { count: item.quantity })}
                       </li>
                     ))}
                   </ul>
                 </div>
               )}
               <p style={{ marginBottom: 2 }}>
-                <strong>{t('unpricedQueue:job.quantity')}:</strong> {t('unpricedQueue:job.pcs', { count: j.qty })}
+                <strong>{t('unpricedQueue:job.quantity')}:</strong>{' '}
+                {t('unpricedQueue:job.pcs', { count: j.qty })}
               </p>
               <p style={{ marginBottom: 10 }}>
                 <strong>{t('unpricedQueue:job.deadline')}:</strong> {j.deadline}
               </p>
 
               <div className="card-actions">
-                <button className={`btn${isOpen ? ' primary' : ''}`} onClick={() => openPricing(j.id)}>
-                  {isOpen ? t('unpricedQueue:pricing.cancel') : t('unpricedQueue:pricing.priceThisJob')}
+                <button
+                  className={`btn${isOpen ? ' primary' : ''}`}
+                  onClick={() => openPricing(j.id)}
+                >
+                  {isOpen
+                    ? t('unpricedQueue:pricing.cancel')
+                    : t('unpricedQueue:pricing.priceThisJob')}
                 </button>
-                <button className="btn danger" onClick={() => cancelOrder(j)} disabled={cancellingId === j.id || submittingId === j.id}>
-                  {cancellingId === j.id ? t('unpricedQueue:job.cancelling') : t('unpricedQueue:job.cancelOrder')}
+                <button
+                  className="btn danger"
+                  onClick={() => cancelOrder(j)}
+                  disabled={
+                    cancellingId === j.id || submittingId === j.id
+                  }
+                >
+                  {cancellingId === j.id
+                    ? t('unpricedQueue:job.cancelling')
+                    : t('unpricedQueue:job.cancelOrder')}
                 </button>
               </div>
 
               {isOpen && (
-                <div style={{
-                  marginTop: 14,
-                  padding: '16px',
-                  background: 'var(--surface-2, #f8f9fb)',
-                  borderRadius: 8,
-                  border: '1px solid var(--border)',
-                }}>
+                <div
+                  style={{
+                    marginTop: 14,
+                    padding: '16px',
+                    background: 'var(--surface-2, #f8f9fb)',
+                    borderRadius: 8,
+                    border: '1px solid var(--border)',
+                  }}
+                >
                   <h4 style={{ marginBottom: 14, fontSize: 14 }}>
-                    {t('unpricedQueue:pricing.panelTitle', { id: j.displayId })}
+                    {t('unpricedQueue:pricing.panelTitle', {
+                      id: j.displayId,
+                    })}
                   </h4>
 
-                  {/* Order Details Table (from dev) */}
+                  {/* Order Details Table */}
                   <div className="table-responsive" style={{ marginBottom: 14 }}>
                     <table className="orders-table">
                       <tbody>
-                        <tr><th>{t('unpricedQueue:pricing.details.orderId')}</th><td>{j.displayId}</td><th>{t('unpricedQueue:pricing.details.client')}</th><td>{j.client}</td></tr>
-                        <tr><th>{t('unpricedQueue:pricing.details.email')}</th><td>{j.clientEmail}</td><th>{t('unpricedQueue:pricing.details.dueDate')}</th><td>{j.deadline}</td></tr>
-                        <tr><th>{t('unpricedQueue:pricing.details.uploadedFiles')}</th><td>{showValue(j.uploadLabel, t('unpricedQueue:notProvided'))}</td><th>{t('unpricedQueue:pricing.details.orderNotes')}</th><td>{showValue(j.notes, t('unpricedQueue:notProvided'))}</td></tr>
+                        <tr>
+                          <th>{t('unpricedQueue:pricing.details.orderId')}</th>
+                          <td>{j.displayId}</td>
+                          <th>{t('unpricedQueue:pricing.details.client')}</th>
+                          <td>{j.client}</td>
+                        </tr>
+                        <tr>
+                          <th>{t('unpricedQueue:pricing.details.email')}</th>
+                          <td>{j.clientEmail}</td>
+                          <th>{t('unpricedQueue:pricing.details.dueDate')}</th>
+                          <td>{j.deadline}</td>
+                        </tr>
+                        <tr>
+                          <th>
+                            {t('unpricedQueue:pricing.details.uploadedFiles')}
+                          </th>
+                          <td>
+                            {showValue(
+                              j.uploadLabel,
+                              t('unpricedQueue:notProvided')
+                            )}
+                          </td>
+                          <th>
+                            {t('unpricedQueue:pricing.details.orderNotes')}
+                          </th>
+                          <td>
+                            {showValue(j.notes, t('unpricedQueue:notProvided'))}
+                          </td>
+                        </tr>
                       </tbody>
                     </table>
                   </div>
 
-                  {/* Items to Price Table (from dev) */}
-                  <h4 style={{ marginBottom: 10, fontSize: 14 }}>{t('unpricedQueue:pricing.itemsToPrice')}</h4>
+                  {/* Items to Price Table */}
+                  <h4 style={{ marginBottom: 10, fontSize: 14 }}>
+                    {t('unpricedQueue:pricing.itemsToPrice')}
+                  </h4>
                   <div className="table-responsive" style={{ marginBottom: 16 }}>
                     <table className="orders-table">
                       <thead>
@@ -419,27 +560,97 @@ function UnpricedQueueInner() {
                           <th>{t('unpricedQueue:pricing.itemCols.color')}</th>
                           <th>{t('unpricedQueue:pricing.itemCols.cover')}</th>
                           <th>{t('unpricedQueue:pricing.itemCols.bindingCoil')}</th>
+                          <th>{t('unpricedQueue:pricing.itemCols.files')}</th>
                           <th>{t('unpricedQueue:pricing.itemCols.notes')}</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {j.items.length ? j.items.map((item) => (
-                          <tr key={item.id}>
-                            <td>{item.item_type}</td>
-                            <td>{item.quantity}</td>
-                            <td>{showValue(item.page_count ?? item.pages, t('unpricedQueue:pricing.notProvided'))}</td>
-                            <td>{showValue(item.size, t('unpricedQueue:pricing.notProvided'))}</td>
-                            <td>{showValue(item.paper ?? item.material, t('unpricedQueue:pricing.notProvided'))}</td>
-                            <td>{showValue(item.color_mode, t('unpricedQueue:pricing.notProvided'))}</td>
-                            <td>{showValue(item.cover, t('unpricedQueue:pricing.notProvided'))}</td>
-                            <td>{showValue(item.binding ?? item.coil, t('unpricedQueue:pricing.notProvided'))}</td>
-                            <td>{showValue(item.notes, t('unpricedQueue:pricing.notProvided'))}</td>
-                          </tr>
-                        )) : (
+                        {j.items.length ? (
+                          j.items.map((item) => (
+                            <tr key={item.id}>
+                              <td>{item.item_type}</td>
+                              <td>{item.quantity}</td>
+                              <td>
+                                {showValue(
+                                  item.page_count ?? item.pages,
+                                  t('unpricedQueue:pricing.notProvided')
+                                )}
+                              </td>
+                              <td>
+                                {showValue(
+                                  item.size,
+                                  t('unpricedQueue:pricing.notProvided')
+                                )}
+                              </td>
+                              <td>
+                                {showValue(
+                                  item.paper ?? item.material,
+                                  t('unpricedQueue:pricing.notProvided')
+                                )}
+                              </td>
+                              <td>
+                                {showValue(
+                                  item.color_mode,
+                                  t('unpricedQueue:pricing.notProvided')
+                                )}
+                              </td>
+                              <td>
+                                {showValue(
+                                  item.cover ?? item.finish,
+                                  t('unpricedQueue:pricing.notProvided')
+                                )}
+                              </td>
+                              <td>
+                                {showValue(
+                                  item.binding ?? item.coil ?? item.print_type,
+                                  t('unpricedQueue:pricing.notProvided')
+                                )}
+                              </td>
+                              <td>
+                                {[item.file, item.cover_file]
+                                  .filter(Boolean)
+                                  .length ? (
+                                  <div style={{ display: 'grid', gap: 4 }}>
+                                    {[item.file, item.cover_file]
+                                      .filter(Boolean)
+                                      .map((file: any) =>
+                                        file.url ? (
+                                          <a
+                                            key={file.id}
+                                            href={resolveFileUrl(file.url)}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                          >
+                                            {file.file_name ||
+                                              `File #${file.id}`}
+                                          </a>
+                                        ) : (
+                                          <span key={file.id}>
+                                            {file.file_name ||
+                                              `File #${file.id}`}
+                                          </span>
+                                        )
+                                      )}
+                                  </div>
+                                ) : (
+                                  t('unpricedQueue:pricing.notProvided')
+                                )}
+                              </td>
+                              <td>
+                                {showValue(
+                                  item.notes,
+                                  t('unpricedQueue:pricing.notProvided')
+                                )}
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
                           <tr>
                             <td>{j.product}</td>
                             <td>{j.qty || 1}</td>
-                            <td colSpan={7}>{t('unpricedQueue:pricing.notProvided')}</td>
+                            <td colSpan={8}>
+                              {t('unpricedQueue:pricing.notProvided')}
+                            </td>
                           </tr>
                         )}
                       </tbody>
@@ -447,46 +658,69 @@ function UnpricedQueueInner() {
                   </div>
 
                   {/* Set Price Section */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginBottom: 14,
+                    }}
+                  >
                     <h4 style={{ margin: 0, fontSize: 14 }}>
-                      {t('unpricedQueue:pricing.setPrice', { id: j.displayId })}
+                      {t('unpricedQueue:pricing.setPrice', {
+                        id: j.displayId,
+                      })}
                     </h4>
-                    {pricingTable && PRICING_OPTIONS.some(opt => Number(pricingTable[opt.key]) > 0) && (
-                      <button
-                        className={`btn${customPriceMode ? ' primary' : ''}`}
-                        style={{ fontSize: 11, padding: '3px 10px' }}
-                        onClick={() => {
-                          setCustomPriceMode((v) => !v);
-                          setPricing((p) => ({ ...p, unitPrice: '' }));
-                          setSelectedPricingKey('');
-                        }}
-                      >
-                        {t('unpricedQueue:pricing.customPriceBtn')}
-                      </button>
-                    )}
+                    {pricingTable &&
+                      PRICING_OPTIONS.some(
+                        (opt) => Number(pricingTable[opt.key]) > 0
+                      ) && (
+                        <button
+                          className={`btn${customPriceMode ? ' primary' : ''}`}
+                          style={{ fontSize: 11, padding: '3px 10px' }}
+                          onClick={() => {
+                            setCustomPriceMode((v) => !v);
+                            setPricing((p) => ({ ...p, unitPrice: '' }));
+                            setSelectedPricingKey('');
+                          }}
+                        >
+                          {t('unpricedQueue:pricing.customPriceBtn')}
+                        </button>
+                      )}
                   </div>
 
-                  {/* Dropdown mode (default) */}
-                  {!customPriceMode && pricingTable && PRICING_OPTIONS.some(opt => Number(pricingTable[opt.key]) > 0) && (
-                    <div className="field" style={{ margin: '0 0 12px' }}>
-                      <label>{t('unpricedQueue:pricing.priceTableLabel')}</label>
-                      <select
-                        className="input"
-                        value={selectedPricingKey}
-                        onChange={(e) => {
-                          const key = e.target.value as PricingKey;
-                          setSelectedPricingKey(key);
-                          if (key && pricingTable[key] != null) {
-                            setPricing((p) => ({ ...p, unitPrice: String(pricingTable[key]) }));
-                          } else {
-                            setPricing((p) => ({ ...p, unitPrice: '' }));
-                          }
-                        }}
-                      >
-                        <option value="">{t('unpricedQueue:pricing.selectPlaceholder')}</option>
-                        {PRICING_OPTIONS
-                          .filter(opt => Number(pricingTable[opt.key]) > 0)
-                          .map(opt => {
+                  {/* Dropdown mode */}
+                  {!customPriceMode &&
+                    pricingTable &&
+                    PRICING_OPTIONS.some(
+                      (opt) => Number(pricingTable[opt.key]) > 0
+                    ) && (
+                      <div className="field" style={{ margin: '0 0 12px' }}>
+                        <label>
+                          {t('unpricedQueue:pricing.priceTableLabel')}
+                        </label>
+                        <select
+                          className="input"
+                          value={selectedPricingKey}
+                          onChange={(e) => {
+                            const key = e.target.value as PricingKey;
+                            setSelectedPricingKey(key);
+                            if (key && pricingTable[key] != null) {
+                              setPricing((p) => ({
+                                ...p,
+                                unitPrice: String(pricingTable[key]),
+                              }));
+                            } else {
+                              setPricing((p) => ({ ...p, unitPrice: '' }));
+                            }
+                          }}
+                        >
+                          <option value="">
+                            {t('unpricedQueue:pricing.selectPlaceholder')}
+                          </option>
+                          {PRICING_OPTIONS.filter(
+                            (opt) => Number(pricingTable[opt.key]) > 0
+                          ).map((opt) => {
                             const val = Number(pricingTable[opt.key]);
                             return (
                               <option key={opt.key} value={opt.key}>
@@ -494,12 +728,16 @@ function UnpricedQueueInner() {
                               </option>
                             );
                           })}
-                      </select>
-                    </div>
-                  )}
+                        </select>
+                      </div>
+                    )}
 
-                  {/* Custom price input (only when custom mode is active, or no pricing table) */}
-                  {(customPriceMode || !pricingTable || !PRICING_OPTIONS.some(opt => Number(pricingTable[opt.key]) > 0)) && (
+                  {/* Custom price input */}
+                  {(customPriceMode ||
+                    !pricingTable ||
+                    !PRICING_OPTIONS.some(
+                      (opt) => Number(pricingTable[opt.key]) > 0
+                    )) && (
                     <div className="field" style={{ margin: '0 0 12px' }}>
                       <label>{t('unpricedQueue:pricing.unitPrice')}</label>
                       <input
@@ -507,9 +745,16 @@ function UnpricedQueueInner() {
                         type="number"
                         min="0"
                         step="0.01"
-                        placeholder={t('unpricedQueue:pricing.unitPricePlaceholder')}
+                        placeholder={t(
+                          'unpricedQueue:pricing.unitPricePlaceholder'
+                        )}
                         value={pricing.unitPrice}
-                        onChange={(e) => setPricing((p) => ({ ...p, unitPrice: e.target.value }))}
+                        onChange={(e) =>
+                          setPricing((p) => ({
+                            ...p,
+                            unitPrice: e.target.value,
+                          }))
+                        }
                       />
                     </div>
                   )}
@@ -523,30 +768,62 @@ function UnpricedQueueInner() {
                       max="100"
                       placeholder={t('unpricedQueue:pricing.vatPlaceholder')}
                       value={pricing.vatRate}
-                      onChange={(e) => setPricing((p) => ({ ...p, vatRate: e.target.value }))}
+                      onChange={(e) =>
+                        setPricing((p) => ({
+                          ...p,
+                          vatRate: e.target.value,
+                        }))
+                      }
                     />
                   </div>
 
                   {unitPrice > 0 && (
-                    <div style={{
-                      marginBottom: 12,
-                      padding: '10px 14px',
-                      background: '#fff',
-                      borderRadius: 6,
-                      border: '1px solid var(--border)',
-                      fontSize: 13,
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <div
+                      style={{
+                        marginBottom: 12,
+                        padding: '10px 14px',
+                        background: '#fff',
+                        borderRadius: 6,
+                        border: '1px solid var(--border)',
+                        fontSize: 13,
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          marginBottom: 4,
+                        }}
+                      >
                         <span className="muted">
-                          {t('unpricedQueue:pricing.subtotal', { qty: j.qty, price: fmt(unitPrice) })}
+                          {t('unpricedQueue:pricing.subtotal', {
+                            qty: j.qty,
+                            price: fmt(unitPrice),
+                          })}
                         </span>
                         <span>EGP {fmt(getSubtotal(j.qty))}</span>
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                        <span className="muted">{t('unpricedQueue:pricing.vat', { rate: pricing.vatRate })}</span>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          marginBottom: 4,
+                        }}
+                      >
+                        <span className="muted">
+                          {t('unpricedQueue:pricing.vat', {
+                            rate: pricing.vatRate,
+                          })}
+                        </span>
                         <span>EGP {fmt(getVat(j.qty))}</span>
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          fontWeight: 700,
+                        }}
+                      >
                         <span>{t('unpricedQueue:pricing.total')}</span>
                         <span>EGP {fmt(getTotal(j.qty))}</span>
                       </div>
@@ -560,19 +837,32 @@ function UnpricedQueueInner() {
                       style={{ minHeight: 72, resize: 'vertical' }}
                       placeholder={t('unpricedQueue:pricing.notesPlaceholder')}
                       value={pricing.notes}
-                      onChange={(e) => setPricing((p) => ({ ...p, notes: e.target.value }))}
+                      onChange={(e) =>
+                        setPricing((p) => ({ ...p, notes: e.target.value }))
+                      }
                     />
                   </div>
 
                   <div style={{ display: 'flex', gap: 10 }}>
                     <button
                       className="btn primary"
-                      disabled={!pricing.unitPrice || unitPrice <= 0 || submittingId === j.id || cancellingId === j.id}
+                      disabled={
+                        !pricing.unitPrice ||
+                        unitPrice <= 0 ||
+                        submittingId === j.id ||
+                        cancellingId === j.id
+                      }
                       onClick={() => submitPrice(j)}
                     >
-                      {submittingId === j.id ? t('unpricedQueue:pricing.submitting') : t('unpricedQueue:pricing.submit')}
+                      {submittingId === j.id
+                        ? t('unpricedQueue:pricing.submitting')
+                        : t('unpricedQueue:pricing.submit')}
                     </button>
-                    <button className="btn" onClick={() => setPricingId(null)} disabled={submittingId === j.id}>
+                    <button
+                      className="btn"
+                      onClick={() => setPricingId(null)}
+                      disabled={submittingId === j.id}
+                    >
                       {t('unpricedQueue:pricing.cancel')}
                     </button>
                   </div>

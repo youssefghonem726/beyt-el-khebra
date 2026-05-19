@@ -62,7 +62,7 @@ def delivery_ready_orders_for_user(user):
     if not is_owner_or_staff(user):
         orders = orders.filter(customer=user)
 
-    return orders.order_by("-completed_at", "-created_at")
+    return orders.order_by("-completed_at", "-created_at").distinct()
 
 
 @api_view(["GET", "POST"])
@@ -133,7 +133,7 @@ def delivery_list(request):
     delivery = Delivery.objects.create(
         order=order,
         client=order.customer,
-        address=(request.data.get("address") or "Address missing").strip(),
+        address=(request.data.get("address") or order.customer.address or "Address missing").strip(),
         driver=(request.data.get("driver") or "Unassigned").strip(),
         company=(request.data.get("company") or "").strip(),
         phone=(request.data.get("phone") or order.customer.phone or "").strip(),
