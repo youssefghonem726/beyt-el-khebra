@@ -14,7 +14,12 @@ export default function ProfileSettings() {
 
 function ProfileSettingsInner() {
   const { t } = useTranslation(['common', 'profileSettings']);
-  const [info, setInfo] = useState({ name: '', email: '', phone: '' });
+  const [info, setInfo] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    address: '',
+  });
   const [toast, setToast] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -29,6 +34,7 @@ function ProfileSettingsInner() {
           name: [user.first_name, user.last_name].filter(Boolean).join(' ') || user.email,
           email: user.email,
           phone: user.phone || '',
+          address: user.address || '',
         });
       } catch (err) {
         console.error('Failed to load profile:', err);
@@ -59,8 +65,8 @@ function ProfileSettingsInner() {
       await updateMe({
         first_name: firstName,
         last_name: lastName,
-        email: info.email,
         phone: info.phone,
+        address: info.address,
       });
       showToast(t('profileSettings:saveSuccess'));
     } catch (err) {
@@ -102,11 +108,15 @@ function ProfileSettingsInner() {
             </div>
             <div className="field">
               <label>{t('profileSettings:account.email')}</label>
-              <input className="input" type="email" value={info.email} onChange={setField('email')} />
+              <input className="input" type="email" value={info.email} readOnly />
             </div>
             <div className="field">
               <label>{t('profileSettings:account.phone')}</label>
               <input className="input" type="text" value={info.phone} onChange={setField('phone')} />
+            </div>
+            <div className="field" style={{ gridColumn: '1 / -1' }}>
+              <label>{t('profileSettings:account.address')}</label>
+              <input className="input" type="text" value={info.address} onChange={setField('address')} />
             </div>
           </div>
           <button
@@ -127,7 +137,7 @@ function ProfileSettingsInner() {
           <button
             className="btn"
             style={{ marginTop: 10 }}
-            onClick={() => window.open('https://your-supabase-project.supabase.co/auth/v1/recover', '_blank')}
+            onClick={() => showToast('Use Forgot password on the login page, or contact support for help.')}
           >
             {t('profileSettings:security.resetPassword')}
           </button>

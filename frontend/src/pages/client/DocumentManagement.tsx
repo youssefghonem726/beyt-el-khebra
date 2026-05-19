@@ -5,7 +5,6 @@ import Topbar from '../../components/Topbar';
 import StatCard from '../../components/StatCard';
 import TableWrap from '../../components/TableWrap';
 import './DocumentManagement.css';
-import { downloadText } from '../../utils/download';
 import { useNavigation } from '../../context/NavigationContext';
 import { getUploads, createUpload, updateUpload, deleteUpload } from '../../lib/api/uploadsService';
 import type { UploadFile } from '../../lib/api/uploadsService';
@@ -15,7 +14,7 @@ interface DisplayDocument {
   name: string;
   fileName: string;
   type: string;
-  sizeKB: number;
+  sizeKB: number | null;
   uploadedDate: string;
   reorderCount: number;
   ownerType: 'client';
@@ -29,6 +28,16 @@ interface ReorderOptions {
   finish: string;
   size: string;
 }
+
+const apiOrigin = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000')
+  .replace(/\/api\/?$/, '')
+  .replace(/\/$/, '');
+
+const resolveFileUrl = (url?: string | null): string => {
+  if (!url) return '';
+  if (/^https?:\/\//i.test(url)) return url;
+  return `${apiOrigin}${url.startsWith('/') ? url : `/${url}`}`;
+};
 
 export default function DocumentManagement() {
   return (
@@ -71,12 +80,12 @@ function DocumentManagementInner() {
             name: displayName,
             fileName: rawName,
             type: ext || u.file_type || 'Other',
-            sizeKB: 0,
+            sizeKB: u.file_size ? Math.round(u.file_size / 1024) : null,
             uploadedDate: new Date(u.created_at).toISOString().slice(0, 10),
             reorderCount: u.reorder_count ?? 0,
             ownerType: 'client',
             ownerId: String(u.owner_id || u.uploaded_by),
-            fileUrl: u.url,
+            fileUrl: resolveFileUrl(u.url),
             mimeType: u.mime_type || '',
           };
         });
@@ -98,14 +107,17 @@ function DocumentManagementInner() {
     }
   }, [toastMessage]);
 
-  const formatSize = (kb: number): string => (kb > 1024 ? (kb / 1024).toFixed(1) + ' MB' : kb + ' KB');
+  const formatSize = (kb: number | null): string => {
+    if (kb === null || kb === undefined) return 'Unknown';
+    return kb > 1024 ? (kb / 1024).toFixed(1) + ' MB' : kb + ' KB';
+  };
   const showToast = (msg: string) => setToastMessage(msg);
 
   const totalDocuments = documents.length;
   let maxReorder = 0, mostOrderedName = '—', totalReorders = 0, totalStorageKB = 0;
   documents.forEach((doc) => {
     totalReorders += doc.reorderCount;
-    totalStorageKB += doc.sizeKB;
+    totalStorageKB += doc.sizeKB || 0;
     if (doc.reorderCount > maxReorder) { maxReorder = doc.reorderCount; mostOrderedName = doc.name; }
   });
   const mostOrderedDisplay = maxReorder > 0 ? mostOrderedName.substring(0, 18) : '—';
@@ -199,12 +211,12 @@ function DocumentManagementInner() {
         name: displayName,
         fileName,
         type: ext || newUpload.file_type || 'Other',
-        sizeKB: 0,
+        sizeKB: newUpload.file_size ? Math.round(newUpload.file_size / 1024) : Math.round(uploadFile.size / 1024),
         uploadedDate: new Date(newUpload.created_at).toISOString().slice(0, 10),
         reorderCount: newUpload.reorder_count ?? 0,
         ownerType: 'client',
         ownerId: String(newUpload.owner_id || newUpload.uploaded_by),
-        fileUrl: newUpload.url,
+        fileUrl: resolveFileUrl(newUpload.url),
         mimeType: newUpload.mime_type || '',
       };
       setDocuments((prev) => [newDoc, ...prev]);
@@ -317,8 +329,13 @@ function DocumentManagementInner() {
                               {t('documentManagement:actions.reorder')}
                             </button>
                             <button className="btn btn-sm" onClick={() => {
-                              downloadText(`${doc.name}.txt`, [`Document: ${doc.name}`, `File: ${doc.fileName}`, `Type: ${doc.type}`, `Size: ${formatSize(doc.sizeKB)}`, `Uploaded: ${doc.uploadedDate}`, `Re-orders: ${doc.reorderCount}`]);
-                              showToast(t('documentManagement:toast.downloaded', { name: doc.name }));
+                              const url = resolveFileUrl(doc.fileUrl);
+                              if (url) {
+                                window.open(url, '_blank', 'noopener,noreferrer');
+                                showToast(t('documentManagement:toast.downloaded', { name: doc.name }));
+                              } else {
+                                showToast(t('documentManagement:toast.downloadUnavailable'));
+                              }
                             }}>
                               {t('documentManagement:actions.download')}
                             </button>

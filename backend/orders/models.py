@@ -254,6 +254,34 @@ class OrderItem(models.Model):
         blank=True
     )
 
+    page_count = models.IntegerField(null=True, blank=True)
+    size = models.CharField(max_length=100, null=True, blank=True)
+    paper = models.CharField(max_length=100, null=True, blank=True)
+    material = models.CharField(max_length=100, null=True, blank=True)
+    color_mode = models.CharField(max_length=100, null=True, blank=True)
+    cover = models.CharField(max_length=100, null=True, blank=True)
+    binding = models.CharField(max_length=100, null=True, blank=True)
+    coil = models.CharField(max_length=100, null=True, blank=True)
+    finish = models.CharField(max_length=100, null=True, blank=True)
+    shape = models.CharField(max_length=100, null=True, blank=True)
+    print_type = models.CharField(max_length=100, null=True, blank=True)
+    file = models.ForeignKey(
+        File,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='order_item_files',
+        db_column='file_id'
+    )
+    cover_file = models.ForeignKey(
+        File,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='order_item_cover_files',
+        db_column='cover_file_id'
+    )
+
     notes = models.TextField(
         null=True,
         blank=True

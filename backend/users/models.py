@@ -13,6 +13,7 @@ class User(models.Model):
     last_name = models.CharField(max_length=100)
     email = models.CharField(max_length=150)
     phone = models.CharField(max_length=50, blank=True, null=True)
+    address = models.TextField(blank=True, null=True)
     role = models.CharField(max_length=10, choices=ROLE_CHOICES)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)

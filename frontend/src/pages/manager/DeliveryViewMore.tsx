@@ -1,15 +1,25 @@
-import { useState, useEffect, Suspense } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import StatusBadge from '../../components/StatusBadge';
 import { useNavigation } from '../../context/NavigationContext';
-import { getDeliveryById } from '../../lib/api/deliveriesService';
-import type { DeliveryResponse } from '../../lib/api/deliveriesService';
-import { getClients } from '../../lib/api/invoicesClientsSettingsService';
+import {
+  getDeliveryById,
+  updateDelivery,
+  type DeliveryResponse,
+} from '../../lib/api/deliveriesService';
 
-type ActionState = 'delivered' | 'rescheduled' | 'cancelled' | 'address-changed' | null;
-
-function getShortOrderId(orderId: number): string {
-  return `#${orderId}`;
+function formatDate(value?: string | null, lang: string): string {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 export default function DeliveryViewMore() {
@@ -21,60 +31,66 @@ export default function DeliveryViewMore() {
 }
 
 function DeliveryViewMoreInner() {
-  const { t } = useTranslation(['common', 'deliveryViewMore']);
-  const { id: deliveryId = '' } = useParams<{ id: string }>();
+  const { t, i18n } = useTranslation(['common', 'deliveryViewMore']);
+  const { id = '' } = useParams<{ id: string }>();
   const { goBack, canGoBack, navigateTopLevel } = useNavigation();
+  const [delivery, setDelivery] = useState<DeliveryResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [date, setDate] = useState('');
   const [address, setAddress] = useState('');
-  const [action, setAction] = useState<ActionState>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [orderDisplayId, setOrderDisplayId] = useState('');
-  const [clientName, setClientName] = useState('');
+  const [notes, setNotes] = useState('');
+
+  const loadDelivery = async () => {
+    const response = await getDeliveryById(id);
+    const next = response.data.data;
+    setDelivery(next);
+    setDate(next.scheduledDate?.slice(0, 10) || '');
+    setAddress(next.address || '');
+    setNotes(next.notes || '');
+  };
 
   useEffect(() => {
-    if (!deliveryId) {
+    if (!id) {
       setError(t('deliveryViewMore:errors.noId'));
       setLoading(false);
       return;
     }
 
-    const fetchData = async () => {
-      try {
-        const [deliveryRes, clientsRes] = await Promise.all([
-          getDeliveryById(deliveryId),
-          getClients(),
-        ]);
+    loadDelivery()
+      .catch((err) => {
+        console.error('Failed to load delivery:', err);
+        setError(t('deliveryViewMore:errors.loadFailed'));
+      })
+      .finally(() => setLoading(false));
+  }, [id]);
 
-        const delivery: DeliveryResponse = deliveryRes.data.data;
-        const clients = clientsRes.data.data.results;
+  const save = async (payload: Parameters<typeof updateDelivery>[1]) => {
+    if (!delivery) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await updateDelivery(delivery.id, payload);
+      await loadDelivery();
+    } catch (err) {
+      console.error('Failed to update delivery:', err);
+      setError(t('deliveryViewMore:errors.updateFailed'));
+    } finally {
+      setSaving(false);
+    }
+  };
 
-        const client = clients.find((c: any) => Number(c.id) === delivery.clientId);
-        setClientName(client ? client.name : 'Unknown');
-        setOrderDisplayId(getShortOrderId(delivery.orderId));
-      } catch (err: any) {
-        if (err?.response?.status === 404) {
-          setError(t('deliveryViewMore:errors.notFound', { id: deliveryId }));
-        } else {
-          console.error('Failed to load delivery:', err);
-          setError(t('deliveryViewMore:errors.loadFailed'));
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [deliveryId]);
-
-  const confirm = (type: ActionState) => setAction(type);
+  const lang = i18n.language;
 
   if (loading) {
     return (
       <div className="page">
         <main className="track-shell">
           {canGoBack && (
-            <button className="global-back-btn" onClick={goBack}>{t('deliveryViewMore:actions.back')}</button>
+            <button className="global-back-btn" onClick={goBack}>
+              {t('deliveryViewMore:actions.back')}
+            </button>
           )}
           <section className="box center-card">
             <div className="loading-state">{t('deliveryViewMore:loading')}</div>
@@ -84,15 +100,17 @@ function DeliveryViewMoreInner() {
     );
   }
 
-  if (error) {
+  if (error || !delivery) {
     return (
       <div className="page">
         <main className="track-shell">
           {canGoBack && (
-            <button className="global-back-btn" onClick={goBack}>{t('deliveryViewMore:actions.back')}</button>
+            <button className="global-back-btn" onClick={goBack}>
+              {t('deliveryViewMore:actions.back')}
+            </button>
           )}
           <section className="box center-card">
-            <div className="error-state">{error}</div>
+            <div className="error-state">{error || t('deliveryViewMore:errors.notFound')}</div>
           </section>
         </main>
       </div>
@@ -103,69 +121,158 @@ function DeliveryViewMoreInner() {
     <div className="page">
       <main className="track-shell">
         {canGoBack && (
-          <button className="global-back-btn" onClick={goBack}>{t('deliveryViewMore:actions.back')}</button>
+          <button className="global-back-btn" onClick={goBack}>
+            {t('deliveryViewMore:actions.back')}
+          </button>
         )}
         <section className="box center-card">
-          <h2>{t('deliveryViewMore:title', { orderId: orderDisplayId })}</h2>
-          <p className="muted">{t('deliveryViewMore:clientLabel')} {clientName}</p>
-          <p className="muted">{t('deliveryViewMore:description')}</p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+            <div>
+              <h2>
+                {t('deliveryViewMore:title', {
+                  id: delivery.id,
+                  orderId: delivery.orderId,
+                })}
+              </h2>
+              <p className="muted">
+                {t('deliveryViewMore:clientLabel')}{' '}
+                {delivery.clientName || t('deliveryViewMore:unknownClient')}
+              </p>
+            </div>
+            <StatusBadge status={delivery.status} />
+          </div>
+
+          {error && (
+            <div className="box" style={{ background: '#fff0f0', color: '#c0392b', marginTop: 12 }}>
+              {error}
+            </div>
+          )}
+
           <div className="line" />
 
-          {action === 'delivered' && (
-            <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 10, padding: '14px 18px', marginBottom: 16 }}>
-              <strong style={{ color: '#166534' }}>{t('deliveryViewMore:confirmed.delivered.title')}</strong>
-              <p style={{ color: '#15803d', fontSize: 13, marginTop: 4 }}>{t('deliveryViewMore:confirmed.delivered.message', { orderId: orderDisplayId })}</p>
-            </div>
-          )}
-          {action === 'rescheduled' && date && (
-            <div style={{ background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 10, padding: '14px 18px', marginBottom: 16 }}>
-              <strong style={{ color: '#1d4ed8' }}>{t('deliveryViewMore:confirmed.rescheduled.title')}</strong>
-              <p style={{ color: '#1e40af', fontSize: 13, marginTop: 4 }}>{t('deliveryViewMore:confirmed.rescheduled.message', { date })}</p>
-            </div>
-          )}
-          {action === 'cancelled' && (
-            <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 10, padding: '14px 18px', marginBottom: 16 }}>
-              <strong style={{ color: '#991b1b' }}>{t('deliveryViewMore:confirmed.cancelled.title')}</strong>
-              <p style={{ color: '#b91c1c', fontSize: 13, marginTop: 4 }}>{t('deliveryViewMore:confirmed.cancelled.message', { orderId: orderDisplayId })}</p>
-            </div>
-          )}
-          {action === 'address-changed' && address && (
-            <div style={{ background: '#fefce8', border: '1px solid #fde047', borderRadius: 10, padding: '14px 18px', marginBottom: 16 }}>
-              <strong style={{ color: '#854d0e' }}>{t('deliveryViewMore:confirmed.addressChanged.title')}</strong>
-              <p style={{ color: '#92400e', fontSize: 13, marginTop: 4 }}>{t('deliveryViewMore:confirmed.addressChanged.message', { address })}</p>
-            </div>
-          )}
+          <div className="form-grid-2">
+            <p>
+              <strong>{t('deliveryViewMore:detail.address')}:</strong>{' '}
+              {delivery.address || t('deliveryViewMore:detail.addressMissing')}
+            </p>
+            <p>
+              <strong>{t('deliveryViewMore:detail.phone')}:</strong>{' '}
+              {delivery.phone || '—'}
+            </p>
+            <p>
+              <strong>{t('deliveryViewMore:detail.driver')}:</strong>{' '}
+              {delivery.driver || t('deliveryViewMore:detail.unassigned')}
+            </p>
+            <p>
+              <strong>{t('deliveryViewMore:detail.company')}:</strong>{' '}
+              {delivery.company || '—'}
+            </p>
+            <p>
+              <strong>{t('deliveryViewMore:detail.scheduled')}:</strong>{' '}
+              {formatDate(delivery.scheduledDate, lang)}
+            </p>
+            <p>
+              <strong>{t('deliveryViewMore:detail.delivered')}:</strong>{' '}
+              {formatDate(delivery.deliveredAt, lang)}
+            </p>
+            <p style={{ gridColumn: '1 / -1' }}>
+              <strong>{t('deliveryViewMore:detail.notes')}:</strong>{' '}
+              {delivery.notes || '—'}
+            </p>
+          </div>
 
-          {!action && (
-            <div className="stack">
-              <button className="btn primary block" onClick={() => confirm('delivered')}>{t('deliveryViewMore:actions.markDelivered')}</button>
-              <button className="btn block" onClick={() => confirm('rescheduled')}>{t('deliveryViewMore:actions.reschedule')}</button>
-              <button className="btn block" onClick={() => confirm('cancelled')}>{t('deliveryViewMore:actions.cancel')}</button>
-              <button className="btn block" onClick={() => confirm('address-changed')}>{t('deliveryViewMore:actions.changeAddress')}</button>
-            </div>
-          )}
+          <div className="line" />
+          <div className="actions-inline" style={{ flexWrap: 'wrap', gap: 8 }}>
+            <button
+              className="btn primary"
+              disabled={saving || delivery.status === 'delivered'}
+              onClick={() => save({ status: 'delivered' })}
+            >
+              {t('deliveryViewMore:actions.markDelivered')}
+            </button>
+            <button
+              className="btn"
+              disabled={saving}
+              onClick={() => save({ status: 'out_for_delivery' })}
+            >
+              {t('deliveryViewMore:actions.outForDelivery')}
+            </button>
+            <button
+              className="btn"
+              disabled={saving}
+              onClick={() => save({ status: 'delayed' })}
+            >
+              {t('deliveryViewMore:actions.markDelayed')}
+            </button>
+            <button
+              className="btn"
+              disabled={saving}
+              onClick={() => save({ status: 'lost' })}
+            >
+              {t('deliveryViewMore:actions.markLost')}
+            </button>
+          </div>
 
-          {(action === 'rescheduled' || action === 'address-changed') && (
-            <>
-              <div className="line" />
-              {action === 'rescheduled' && (
-                <div className="field">
-                  <label>{t('deliveryViewMore:form.newDate')}</label>
-                  <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-                </div>
-              )}
-              {action === 'address-changed' && (
-                <div className="field">
-                  <label>{t('deliveryViewMore:form.newAddress')}</label>
-                  <textarea className="textarea" placeholder={t('deliveryViewMore:form.addressPlaceholder')} value={address} onChange={(e) => setAddress(e.target.value)} />
-                </div>
-              )}
-            </>
-          )}
+          <div className="line" />
+          <div className="form-grid-2">
+            <div className="field">
+              <label>{t('deliveryViewMore:form.scheduledDate')}</label>
+              <input
+                className="input"
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+              />
+              <button
+                className="btn"
+                disabled={saving || !date}
+                onClick={() => save({ scheduled_date: date })}
+                style={{ marginTop: 6 }}
+              >
+                {t('deliveryViewMore:form.saveDate')}
+              </button>
+            </div>
+            <div className="field">
+              <label>{t('deliveryViewMore:form.address')}</label>
+              <textarea
+                className="textarea"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+              />
+              <button
+                className="btn"
+                disabled={saving || !address.trim()}
+                onClick={() => save({ address: address.trim() })}
+                style={{ marginTop: 6 }}
+              >
+                {t('deliveryViewMore:form.saveAddress')}
+              </button>
+            </div>
+            <div className="field" style={{ gridColumn: '1 / -1' }}>
+              <label>{t('deliveryViewMore:form.notes')}</label>
+              <textarea
+                className="textarea"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+              <button
+                className="btn"
+                disabled={saving}
+                onClick={() => save({ notes: notes.trim() })}
+                style={{ marginTop: 6 }}
+              >
+                {t('deliveryViewMore:form.saveNotes')}
+              </button>
+            </div>
+          </div>
 
           <div className="actions-inline" style={{ marginTop: 16 }}>
-            <button className="btn" onClick={() => { setAction(null); setDate(''); setAddress(''); }}>{t('deliveryViewMore:actions.reset')}</button>
-            <button className="btn primary" onClick={() => navigateTopLevel('delivery-list')}>{t('deliveryViewMore:actions.done')}</button>
+            <button
+              className="btn primary"
+              onClick={() => navigateTopLevel('delivery-list')}
+            >
+              {t('deliveryViewMore:actions.done')}
+            </button>
           </div>
         </section>
       </main>

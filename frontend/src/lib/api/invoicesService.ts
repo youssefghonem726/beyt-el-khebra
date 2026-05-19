@@ -8,6 +8,9 @@ import type { ApiSuccess } from './types';
 export const getInvoices = () =>
   api.get<ApiSuccess<any[]>>('/api/invoices/');
 
+export const getInvoiceById = (invoiceId: number | string) =>
+  api.get<ApiSuccess<any>>(`/api/invoices/${invoiceId}/`);
+
 export const getAccountingOverview = () =>
   api.get<ApiSuccess<any>>('/api/invoices/accounting/');
 

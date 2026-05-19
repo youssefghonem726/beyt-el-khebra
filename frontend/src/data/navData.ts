@@ -25,6 +25,7 @@ export const NAVS: Record<Role, NavItem[]> = {
     { labelKey: 'workView',       page: 'order-work-view', path: '/manager/work-view' },
     { labelKey: 'batchLookup',    page: 'batch-lookup',    path: '/manager/batch-lookup' },
     { labelKey: 'delivery',       page: 'delivery-list',   path: '/manager/deliveries' },
+    { label: 'Notifications',  page: 'manager-notifications', path: '/manager/notifications' },
   ],
   client: [
     { labelKey: 'dashboard',       page: 'client-dashboard',     path: '/client' },
@@ -55,6 +56,7 @@ export const PAGE_TO_PATH: Record<string, string> = Object.values(NAVS)
     'delivery-view-more':   '/manager/deliveries',
     'edit-order':           '/manager/orders',
     'manager-order-details':'/manager/orders',
+    'manager-notifications':'/manager/notifications',
     // client extras
     'client-order-detail':  '/client/orders',
     'invoice-detail':       '/client/invoices',

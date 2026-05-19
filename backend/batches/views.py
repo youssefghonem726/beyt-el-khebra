@@ -1,3 +1,4 @@
+from django.db.models import Q
 from rest_framework.decorators import api_view
 from core.responses import success_response, error_response
 from .models import Batch
@@ -18,6 +19,30 @@ def batch_list(request):
         # Clients see batches only for their own orders
         batches = Batch.objects.filter(order__customer=user)
 
+    query = (request.GET.get("q") or "").strip()
+    if query:
+        numeric_query = query.replace("#", "")
+        q_filter = (
+            Q(product__icontains=query)
+            | Q(status__icontains=query)
+            | Q(order_items__order__customer__first_name__icontains=query)
+            | Q(order_items__order__customer__last_name__icontains=query)
+            | Q(order_items__order__customer__email__icontains=query)
+            | Q(order_items__item_type__icontains=query)
+            | Q(order__customer__first_name__icontains=query)
+            | Q(order__customer__last_name__icontains=query)
+            | Q(order__customer__email__icontains=query)
+        )
+        if numeric_query.isdigit():
+            q_filter |= Q(id=int(numeric_query)) | Q(order_id=int(numeric_query)) | Q(order_items__order_id=int(numeric_query))
+        batches = batches.filter(q_filter)
+
+    batches = batches.select_related("order", "order__customer").prefetch_related(
+        "stages",
+        "order_items",
+        "order_items__order",
+        "order_items__order__customer",
+    ).order_by("-created_at", "-id").distinct()
     serializer = BatchSerializer(batches, many=True)
     return success_response("Batches fetched", data=serializer.data)
 

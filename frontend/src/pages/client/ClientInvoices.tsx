@@ -62,18 +62,16 @@ function ClientInvoicesInner() {
     );
   }
 
-  if (error) {
-    return (
-      <AppShell role="client" activePage="client-invoices">
-        <Topbar title={t('clientInvoices:title')} />
-        <div className="error-state">{error}</div>
-      </AppShell>
-    );
-  }
-
   return (
     <AppShell role="client" activePage="client-invoices">
       <Topbar title={t('clientInvoices:title')} />
+
+      {error && (
+        <div className="box" style={{ background: '#fff0f0', color: '#c0392b', marginBottom: 12 }}>
+          {error}
+        </div>
+      )}
+
       <section className="table-wrap">
         <div className="table-head" style={{ marginBottom: 10 }}>
           <h3>{t('clientInvoices:myInvoices')}</h3>
@@ -95,20 +93,24 @@ function ClientInvoicesInner() {
                 <td colSpan={6} className="no-results">{t('clientInvoices:empty')}</td>
               </tr>
             ) : (
-              invoices.map((inv) => (
-                <tr key={inv.id}>
-                  <td><strong>#{inv.id}</strong></td>
-                  <td>{inv.order_id ? `#${inv.order_id}` : inv.orderId || '—'}</td>
-                  <td><StatusBadge status={inv.status} /></td>
-                  <td>{formatEGP(inv.total_amount ?? inv.amount, i18n.language)}</td>
-                  <td>{formatDate(inv.due_date ?? inv.due, i18n.language)}</td>
-                  <td>
-                    <button className="btn" onClick={() => navigateTopLevel(`/client/invoices/${inv.id}`)}>
-                      {t('clientInvoices:table.view')}
-                    </button>
-                  </td>
-                </tr>
-              ))
+              invoices.map((inv) => {
+                const orderId = inv.order_id ?? inv.orderId ?? inv.order;
+                const status = inv.payment_status || inv.status;
+                return (
+                  <tr key={inv.id}>
+                    <td><strong>#{inv.id}</strong></td>
+                    <td>{orderId ? `#${orderId}` : '—'}</td>
+                    <td><StatusBadge status={status} /></td>
+                    <td>{formatEGP(inv.total_amount ?? inv.amount, i18n.language)}</td>
+                    <td>{formatDate(inv.due_date ?? inv.due, i18n.language)}</td>
+                    <td>
+                      <button className="btn" onClick={() => navigateTopLevel(`/client/invoices/${inv.id}`)}>
+                        {t('clientInvoices:table.view')}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

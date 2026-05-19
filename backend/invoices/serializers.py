@@ -83,13 +83,30 @@ class InvoiceSerializer(serializers.ModelSerializer):
         if not obj.order:
             return []
 
-        return [
-            {
+        latest_quote = obj.order.quotes.prefetch_related("items").order_by("-created_at").first()
+        quote_items = list(latest_quote.items.all().order_by("id")) if latest_quote else []
+        invoice_items = []
+
+        for index, item in enumerate(obj.order.order_items.all().order_by("id")):
+            quote_item = quote_items[index] if index < len(quote_items) else None
+            unit_price = item.unit_price
+            total_price = item.total_price
+
+            if total_price is None and quote_item:
+                total_price = quote_item.estimated_total_price
+
+            if unit_price is None and quote_item:
+                unit_price = quote_item.estimated_unit_price
+
+            if unit_price is None and total_price is not None and item.quantity:
+                unit_price = total_price / item.quantity
+
+            invoice_items.append({
                 "id": item.id,
                 "item_type": item.item_type or "Order Item",
                 "quantity": item.quantity or 1,
-                "unit_price": float(item.unit_price) if item.unit_price is not None else None,
-                "total_price": float(item.total_price) if item.total_price is not None else None,
-            }
-            for item in obj.order.order_items.all()
-        ]
+                "unit_price": float(unit_price) if unit_price is not None else None,
+                "total_price": float(total_price) if total_price is not None else None,
+            })
+
+        return invoice_items
