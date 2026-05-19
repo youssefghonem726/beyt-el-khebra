@@ -5,11 +5,53 @@
   "myQuotes": "My Quotes",
   "requestNew": "Request New Quote",
   "empty": "No quotes available.",
+  "orderPlaceholder": "Quote",
   "table": {
     "id": "Quote ID",
     "status": "Status",
     "amount": "Amount",
     "action": "Action",
-    "review": "Review Quote"
+    "review": "Review Quote",
+    "order": "Order",
+    "product": "Product",
+    "created": "Created"
+  },
+  "detail": {
+    "loadingTitle": "Quote Details",
+    "backLabel": "Quotes",
+    "title": "Quote Details",
+    "titleWithId": "Quote #{{id}}",
+    "noId": "No quote ID provided.",
+    "loadError": "Could not load quote details.",
+    "notFound": "Quote not found.",
+    "actionFailed": "Could not submit response. Please try again.",
+    "changeNotesRequired": "Please enter a reason for requesting changes.",
+    "quoteId": "Quote #{{id}}",
+    "orderId": "Order #{{id}}",
+    "product": "Product",
+    "orderPlaceholder": "Order #{{id}}",
+    "totalAmount": "Total Amount",
+    "created": "Created",
+    "orderStatus": "Order Status",
+    "notes": "Notes",
+    "breakdown": "Price Breakdown",
+    "orderItems": "Order Items",
+    "table": {
+      "item": "Item",
+      "qty": "Qty",
+      "unitPrice": "Unit Price (EGP)",
+      "total": "Total (EGP)",
+      "notes": "Notes",
+      "noItems": "No items available.",
+      "unknownItem": "Unknown Item"
+    },
+    "respond": {
+      "title": "Respond to Quote",
+      "description": "Review the pricing above and choose your response.",
+      "approve": "Approve & Proceed",
+      "reject": "Reject Quote",
+      "requestChanges": "Request Changes (explain below)",
+      "sendRequest": "Send Change Request"
+    }
   }
 }

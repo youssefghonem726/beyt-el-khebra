@@ -3,6 +3,71 @@
   "loading": "Loading completed jobs...",
   "error": "Could not load completed jobs data. Please try again later.",
   "empty": "No completed jobs yet.",
+  "list": {
+    "title": "Completed Jobs",
+    "subtitle": "Orders that have been completed and are ready for handoff."
+  },
+  "table": {
+    "order": "Order",
+    "client": "Client",
+    "product": "Product",
+    "completedAt": "Completed At",
+    "handoff": "Handoff",
+    "action": "Action"
+  },
+  "actions": {
+    "details": "Details",
+    "createDelivery": "Create Delivery"
+  },
+  "delivery": {
+    "created": "Delivery #{{id}} created",
+    "addressRequired": "Address is required.",
+    "phoneRequired": "Phone number is required.",
+    "dateRequired": "Scheduled date is required.",
+    "error": "Could not create delivery. Please try again.",
+    "saving": "Saving...",
+    "create": "Create Delivery",
+    "modal": {
+      "title": "Create Delivery",
+      "order": "Order #{{id}} — {{client}}"
+    },
+    "form": {
+      "address": "Address",
+      "addressPlaceholder": "Delivery address",
+      "phone": "Phone",
+      "phonePlaceholder": "+20 1xx xxx xxxx",
+      "date": "Scheduled Date",
+      "driver": "Driver Name",
+      "driverPlaceholder": "Driver's name",
+      "company": "Delivery Company",
+      "companyPlaceholder": "Company name",
+      "notes": "Notes",
+      "notesPlaceholder": "Special delivery instructions..."
+    }
+  },
+  "modal": {
+    "close": "Close",
+    "cancel": "Cancel"
+  },
+  "detail": {
+    "title": "Order Details — #{{id}}",
+    "order": "Order #{{id}}",
+    "info": "Order Information",
+    "client": "Client",
+    "batch": "Batch Code",
+    "product": "Product",
+    "quantity": "Quantity",
+    "status": "Status",
+    "priority": "Priority",
+    "deadline": "Deadline",
+    "assignedTo": "Assigned To",
+    "completionDate": "Completion Date",
+    "notes": "Notes",
+    "stages": "Production Stages",
+    "stage": "Stage",
+    "updatedAt": "Updated At",
+    "noStages": "No stage details available."
+  },
   "progress": {
     "title": "Work Progress - {{id}}",
     "completed": "completed",

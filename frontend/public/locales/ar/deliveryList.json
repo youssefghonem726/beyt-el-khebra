@@ -12,12 +12,23 @@
     "status": "الحالة",
     "actions": "إجراءات"
   },
+  "searchPlaceholder": "البحث في التوصيلات...",
+  "noResults": "لا توجد توصيلات.",
+  "unknownClient": "عميل غير معروف",
+  "addressMissing": "لم يُوفَّر العنوان",
+  "updateError": "تعذّر تحديث التوصيل.",
   "actions": {
     "delivered": "تم التسليم",
     "cancelled": "ملغي",
     "markDelivered": "تعليم كمُسلَّم",
     "reschedule": "إعادة جدولة",
     "changeAddress": "تغيير العنوان",
+    "cancel": "إلغاء",
+    "view": "عرض",
+    "notes": "ملاحظات"
+  },
+  "notes": {
+    "save": "حفظ",
     "cancel": "إلغاء"
   },
   "reschedule": {

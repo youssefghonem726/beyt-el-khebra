@@ -3,8 +3,10 @@
   "errors": {
     "noId": "لم يتم تقديم معرف التوصيل.",
     "notFound": "التوصيل {{id}} غير موجود.",
-    "loadFailed": "تعذّر تحميل تفاصيل التوصيل. يرجى المحاولة مجدداً."
+    "loadFailed": "تعذّر تحميل تفاصيل التوصيل. يرجى المحاولة مجدداً.",
+    "updateFailed": "تعذّر تحديث التوصيل. يرجى المحاولة مجدداً."
   },
+  "unknownClient": "عميل غير معروف",
   "title": "إجراءات التوصيل - {{orderId}}",
   "clientLabel": "العميل:",
   "description": "استخدم هذه الإجراءات لتحديث حالة التوصيل وتفاصيل الشحن.",
@@ -26,8 +28,22 @@
       "message": "العنوان الجديد: {{address}}"
     }
   },
+  "detail": {
+    "address": "العنوان",
+    "addressMissing": "لم يُوفَّر العنوان",
+    "phone": "الهاتف",
+    "driver": "السائق",
+    "unassigned": "غير مُسند",
+    "company": "الشركة",
+    "scheduled": "الموعد المحدد",
+    "delivered": "تاريخ التسليم",
+    "notes": "ملاحظات"
+  },
   "actions": {
     "markDelivered": "تعليم كمُسلَّم",
+    "outForDelivery": "خارج للتوصيل",
+    "markDelayed": "تعليم كمتأخر",
+    "markLost": "تعليم كمفقود",
     "reschedule": "إعادة جدولة التوصيل",
     "cancel": "إلغاء التوصيل",
     "changeAddress": "تغيير العنوان",
@@ -38,6 +54,12 @@
   "form": {
     "newDate": "تاريخ التوصيل الجديد",
     "newAddress": "العنوان الجديد",
-    "addressPlaceholder": "أدخل العنوان المحدّث"
+    "addressPlaceholder": "أدخل العنوان المحدّث",
+    "scheduledDate": "تاريخ الجدولة",
+    "address": "العنوان",
+    "notes": "ملاحظات",
+    "saveDate": "حفظ التاريخ",
+    "saveAddress": "حفظ العنوان",
+    "saveNotes": "حفظ الملاحظات"
   }
 }

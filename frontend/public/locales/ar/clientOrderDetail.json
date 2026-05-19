@@ -8,6 +8,9 @@
     "loadFailed": "تعذّر تحميل تفاصيل الطلب. يرجى المحاولة مجدداً."
   },
   "backLabel": "طلباتي",
+  "orderNumber": "الطلب #{{id}}",
+  "paymentStatus": "حالة الدفع",
+  "noDelivery": "لا يوجد توصيل مجدول.",
   "batchCode": "رمز الدُفعة",
   "orderDate": "تاريخ الطلب",
   "estDelivery": "التسليم المتوقع",
@@ -16,6 +19,29 @@
   "paymentMethod": "طريقة الدفع",
   "deliveryStatus": "حالة التسليم",
   "productionProgress": "تقدم الإنتاج",
+  "items": {
+    "title": "عناصر الطلب",
+    "empty": "لا توجد عناصر.",
+    "pcs": "قطعة",
+    "pages": "الصفحات: ",
+    "size": "الحجم: ",
+    "material": "المادة: ",
+    "color": "اللون: ",
+    "cover": "الغلاف: ",
+    "binding": "التجليد: ",
+    "currentStep": "الخطوة الحالية: ",
+    "notes": "ملاحظات: "
+  },
+  "delivery": {
+    "title": "التوصيل",
+    "status": "الحالة: ",
+    "scheduled": "الموعد المجدول: ",
+    "delivered": "تاريخ التسليم: ",
+    "address": "العنوان: ",
+    "driver": "السائق: ",
+    "notes": "ملاحظات: ",
+    "empty": "لا توجد معلومات توصيل."
+  },
   "specs": {
     "title": "المواصفات",
     "qty": "الكمية",
@@ -24,6 +50,14 @@
   "timeline": {
     "title": "الجدول الزمني",
     "pending": "قيد الانتظار",
+    "orderPlaced": "تم تقديم الطلب",
+    "awaitingPricing": "بانتظار التسعير",
+    "quoteReady": "عرض السعر جاهز",
+    "confirmed": "تم التأكيد",
+    "inProduction": "قيد الإنتاج",
+    "completed": "مكتمل",
+    "cancelled": "ملغى",
+    "delivery": "التسليم",
     "items": {
       "orderPlaced": "تم تقديم الطلب",
       "production": "الإنتاج",

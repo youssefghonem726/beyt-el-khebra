@@ -12,7 +12,9 @@
     "paidOrders": "Paid Orders",
     "paidOrdersSub": "Orders fully paid",
     "unpaidOrders": "Unpaid Orders",
-    "unpaidOrdersSub": "Need finance follow-up"
+    "unpaidOrdersSub": "Need finance follow-up",
+    "confirmedOrderValue": "Confirmed Order Value",
+    "confirmedOrderValueSub": "Total value of confirmed orders"
   },
   "candidates": {
     "title": "Invoice-Ready Orders",

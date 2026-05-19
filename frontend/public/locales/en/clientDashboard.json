@@ -11,10 +11,15 @@
     "allTime": "All time",
     "pendingQuote": "Pending Quote",
     "awaitingPricing": "Awaiting pricing",
+    "awaitingPricingSub": "Awaiting pricing from our team",
     "inProgress": "In Progress",
     "inProduction": "Currently in production",
+    "inProgressSub": "Currently in production",
     "completed": "Completed",
-    "successCompleted": "Successfully completed"
+    "successCompleted": "Successfully completed",
+    "completedSub": "Successfully completed",
+    "awaitingApproval": "Awaiting Approval",
+    "awaitingApprovalSub": "Pending your approval"
   },
   "orders": {
     "title": "My Orders",
@@ -42,9 +47,11 @@
     "desc": {
       "UNPRICED_PENDING": "Your order is waiting for pricing.",
       "PRICED_PENDING_CONFIRMATION": "Quote has been sent – awaiting your approval.",
+      "CONFIRMED": "Your order has been confirmed and is queued for production.",
       "IN_PROGRESS": "Your order is being produced.",
       "COMPLETED": "Order is complete and ready for delivery.",
-      "CANCELED": "Order has been cancelled."
+      "CANCELED": "Order has been cancelled.",
+      "CANCELLED": "Order has been cancelled."
     }
   }
 }

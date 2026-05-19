@@ -5,6 +5,12 @@
   "loading": "جاري تحميل الوظائف…",
   "error": "تعذّر تحميل عرض العمل. يرجى المحاولة مجدداً.",
   "notFound": "الوظيفة غير موجودة.",
+  "noJobs": "لا توجد وظائف إنتاج نشطة.",
+  "orderInfo": "الطلب #{{orderId}} — {{client}}",
+  "updateStep": "تحديث خطوة الإنتاج",
+  "stages": "مراحل الإنتاج",
+  "specifications": "المواصفات",
+  "stepUpdateError": "تعذّر تحديث خطوة الإنتاج.",
   "progress": {
     "title": "تقدم العمل — {{id}}",
     "completed": "مكتمل",
@@ -14,17 +20,45 @@
       "updatedAt": "آخر تحديث"
     }
   },
+  "detail": {
+    "product": "المنتج",
+    "quantity": "الكمية",
+    "pcs": "قطعة",
+    "currentStep": "الخطوة الحالية",
+    "dueDate": "الموعد النهائي",
+    "specs": "المواصفات",
+    "notes": "ملاحظات",
+    "notProvided": "—"
+  },
   "info": {
     "title": "معلومات الوظيفة",
     "client": "العميل",
+    "email": "البريد الإلكتروني",
     "batch": "رمز الدفعة",
+    "batchCode": "رمز الدفعة",
     "product": "المنتج",
     "quantity": "الكمية",
     "status": "الحالة",
+    "orderStatus": "حالة الطلب",
+    "productionStatus": "حالة الإنتاج",
     "priority": "الأولوية",
     "deadline": "الموعد النهائي",
     "assignedTo": "مُسند إلى",
-    "notes": "ملاحظات"
+    "notes": "ملاحظات",
+    "notAssigned": "غير مُسند",
+    "notProvided": "—",
+    "order": "الطلب"
+  },
+  "files": {
+    "title": "الملفات",
+    "empty": "لا توجد ملفات مرفقة.",
+    "open": "فتح",
+    "noUrl": "لا يوجد رابط"
+  },
+  "table": {
+    "stage": "المرحلة",
+    "status": "الحالة",
+    "updatedAt": "آخر تحديث"
   },
   "documents": {
     "title": "المستندات",

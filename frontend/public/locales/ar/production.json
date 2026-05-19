@@ -12,6 +12,8 @@
     "inProgressSub": "يجري العمل عليها",
     "completed": "مكتملة",
     "completedSub": "عناصر جاهزة في طلبات نشطة",
+    "completedOrders": "الطلبات المكتملة",
+    "completedOrdersSub": "منتهية ومسلّمة",
     "onHold": "معلقة",
     "onHoldSub": "لا يوجد مصدر للتعليق حالياً"
   },

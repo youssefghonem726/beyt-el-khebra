@@ -5,6 +5,12 @@
   "loading": "Loading jobs…",
   "error": "Could not load work view. Please try again later.",
   "notFound": "Job not found.",
+  "noJobs": "No active production jobs.",
+  "orderInfo": "Order #{{orderId}} — {{client}}",
+  "updateStep": "Update Production Step",
+  "stages": "Production Stages",
+  "specifications": "Specifications",
+  "stepUpdateError": "Could not update production step.",
   "progress": {
     "title": "Work Progress — {{id}}",
     "completed": "completed",
@@ -14,17 +20,45 @@
       "updatedAt": "Updated At"
     }
   },
+  "detail": {
+    "product": "Product",
+    "quantity": "Quantity",
+    "pcs": "pcs",
+    "currentStep": "Current Step",
+    "dueDate": "Due Date",
+    "specs": "Specs",
+    "notes": "Notes",
+    "notProvided": "—"
+  },
   "info": {
     "title": "Job Info",
     "client": "Client",
+    "email": "Email",
     "batch": "Batch Code",
+    "batchCode": "Batch Code",
     "product": "Product",
     "quantity": "Quantity",
     "status": "Status",
+    "orderStatus": "Order Status",
+    "productionStatus": "Production Status",
     "priority": "Priority",
     "deadline": "Deadline",
     "assignedTo": "Assigned To",
-    "notes": "Notes"
+    "notes": "Notes",
+    "notAssigned": "Not assigned",
+    "notProvided": "—",
+    "order": "Order"
+  },
+  "files": {
+    "title": "Files",
+    "empty": "No files attached.",
+    "open": "Open",
+    "noUrl": "No URL"
+  },
+  "table": {
+    "stage": "Stage",
+    "status": "Status",
+    "updatedAt": "Updated At"
   },
   "documents": {
     "title": "Documents",

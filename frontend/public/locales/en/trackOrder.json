@@ -13,7 +13,14 @@
     "estDelivery": "Est. Delivery:",
     "total": "Total:",
     "complete": "complete",
-    "now": "← now"
+    "now": "← now",
+    "orderInfo": "Order #{{id}} — {{product}}",
+    "summary": "Ordered: {{orderDate}} · Est. Delivery: {{estimatedDelivery}} · Total: {{total}}",
+    "progress": "{{percent}}% complete"
+  },
+  "delivery": {
+    "title": "Delivery Status",
+    "message": "Delivery is currently {{status}}"
   },
   "statusLabels": {
     "canceled": "This order was canceled.",

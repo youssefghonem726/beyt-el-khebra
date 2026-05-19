@@ -19,7 +19,9 @@
     "status": "Status",
     "date": "Date",
     "action": "Action",
-    "view": "View"
+    "view": "View",
+    "product": "Product",
+    "qty": "Qty"
   },
   "modal": {
     "title": "Batch {{code}}",

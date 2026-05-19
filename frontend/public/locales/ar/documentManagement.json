@@ -56,7 +56,8 @@
     "renameError": "❌ تعذّر إعادة التسمية",
     "uploaded": "📄 تم رفع الملف",
     "uploadError": "❌ فشل الرفع",
-    "downloaded": "تم تحميل \"{{name}}\""
+    "downloaded": "تم تحميل \"{{name}}\"",
+    "downloadUnavailable": "رابط التحميل غير متاح."
   },
   "confirm": {
     "delete": "حذف هذا المستند نهائياً؟"

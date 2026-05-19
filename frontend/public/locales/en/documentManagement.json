@@ -56,7 +56,8 @@
     "renameError": "❌ Could not rename",
     "uploaded": "📄 File uploaded",
     "uploadError": "❌ Upload failed",
-    "downloaded": "\"{{name}}\" downloaded"
+    "downloaded": "\"{{name}}\" downloaded",
+    "downloadUnavailable": "Download link not available."
   },
   "confirm": {
     "delete": "Delete this document permanently?"
