@@ -14,7 +14,9 @@
   },
   "defaultPricing": {
     "title": "Default Product Pricing",
+    "subtitle": "Manage default prices for each product type.",
     "loading": "Loading default pricing...",
+    "colItem": "Item",
     "colProduct": "Product",
     "colSize": "Size",
     "colPaper": "Paper / Material",
@@ -26,10 +28,12 @@
     "inactive": "Inactive",
     "toggleTitle": "Click to toggle",
     "save": "Save",
+    "saving": "Saving...",
     "cancel": "Cancel",
     "edit": "Edit",
     "empty": "No pricing rules defined.",
     "saveAll": "Save Default Pricing",
+    "invalidPrice": "Please enter a valid price.",
     "toastSaved": "Default pricing saved.",
     "toastError": "Error saving pricing."
   },

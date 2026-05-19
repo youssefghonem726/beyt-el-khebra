@@ -68,8 +68,10 @@
       "color": "Color Mode",
       "cover": "Cover",
       "bindingCoil": "Binding / Coil",
-      "notes": "Notes"
+      "notes": "Notes",
+      "files": "Files"
     },
+    "setPrice": "Set Price — {{id}}",
     "notProvided": "—"
   }
 }

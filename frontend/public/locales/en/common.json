@@ -45,13 +45,17 @@
   "status": {
     "UNPRICED_PENDING": "Unpriced",
     "PRICED_PENDING_CONFIRMATION": "Pending Confirmation",
+    "CONFIRMED": "Confirmed",
     "IN_PROGRESS": "In Progress",
     "COMPLETED": "Completed",
-    "CANCELED": "Canceled"
+    "CANCELED": "Canceled",
+    "CANCELLED": "Canceled",
+    "completed": "Completed"
   },
   "statusLabels": {
     "UNPRICED_PENDING": "Unpriced",
     "PRICED_PENDING_CONFIRMATION": "Pending Confirmation",
+    "CONFIRMED": "Confirmed",
     "IN_PROGRESS": "In Progress",
     "COMPLETED": "Completed",
     "CANCELED": "Canceled",
@@ -93,6 +97,8 @@
     "noResults": "No matching results",
     "error": "Something went wrong"
   },
+  "orderItem": "Order Item",
+  "packageOrder": "Package Order",
   "filter": {
     "status": "Status",
     "allStatus": "All Status",

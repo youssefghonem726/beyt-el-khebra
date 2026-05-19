@@ -11,10 +11,15 @@
     "allTime": "منذ البداية",
     "pendingQuote": "بانتظار التسعير",
     "awaitingPricing": "في انتظار التسعير",
+    "awaitingPricingSub": "بانتظار التسعير من فريقنا",
     "inProgress": "قيد التنفيذ",
     "inProduction": "يُنتج حالياً",
+    "inProgressSub": "قيد الإنتاج حالياً",
     "completed": "مكتمل",
-    "successCompleted": "اكتمل بنجاح"
+    "successCompleted": "اكتمل بنجاح",
+    "completedSub": "اكتملت بنجاح",
+    "awaitingApproval": "بانتظار الموافقة",
+    "awaitingApprovalSub": "تنتظر موافقتك"
   },
   "orders": {
     "title": "طلباتي",
@@ -42,9 +47,11 @@
     "desc": {
       "UNPRICED_PENDING": "طلبك بانتظار التسعير.",
       "PRICED_PENDING_CONFIRMATION": "تم إرسال السعر – بانتظار موافقتك.",
+      "CONFIRMED": "تم تأكيد طلبك وهو في قائمة الانتظار للإنتاج.",
       "IN_PROGRESS": "طلبك قيد الإنتاج.",
       "COMPLETED": "اكتمل الطلب وجاهز للتسليم.",
-      "CANCELED": "تم إلغاء الطلب."
+      "CANCELED": "تم إلغاء الطلب.",
+      "CANCELLED": "تم إلغاء الطلب."
     }
   }
 }

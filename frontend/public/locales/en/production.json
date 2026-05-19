@@ -12,6 +12,8 @@
     "inProgressSub": "Being worked on",
     "completed": "Completed",
     "completedSub": "Ready items still in active orders",
+    "completedOrders": "Completed Orders",
+    "completedOrdersSub": "Finished and handed off",
     "onHold": "On Hold",
     "onHoldSub": "No backend hold source yet"
   },

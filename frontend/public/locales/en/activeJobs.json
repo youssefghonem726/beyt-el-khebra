@@ -12,13 +12,18 @@
     "onHold": "On Hold",
     "waiting": "Waiting on something",
     "completed": "Completed",
-    "finished": "Finished jobs"
+    "finished": "Finished jobs",
+    "readyItems": "Ready Items",
+    "readySub": "Ready for delivery",
+    "completedOrders": "Completed Orders",
+    "completedSub": "Finished this session"
   },
   "filter": {
     "all": "All",
     "inProgress": "In Progress",
     "onHold": "On Hold",
-    "completed": "Completed"
+    "completed": "Completed",
+    "ready": "Ready"
   },
   "list": {
     "title": "Active Jobs",
@@ -27,7 +32,10 @@
     "product": "Product",
     "due": "Due",
     "printed": "printed",
-    "openWorkView": "Open Work View"
+    "openWorkView": "Open Work View",
+    "order": "Order",
+    "step": "Step",
+    "complete": "complete"
   },
   "detail": {
     "title": "Job Details",
@@ -40,7 +48,9 @@
     "complete": "complete",
     "steps": "Production Steps",
     "current": "← current",
-    "openWorkView": "Open Work View"
+    "openWorkView": "Open Work View",
+    "orderAndClient": "Order #{{orderId}} — {{client}}",
+    "step": "Step"
   },
   "steps": {
     "File Approved": "File Approved",
@@ -69,6 +79,8 @@
     "assignedTo": "Assigned To",
     "notes": "Notes",
     "pcs": "pcs",
-    "printed": "printed"
+    "printed": "printed",
+    "order": "Order",
+    "step": "Step"
   }
 }

@@ -12,7 +12,9 @@
     "paidOrders": "الطلبات المدفوعة",
     "paidOrdersSub": "طلبات مكتملة الدفع",
     "unpaidOrders": "الطلبات غير المدفوعة",
-    "unpaidOrdersSub": "تحتاج متابعة مالية"
+    "unpaidOrdersSub": "تحتاج متابعة مالية",
+    "confirmedOrderValue": "قيمة الطلبات المؤكدة",
+    "confirmedOrderValueSub": "إجمالي قيمة الطلبات المؤكدة"
   },
   "candidates": {
     "title": "طلبات جاهزة للفوترة",

@@ -12,12 +12,23 @@
     "status": "Status",
     "actions": "Actions"
   },
+  "searchPlaceholder": "Search deliveries...",
+  "noResults": "No deliveries found.",
+  "unknownClient": "Unknown Client",
+  "addressMissing": "Address not provided",
+  "updateError": "Could not update delivery.",
   "actions": {
     "delivered": "Delivered",
     "cancelled": "Cancelled",
     "markDelivered": "Mark Delivered",
     "reschedule": "Reschedule",
     "changeAddress": "Change Address",
+    "cancel": "Cancel",
+    "view": "View",
+    "notes": "Notes"
+  },
+  "notes": {
+    "save": "Save",
     "cancel": "Cancel"
   },
   "reschedule": {

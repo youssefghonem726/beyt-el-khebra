@@ -50,15 +50,34 @@ function formatTotal(amount: number | string | null, lang: string): string {
   return `EGP ${value.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-// Derive a readable product name from order data
-function getProductName(order: any): string {
-  if (order.product_summary) return order.product_summary;
-  if (Array.isArray(order.item_details) && order.item_details.length > 0) {
-    return order.item_details
-      .map((item: any) => `${item.item_type || 'Order Item'} (${item.quantity || 1} pcs)`)
-      .join(', ');
+// Maps the English labels the backend stores in item_type to i18n keys
+const ITEM_TYPE_TO_KEY: Record<string, string> = {
+  'Book': 'book',
+  'Booklet': 'booklet',
+  'Business Card': 'card',
+  'Sticker': 'sticker',
+  'Poster': 'poster',
+};
+
+function translateSummary(summary: string, t: (key: string) => string, isAr: boolean): string {
+  if (summary === 'Package Order') return t('common:packageOrder');
+  if (!isAr) return summary;
+  let result = summary;
+  // Translate known English product type labels
+  for (const [en, key] of Object.entries(ITEM_TYPE_TO_KEY)) {
+    result = result.split(en).join(t(`ownerPlaceOrder:itemTypes.${key}`));
   }
-  return `Order #${order.id}`;
+  result = result.replace(/\bpcs\b/g, 'قطعة');
+  result = result.replace(/\bOrder Item\b/g, t('common:orderItem'));
+  // Translate the backend fallback "Order #N" → "طلب #N"
+  result = result.replace(/^Order #(\d+)$/, (_, id) => `طلب #${id}`);
+  return result;
+}
+
+function getProductName(order: any, t: (key: string) => string, isAr: boolean): string {
+  const summary = order.product_summary;
+  if (summary) return translateSummary(summary, t, isAr);
+  return isAr ? `طلب #${order.id}` : `Order #${order.id}`;
 }
 
 export default function ClientDashboard() {
@@ -70,7 +89,7 @@ export default function ClientDashboard() {
 }
 
 function ClientDashboardInner() {
-  const { t, i18n } = useTranslation(['common', 'clientDashboard']);
+  const { t, i18n } = useTranslation(['common', 'clientDashboard', 'ownerPlaceOrder']);
   const { navigateTopLevel } = useNavigation();
 
   const [clientName, setClientName] = useState<string>('');
@@ -107,7 +126,7 @@ function ClientDashboardInner() {
 
         const displayOrders: DisplayOrder[] = allOrders.map((o: any) => ({
           id: String(o.id),
-          product: getProductName(o),
+          product: getProductName(o, t, i18n.language === 'ar'),
           status: o.status,
           orderDate: formatDate(o.created_at, i18n.language),
           deliveryDate: formatDate(o.due_date || null, i18n.language),

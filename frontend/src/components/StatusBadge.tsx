@@ -6,6 +6,7 @@ const STATUS_CLASS_MAP: Record<string, string> = {
   pending_approval:            'pending',
   priced_pending_confirmation: 'pending-confirm',
   awaiting_confirmation:       'pending',
+  confirmed:                   'in-progress',
   in_progress:                 'in-progress',
   finishing:                   'progress',
   completed:                   'completed',
