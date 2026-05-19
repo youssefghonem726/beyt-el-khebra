@@ -65,7 +65,7 @@ def update_current_user(request):
     if auth_error:
         return auth_error
 
-    allowed_fields = {"first_name", "last_name", "email", "phone"}
+    allowed_fields = {"first_name", "last_name", "phone", "address"}
     update_data = {k: v for k, v in request.data.items() if k in allowed_fields}
 
     if not update_data:
@@ -145,6 +145,7 @@ def user_detail_update(request, user_id):
         "last_name",
         "email",
         "phone",
+        "address",
         "role",
         "is_active",
     }
@@ -215,6 +216,7 @@ def clients_list_create(request):
             "last_name": request.data.get("last_name", ""),
             "email": request.data.get("email", ""),
             "phone": request.data.get("phone") or None,
+            "address": request.data.get("address") or None,
             "role": "client",
             "is_active": True,
         }

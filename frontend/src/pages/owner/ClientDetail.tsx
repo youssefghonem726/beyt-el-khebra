@@ -22,6 +22,7 @@ type ClientOrder = {
   customer_id?: number | string | null;
   client_id?: number | string | null;
   total_price?: number | string | null;
+  paid_amount?: number | string | null;
   created_at?: string | null;
   product_summary?: string | null;
   item_details?: Array<{
@@ -53,6 +54,8 @@ const PRICING_LABELS: { key: keyof PricingRow; labelKey: string }[] = [
   { key: 'coil_size_32', labelKey: 'coil_size_32' },
   { key: 'coil_size_35', labelKey: 'coil_size_35' },
 ];
+
+const BILLABLE_ORDER_STATUSES = new Set(['CONFIRMED', 'IN_PROGRESS', 'COMPLETED']);
 
 function unwrapList<T>(value: unknown): T[] {
   if (Array.isArray(value)) return value as T[];
@@ -192,9 +195,15 @@ function ClientDetailInner() {
 
   const stats = useMemo(() => {
     const totalOrders = orders.length;
-    const totalSpent = orders.reduce((sum, order) => sum + toNumber(order.total_price), 0);
-    const billableOrders = orders.filter(order => toNumber(order.total_price) > 0).length;
-    const averageOrderPrice = billableOrders > 0 ? totalSpent / billableOrders : 0;
+    const confirmedBusinessOrders = orders.filter(order =>
+      BILLABLE_ORDER_STATUSES.has(String(order.status || '').toUpperCase()) &&
+      toNumber(order.total_price) > 0
+    );
+    const totalSpent = confirmedBusinessOrders.reduce((sum, order) => sum + toNumber(order.paid_amount), 0);
+    const confirmedOrderValue = confirmedBusinessOrders.reduce((sum, order) => sum + toNumber(order.total_price), 0);
+    const averageOrderPrice = confirmedBusinessOrders.length > 0
+      ? confirmedOrderValue / confirmedBusinessOrders.length
+      : 0;
 
     return [
       { labelKey: 'totalOrders', value: String(totalOrders) },

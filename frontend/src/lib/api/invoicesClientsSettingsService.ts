@@ -111,7 +111,7 @@ export const getClients = async (
     name: [u.first_name, u.last_name].filter(Boolean).join(' ') || u.email,
     email: u.email,
     phone: u.phone ?? '',
-    address: '',
+    address: u.address ?? '',
     taxId: '',
     since: u.created_at ?? null,
     stats: {

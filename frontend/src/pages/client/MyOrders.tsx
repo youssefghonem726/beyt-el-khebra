@@ -5,43 +5,30 @@ import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
 import { useNavigation } from '../../context/NavigationContext';
-import { getOrders } from '../../lib/api/ordersQuotesService';
+import { getOrders, updateOrder } from '../../lib/api/ordersQuotesService';
 import { getBatches } from '../../lib/api/batchesService';
-import { getDeliveries } from '../../lib/api/deliveriesService';
+import { getDeliveries, type DeliveryResponse } from '../../lib/api/deliveriesService';
+import type { Order } from '../../lib/api/types';
 
+// Status list – kept from your branch, with CONFIRMED added (already present in API)
 const STATUS_FILTER_VALUES = [
   'UNPRICED_PENDING',
   'PRICED_PENDING_CONFIRMATION',
+  'CONFIRMED',
   'IN_PROGRESS',
   'COMPLETED',
   'CANCELED',
 ] as const;
 
-interface BackendOrder {
-  id: number;
-  status: string;
-  total_price?: number | null;
-  paid_amount?: number | null;
-  payment_method?: string | null;
-  created_at?: string;
-  due_date?: string | null;
-  upload?: { file_name?: string };
-}
-
+// ─── Types ────────────────────────────────────────────────────────────
 interface BackendBatch {
   id: number;
   orderId: number;
+  batchCode?: string;
+  batch_code?: string;
   progress: number;
   status: string;
   deadline?: string | null;
-}
-
-interface BackendDelivery {
-  id: number;
-  orderId: number;
-  status: string;
-  progress: number;
-  scheduledDate: string;
 }
 
 interface DisplayOrder {
@@ -57,18 +44,42 @@ interface DisplayOrder {
   total: string;
   payment: string;
   paid: string;
+  canCancel: boolean;
 }
 
+// ─── Helper functions ────────────────────────────────────────────────
 function formatDate(isoDate: string | null, lang: string): string {
   if (!isoDate) return '—';
   const d = new Date(isoDate);
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
 }
 
-function formatAmount(amount: number | null, lang: string): string {
-  if (amount === null || amount === undefined) return '—';
-  return `EGP ${amount.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+function formatAmount(amount: number | string | null, lang: string): string {
+  const value = Number(amount);
+  if (!Number.isFinite(value)) return '—';
+  return `EGP ${value.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-EG', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function getProductName(order: Order): string {
+  if (order.product_summary) return order.product_summary;
+  if (Array.isArray(order.item_details) && order.item_details.length > 0) {
+    return order.item_details
+      .map((item) => `${item.item_type || 'Order Item'} (${item.quantity || 1} pcs)`)
+      .join(', ');
+  }
+  return `Order #${order.id}`;
+}
+
+function isCancellable(status: string): boolean {
+  return ['UNPRICED_PENDING', 'PRICED_PENDING_CONFIRMATION'].includes(status);
 }
 
 function getProgressColor(progress: number, orderStatus: string): 'green' | 'orange' | 'red' {
@@ -77,6 +88,7 @@ function getProgressColor(progress: number, orderStatus: string): 'green' | 'ora
   return 'orange';
 }
 
+// ─── Component ────────────────────────────────────────────────────────
 export default function MyOrders() {
   return (
     <Suspense fallback={null}>
@@ -94,74 +106,93 @@ function MyOrdersInner() {
   const [query, setQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+
+  const fetchData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [ordersRes, batchesRes, deliveriesRes] = await Promise.all([
+        getOrders(),
+        getBatches().catch(() => ({ data: { data: [] } })),
+        getDeliveries().catch(() => ({ data: { data: [] } })),
+      ]);
+
+      const backendOrders: Order[] = ordersRes.data.data;
+      const batches: BackendBatch[] = batchesRes.data.data || [];
+      const deliveries: DeliveryResponse[] = deliveriesRes.data.data || [];
+      const batchMap = new Map(batches.map((b) => [Number(b.orderId), b]));
+      const deliveryMap = new Map(deliveries.map((d) => [Number(d.orderId), d]));
+
+      const mapped: DisplayOrder[] = backendOrders.map((order) => {
+        const batch = batchMap.get(order.id);
+        const delivery = order.delivery_info || deliveryMap.get(order.id);
+        const productionProgress = Number(order.production_progress ?? batch?.progress ?? 0);
+        const progress = delivery ? Number(delivery.progress || 0) : productionProgress;
+        const batchCode =
+          order.batch_code ||
+          batch?.batchCode ||
+          batch?.batch_code ||
+          (batch ? `BATCH-${String(batch.id).padStart(4, '0')}` : '—');
+
+        return {
+          id: String(order.id),
+          shortId: `#${order.id}`,
+          batch: batchCode,
+          product: getProductName(order),
+          status: order.status,
+          delivery: delivery ? delivery.status : '—',
+          progress: order.status === 'CANCELED' ? 0 : progress,
+          color: getProgressColor(order.status === 'CANCELED' ? 0 : progress, order.status),
+          date: formatDate(order.created_at || null, i18n.language),
+          total: formatAmount(order.total_price ?? null, i18n.language),
+          payment: order.payment_method || '—',
+          paid: formatAmount(order.paid_amount ?? null, i18n.language),
+          canCancel: isCancellable(order.status),
+        };
+      });
+
+      setOrders(mapped);
+    } catch (err) {
+      console.error('Failed to load orders:', err);
+      setError(t('myOrders:error'));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [ordersRes, batchesRes, deliveriesRes] = await Promise.all([
-          getOrders(),
-          getBatches(),
-          getDeliveries(),
-        ]);
-
-        const backendOrders: BackendOrder[] = ordersRes.data.data;
-        const batches: BackendBatch[] = batchesRes.data.data;
-        const deliveries: BackendDelivery[] = deliveriesRes.data.data;
-
-        const batchMap = new Map(batches.map((b) => [b.orderId, b]));
-        const deliveryMap = new Map(deliveries.map((d) => [d.orderId, d]));
-
-        const displayOrders: DisplayOrder[] = backendOrders.map((o) => {
-          const batch = batchMap.get(o.id);
-          const delivery = deliveryMap.get(o.id);
-
-          let progress = batch ? batch.progress : 0;
-          if (o.status === 'COMPLETED') progress = 100;
-          if (o.status === 'CANCELED') progress = 0;
-
-          let deliveryStatus = delivery ? delivery.status : '—';
-          if (!delivery) {
-            if (o.status === 'COMPLETED') deliveryStatus = 'delivered';
-            else if (o.status === 'CANCELED') deliveryStatus = 'canceled';
-          }
-
-          return {
-            id: String(o.id),
-            shortId: `#${o.id}`,
-            batch: batch ? `BATCH-${batch.id}` : '—',
-            product: o.upload?.file_name || `Order #${o.id}`,
-            status: o.status,
-            delivery: deliveryStatus,
-            progress,
-            color: getProgressColor(progress, o.status),
-            date: formatDate(o.created_at || null, i18n.language),
-            total: formatAmount(o.total_price ?? null, i18n.language),
-            payment: o.payment_method || '—',
-            paid: formatAmount(o.paid_amount ?? null, i18n.language),
-          };
-        });
-
-        setOrders(displayOrders);
-      } catch (err) {
-        console.error('Failed to load orders:', err);
-        setError(t('myOrders:error'));
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchData();
   }, []);
 
-  const filtered = orders.filter((o) => {
+  const handleCancel = async (order: DisplayOrder) => {
+    if (!order.canCancel) return;
+    const confirmed = window.confirm(
+      t('myOrders:cancelConfirm', { id: order.shortId })
+    );
+    if (!confirmed) return;
+
+    setCancellingId(order.id);
+    try {
+      await updateOrder(order.id, { status: 'CANCELED' });
+      await fetchData(); // refresh list after cancel
+    } catch (err) {
+      console.error('Failed to cancel order:', err);
+      setError(t('myOrders:cancelError'));
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
+  const filtered = orders.filter((order) => {
     const q = query.toLowerCase();
     const matchQ =
       !q ||
-      o.id.toLowerCase().includes(q) ||
-      o.shortId.toLowerCase().includes(q) ||
-      o.batch.toLowerCase().includes(q) ||
-      o.product.toLowerCase().includes(q);
-    const matchS = !filterStatus || o.status.toLowerCase().includes(filterStatus.toLowerCase());
+      order.id.toLowerCase().includes(q) ||
+      order.shortId.toLowerCase().includes(q) ||
+      order.batch.toLowerCase().includes(q) ||
+      order.product.toLowerCase().includes(q);
+    const matchS = !filterStatus || order.status === filterStatus;
     return matchQ && matchS;
   });
 
@@ -174,18 +205,16 @@ function MyOrdersInner() {
     );
   }
 
-  if (error) {
-    return (
-      <AppShell role="client" activePage="my-orders">
-        <Topbar title={t('myOrders:title')} />
-        <div className="error-state">{error}</div>
-      </AppShell>
-    );
-  }
-
   return (
     <AppShell role="client" activePage="my-orders">
       <Topbar title={t('myOrders:title')} />
+
+      {error && (
+        <div className="box" style={{ background: '#fff0f0', color: '#c0392b', marginBottom: 12 }}>
+          {error}
+        </div>
+      )}
+
       <section className="table-wrap">
         <div className="table-head">
           <h3>{t('myOrders:allOrders')}</h3>
@@ -198,7 +227,11 @@ function MyOrdersInner() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
-              <button className="filter-icon" type="button" onClick={() => setDropdownOpen((o) => !o)}>
+              <button
+                className="filter-icon"
+                type="button"
+                onClick={() => setDropdownOpen((open) => !open)}
+              >
                 ▼
               </button>
               {dropdownOpen && (
@@ -212,21 +245,31 @@ function MyOrdersInner() {
                     >
                       <option value="">{t('common:filter.allStatus')}</option>
                       {STATUS_FILTER_VALUES.map((v) => (
-                        <option key={v} value={v}>{t(`common:status.${v}`)}</option>
+                        <option key={v} value={v}>
+                          {t(`common:status.${v}`)}
+                        </option>
                       ))}
                     </select>
                   </div>
-                  <button className="btn primary" type="button" onClick={() => setDropdownOpen(false)}>
+                  <button
+                    className="btn primary"
+                    type="button"
+                    onClick={() => setDropdownOpen(false)}
+                  >
                     {t('common:filter.apply')}
                   </button>
                 </div>
               )}
             </div>
-            <button className="btn primary" onClick={() => navigateTopLevel('place-new-order')}>
+            <button
+              className="btn primary"
+              onClick={() => navigateTopLevel('place-new-order')}
+            >
               {t('myOrders:newOrder')}
             </button>
           </div>
         </div>
+
         <table className="orders-table">
           <thead>
             <tr>
@@ -250,26 +293,52 @@ function MyOrdersInner() {
                 </td>
               </tr>
             ) : (
-              filtered.map((o) => (
-                <tr key={o.id}>
-                  <td>{o.shortId}</td>
-                  <td>{o.batch}</td>
-                  <td>{o.product}</td>
+              filtered.map((order) => (
+                <tr key={order.id}>
+                  <td>{order.shortId}</td>
+                  <td>{order.batch}</td>
+                  <td>{order.product}</td>
                   <td>
-                    <StatusBadge status={o.status} />
+                    <StatusBadge status={order.status} />
                   </td>
                   <td>
-                    <StatusBadge status={o.delivery} />
-                    <ProgressBar percent={o.progress} color={o.color} style={{ marginTop: 6 }} />
+                    {order.delivery !== '—' ? (
+                      <StatusBadge status={order.delivery} />
+                    ) : (
+                      <span className="muted">{t('myOrders:noDelivery')}</span>
+                    )}
+                    <ProgressBar
+                      percent={order.progress}
+                      color={order.color}
+                      style={{ marginTop: 6 }}
+                    />
                   </td>
-                  <td>{o.date}</td>
-                  <td>{o.total}</td>
-                  <td>{o.payment}</td>
-                  <td>{o.paid}</td>
+                  <td>{order.date}</td>
+                  <td>{order.total}</td>
+                  <td>{order.payment}</td>
+                  <td>{order.paid}</td>
                   <td>
-                    <button className="btn" onClick={() => navigateTopLevel(`/client/orders/${o.id}`)}>
-                      {t('myOrders:table.view')}
-                    </button>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button
+                        className="btn"
+                        onClick={() =>
+                          navigateTopLevel(`/client/orders/${order.id}`)
+                        }
+                      >
+                        {t('myOrders:table.view')}
+                      </button>
+                      {order.canCancel && (
+                        <button
+                          className="btn"
+                          onClick={() => handleCancel(order)}
+                          disabled={cancellingId === order.id}
+                        >
+                          {cancellingId === order.id
+                            ? t('myOrders:cancelling')
+                            : t('myOrders:cancel')}
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))

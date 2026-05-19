@@ -7,8 +7,8 @@ import type { ApiSuccess } from './types';
  * GET /api/batches/
  * @pending — backend endpoint not yet implemented
  */
-export const getBatches = (): Promise<AxiosResponse<ApiSuccess<any[]>>> =>
-  api.get('/api/batches/');
+export const getBatches = (params: { q?: string } = {}): Promise<AxiosResponse<ApiSuccess<any[]>>> =>
+  api.get('/api/batches/', { params });
 
 export const getBatchById = (batchId: number): Promise<AxiosResponse<ApiSuccess<any>>> =>
   api.get(`/api/batches/${batchId}/`);

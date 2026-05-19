@@ -4,28 +4,54 @@ import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import StatusBadge from '../../components/StatusBadge';
 import { useNavigation } from '../../context/NavigationContext';
-import { getQuotes } from '../../lib/api/quotesService';
-import type { QuoteResponse } from '../../lib/api/quotesService';
+import { getQuotes, type QuoteResponse } from '../../lib/api/quotesService';
 
-interface QuoteSummary {
-  id: number;
-  status: string;
-  amount: number;
+// ─── Helpers ────────────────────────────────────────────────────────
+
+function formatAmount(
+  amount: number | string | null,
+  lang: string
+): string {
+  const value = Number(amount);
+  if (!Number.isFinite(value)) return '—';
+  return `EGP ${value.toLocaleString(
+    lang === 'ar' ? 'ar-EG' : 'en-EG',
+    { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+  )}`;
 }
 
-function fmt(n: number, lang: string): string {
-  return n.toLocaleString(lang === 'ar' ? 'ar-EG' : 'en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function formatDate(
+  iso: string | null,
+  lang: string
+): string {
+  if (!iso) return '—';
+  const date = new Date(iso);
+  if (isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString(
+    lang === 'ar' ? 'ar-EG' : 'en-GB',
+    { day: '2-digit', month: 'short', year: 'numeric' }
+  );
 }
 
-function computeTotalFromItems(items: QuoteResponse['items']): number {
-  return items.reduce((sum, item) => {
-    const price =
-      typeof item.estimated_total_price === 'string'
-        ? parseFloat(item.estimated_total_price)
-        : item.estimated_total_price;
-    return sum + (price || 0);
-  }, 0);
+function quoteTotal(quote: QuoteResponse): number {
+  if (
+    quote.total_estimated_price !== null &&
+    quote.total_estimated_price !== undefined
+  ) {
+    return Number(quote.total_estimated_price) || 0;
+  }
+  return (quote.items || []).reduce(
+    (sum, item) => sum + (Number(item.estimated_total_price) || 0),
+    0
+  );
 }
+
+// Map API status to UI status
+function mapStatus(status: string): string {
+  return status === 'pending' ? 'awaiting_confirmation' : status;
+}
+
+// ─── Component ──────────────────────────────────────────────────────
 
 export default function Quotes() {
   return (
@@ -38,7 +64,7 @@ export default function Quotes() {
 function QuotesInner() {
   const { t, i18n } = useTranslation(['common', 'quotes']);
   const { navigateTopLevel } = useNavigation();
-  const [quotes, setQuotes] = useState<QuoteSummary[]>([]);
+  const [quotes, setQuotes] = useState<QuoteResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,34 +72,7 @@ function QuotesInner() {
     const fetchQuotes = async () => {
       try {
         const res = await getQuotes();
-        const rawQuotes: QuoteResponse[] = res.data.data;
-
-        const summaries: QuoteSummary[] = rawQuotes.map((q) => {
-          let amount: number;
-          if (q.total_estimated_price != null) {
-            amount =
-              typeof q.total_estimated_price === 'string'
-                ? parseFloat(q.total_estimated_price)
-                : q.total_estimated_price;
-          } else {
-            amount = computeTotalFromItems(q.items || []);
-          }
-
-          const statusMap: Record<string, string> = {
-            pending: 'awaiting_confirmation',
-            approved: 'approved',
-            rejected: 'rejected',
-            converted: 'converted',
-          };
-
-          return {
-            id: q.id,
-            status: statusMap[q.status] || q.status,
-            amount,
-          };
-        });
-
-        setQuotes(summaries);
+        setQuotes(res.data.data);
       } catch (err) {
         console.error('Failed to load quotes:', err);
         setError(t('quotes:error'));
@@ -94,50 +93,70 @@ function QuotesInner() {
     );
   }
 
-  if (error) {
-    return (
-      <AppShell role="client" activePage="quotes">
-        <Topbar title={t('quotes:title')} />
-        <div className="error-state">{error}</div>
-      </AppShell>
-    );
-  }
+  const lang = i18n.language;
 
   return (
     <AppShell role="client" activePage="quotes">
       <Topbar title={t('quotes:title')} />
 
+      {error && (
+        <div className="box" style={{ background: '#fff0f0', color: '#c0392b', marginBottom: 12 }}>
+          {error}
+        </div>
+      )}
+
       <section className="table-wrap">
         <div className="table-head" style={{ marginBottom: 10 }}>
           <h3>{t('quotes:myQuotes')}</h3>
-          <button className="btn primary" onClick={() => navigateTopLevel('place-new-order')}>
+          <button
+            className="btn primary"
+            onClick={() => navigateTopLevel('place-new-order')}
+          >
             {t('quotes:requestNew')}
           </button>
         </div>
+
         <table className="orders-table">
           <thead>
             <tr>
               <th>{t('quotes:table.id')}</th>
+              <th>{t('quotes:table.order')}</th>
+              <th>{t('quotes:table.product')}</th>
               <th>{t('quotes:table.status')}</th>
               <th>{t('quotes:table.amount')}</th>
+              <th>{t('quotes:table.created')}</th>
               <th>{t('quotes:table.action')}</th>
             </tr>
           </thead>
           <tbody>
             {quotes.length === 0 ? (
               <tr>
-                <td colSpan={4} className="no-results">{t('quotes:empty')}</td>
+                <td colSpan={7} className="no-results">
+                  {t('quotes:empty')}
+                </td>
               </tr>
             ) : (
-              quotes.map((q) => (
-                <tr key={q.id}>
-                  <td>#{q.id}</td>
-                  <td><StatusBadge status={q.status} /></td>
-                  <td style={{ fontWeight: 600 }}>EGP {fmt(q.amount, i18n.language)}</td>
+              quotes.map((quote) => (
+                <tr key={quote.id}>
+                  <td>#{quote.id}</td>
+                  <td>#{quote.order}</td>
+                  <td>
+                    {quote.product_summary ||
+                      t('quotes:orderPlaceholder', { id: quote.order })}
+                  </td>
+                  <td>
+                    <StatusBadge status={mapStatus(quote.status)} />
+                  </td>
+                  <td style={{ fontWeight: 600 }}>
+                    {formatAmount(quoteTotal(quote), lang)}
+                  </td>
+                  <td>{formatDate(quote.created_at, lang)}</td>
                   <td>
                     <button
                       className="btn"
-                      onClick={() => navigateTopLevel(`/client/quotes/${q.id}`)}
+                      onClick={() =>
+                        navigateTopLevel(`/client/quotes/${quote.id}`)
+                      }
                     >
                       {t('quotes:table.review')}
                     </button>

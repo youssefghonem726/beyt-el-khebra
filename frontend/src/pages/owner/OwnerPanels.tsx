@@ -1,11 +1,10 @@
-// OwnerPanels.tsx (full refactored version)
-
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import StatCard from '../../components/StatCard';
 import StatusBadge from '../../components/StatusBadge';
 import ProgressBar from '../../components/ProgressBar';
 import { downloadText } from '../../utils/download';
+import { openInvoicePdf } from '../../utils/invoicePdf';
 import {
   getOrders,
   getBatches,
@@ -67,7 +66,7 @@ function getClientName(clientsMap: Map<string, string>, clientId: unknown): stri
 
 const PENDING_ORDER_STATUSES = new Set(['UNPRICED_PENDING', 'PRICED_PENDING_CONFIRMATION']);
 const WORKING_ORDER_STATUSES = new Set(['IN_PROGRESS']);
-const COMPLETED_ORDER_STATUSES = new Set(['COMPLETED', 'CLOSED']);
+const COMPLETED_ORDER_STATUSES = new Set(['COMPLETED']);
 const PRODUCTION_STEP_LABELS: Record<string, string> = {
   pending: 'Ready',
   design: 'Design',
@@ -413,6 +412,8 @@ interface BatchView {
   code: string;
   order: string;
   client: string;
+  product: string;
+  qty: number;
   status: string;
   date: string;
 }
@@ -441,13 +442,21 @@ export function BatchLookupPanel() {
         const clientsMap = new Map(clientsData.map(c => [String(c.id), c.name]));
 
         const views: BatchView[] = batchesData.map((b: any) => {
-          const orderId = String(b.orderId ?? b.order_id ?? '');
+          const orderIds = Array.isArray(b.orderIds) && b.orderIds.length
+            ? b.orderIds.map(String)
+            : [String(b.orderId ?? b.order_id ?? '')];
+          const orderId = orderIds[0];
           const order = ordersMap.get(orderId);
-          const batchCode = b.code || b.batch_code || b.id;
+          const batchCode = b.code || b.batchCode || b.batch_code || `BATCH-${String(b.id).padStart(4, '0')}`;
+          const clientNames = Array.isArray(b.clientNames) && b.clientNames.length
+            ? b.clientNames
+            : [order ? getClientName(clientsMap, getOrderClientId(order)) : b.clientName || 'Unknown'];
           return {
             code: String(batchCode),
-            order: order ? getShortOrderId(String(order.id)) : orderId,
-            client: order ? getClientName(clientsMap, getOrderClientId(order)) : 'Unknown',
+            order: orderIds.map((id: string) => getShortOrderId(id)).join(', '),
+            client: clientNames.join(', '),
+            product: b.product || 'Production Batch',
+            qty: Number(b.qty || 0),
             status: b.status,
             date: formatDate(b.created_at || b.updated_at || order?.orderDate || order?.created_at || null, i18n.language),
           };
@@ -481,6 +490,8 @@ export function BatchLookupPanel() {
           <div className="form-grid-2" style={{ fontSize: 14 }}>
             <p><strong>{t('batchLookup:table.order')}:</strong> {selected.order}</p>
             <p><strong>{t('batchLookup:modal.client')}:</strong> {selected.client}</p>
+            <p><strong>{t('batchLookup:modal.product')}:</strong> {selected.product}</p>
+            <p><strong>{t('batchLookup:modal.quantity')}:</strong> {selected.qty} {t('batchLookup:modal.pcs')}</p>
             <p><strong>{t('batchLookup:table.date')}:</strong> {selected.date}</p>
             <p><strong>{t('batchLookup:table.status')}:</strong> <StatusBadge status={selected.status} /></p>
           </div>
@@ -521,8 +532,8 @@ export function BatchLookupPanel() {
           className="btn"
           disabled={filtered.length === 0}
           onClick={() => {
-            const header = 'Batch Code,Order,Client,Status,Date';
-            const rows = filtered.map(b => [b.code, b.order, b.client, b.status, b.date].map(value => `"${String(value).replace(/"/g, '""')}"`).join(','));
+            const header = 'Batch Code,Orders,Clients,Product,Quantity,Status,Date';
+            const rows = filtered.map(b => [b.code, b.order, b.client, b.product, b.qty, b.status, b.date].map(value => `"${String(value).replace(/"/g, '""')}"`).join(','));
             downloadText('batch-export.csv', [header, ...rows]);
           }}
         >
@@ -536,6 +547,8 @@ export function BatchLookupPanel() {
               <th>{t('batchLookup:table.batchCode')}</th>
               <th>{t('batchLookup:table.order')}</th>
               <th>{t('batchLookup:table.clientName')}</th>
+              <th>{t('batchLookup:table.product')}</th>
+              <th>{t('batchLookup:table.qty')}</th>
               <th>{t('batchLookup:table.status')}</th>
               <th>{t('batchLookup:table.date')}</th>
               <th>{t('batchLookup:table.action')}</th>
@@ -543,12 +556,14 @@ export function BatchLookupPanel() {
           </thead>
           <tbody>
             {filtered.length === 0
-              ? <tr><td colSpan={6} className="no-results">{t('batchLookup:noResults')}</td></tr>
+              ? <tr><td colSpan={8} className="no-results">{t('batchLookup:noResults')}</td></tr>
               : filtered.map(b => (
                 <tr key={b.code}>
                   <td>{b.code}</td>
                   <td>{b.order}</td>
                   <td>{b.client}</td>
+                  <td>{b.product}</td>
+                  <td>{b.qty}</td>
                   <td><StatusBadge status={b.status} /></td>
                   <td>{b.date}</td>
                   <td><button className="btn" onClick={() => setSelected(b)}>{t('batchLookup:table.view')}</button></td>
@@ -577,21 +592,33 @@ export function AccountingPanel() {
         const overview = overviewRes.data.data;
         const invoicesData = overview.invoices ?? [];
 
-        const enriched = invoicesData.map((inv: any) => ({
-          id: inv.id,
-          order: getShortOrderId(String(inv.orderId ?? inv.order_id ?? inv.order ?? '-')),
-          client: inv.client_name || 'Unknown',
-          total: formatAmount(inv.total ?? inv.total_amount ?? 0, i18n.language),
-          status: inv.payment_status || inv.status || 'unpaid',
-        }));
+        const enriched = invoicesData.map((inv: any) => {
+          const totalAmount = Number(inv.total ?? inv.total_amount ?? 0);
+          const paidAmount = Number(inv.paid_amount ?? 0);
+          const remainingAmount = Number(inv.remaining_amount ?? Math.max(totalAmount - paidAmount, 0));
+          return {
+            id: inv.id,
+            order: getShortOrderId(String(inv.orderId ?? inv.order_id ?? inv.order ?? '-')),
+            client: inv.client_name || 'Unknown',
+            total: formatAmount(totalAmount, i18n.language),
+            paid: formatAmount(paidAmount, i18n.language),
+            remaining: formatAmount(remainingAmount, i18n.language),
+            status: inv.payment_status || inv.status || 'unpaid',
+            itemSummary: inv.item_summary || getShortOrderId(String(inv.orderId ?? inv.order_id ?? inv.order ?? '-')),
+            items: inv.items ?? [],
+            createdAt: inv.created_at,
+          };
+        });
 
-        const paidTotal = overview.stats?.revenue_snapshot ?? 0;
+        const revenueTotal = overview.stats?.revenue_snapshot ?? 0;
+        const confirmedValue = overview.stats?.confirmed_order_value ?? 0;
         const pendingTotal = overview.stats?.pending_collection ?? 0;
         const paidCount = overview.stats?.paid_orders ?? 0;
         const unpaidCount = overview.stats?.unpaid_orders ?? 0;
 
         setStats([
-          { label: t('accounting:stats.revenueSnapshot'), value: `EGP ${(paidTotal / 1000).toFixed(0)}K`, sub: t('accounting:stats.revenueSnapshotSub') },
+          { label: t('accounting:stats.revenueSnapshot'), value: `EGP ${(revenueTotal / 1000).toFixed(0)}K`, sub: t('accounting:stats.revenueSnapshotSub') },
+          { label: t('accounting:stats.confirmedOrderValue'), value: `EGP ${(confirmedValue / 1000).toFixed(0)}K`, sub: t('accounting:stats.confirmedOrderValueSub') },
           { label: t('accounting:stats.pendingCollection'), value: `EGP ${(pendingTotal / 1000).toFixed(0)}K`, sub: t('accounting:stats.pendingCollectionSub') },
           { label: t('accounting:stats.paidOrders'), value: paidCount, sub: t('accounting:stats.paidOrdersSub') },
           { label: t('accounting:stats.unpaidOrders'), value: unpaidCount, sub: t('accounting:stats.unpaidOrdersSub') },
@@ -640,13 +667,18 @@ export function AccountingPanel() {
                     <button
                       className="btn"
                       onClick={() =>
-                        downloadText(`invoice-${inv.id}.txt`, [
-                          `INVOICE: ${inv.id}`,
-                          `Order:  ${inv.order}`,
-                          `Client: ${inv.client}`,
-                          `Total:  ${inv.total}`,
-                          `Status: ${inv.status}`,
-                        ])
+                        openInvoicePdf({
+                          id: inv.id,
+                          order: inv.order,
+                          client: inv.client,
+                          createdAt: inv.createdAt,
+                          status: inv.status,
+                          itemSummary: inv.itemSummary,
+                          items: inv.items,
+                          total: inv.total,
+                          paid: inv.paid,
+                          remaining: inv.remaining,
+                        })
                       }
                     >
                       {t('accounting:invoices.downloadBtn')}

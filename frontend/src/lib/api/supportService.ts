@@ -14,8 +14,20 @@ export interface SupportTicket {
   subject: string;
   order_id: string | null;
   message: string;
+  status: string;
   created_at: string;
 }
+
+export interface SupportContact {
+  phone: string;
+  email: string;
+  facebook_url: string;
+  messenger_name: string;
+  hours: string;
+}
+
+export const getSupportContact = (): Promise<AxiosResponse<ApiSuccess<SupportContact>>> =>
+  api.get('/api/settings/support-contact/');
 
 export const createSupportTicket = (
   ticketData: CreateTicketPayload

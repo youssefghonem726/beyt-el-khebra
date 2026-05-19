@@ -11,6 +11,7 @@ class SupportTicket(models.Model):
     subject = models.CharField(max_length=200)
     order_id = models.CharField(max_length=50, null=True, blank=True, db_column='order_id')
     message = models.TextField()
+    status = models.CharField(max_length=20, default='open')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

@@ -1,9 +1,21 @@
-import { useState, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
 import { useNavigation } from '../../context/NavigationContext';
-import { createSupportTicket } from '../../lib/api/supportService';
+import {
+  createSupportTicket,
+  getSupportContact,
+  type SupportContact,
+} from '../../lib/api/supportService';
+
+const defaultContact: SupportContact = {
+  phone: '01206001616',
+  email: 'betelkhebra2@gmail.com',
+  facebook_url: 'https://www.facebook.com/share/18neEjKj21/',
+  messenger_name: 'بيت الخبرة - Bayt El Khebra',
+  hours: 'Contact shop for current working hours',
+};
 
 export default function Support() {
   return (
@@ -17,9 +29,16 @@ function SupportInner() {
   const { t } = useTranslation(['common', 'support']);
   const { navigateTopLevel } = useNavigation();
   const [form, setForm] = useState({ subject: '', orderId: '', message: '' });
+  const [contact, setContact] = useState<SupportContact>(defaultContact);
   const [sent, setSent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    getSupportContact()
+      .then((res) => setContact({ ...defaultContact, ...res.data.data }))
+      .catch(() => setContact(defaultContact));
+  }, []);
 
   const set =
     (k: keyof typeof form) =>
@@ -27,14 +46,17 @@ function SupportInner() {
       setForm((f) => ({ ...f, [k]: e.target.value }));
 
   const handleSend = async () => {
-    if (!form.subject || !form.message) return;
+    if (!form.subject.trim() || !form.message.trim()) {
+      setError('Subject and message are required.');
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
       await createSupportTicket({
-        subject: form.subject,
-        order_id: form.orderId || undefined,
-        message: form.message,
+        subject: form.subject.trim(),
+        order_id: form.orderId.trim() || undefined,
+        message: form.message.trim(),
       });
       setSent(true);
     } catch (err) {
@@ -70,7 +92,15 @@ function SupportInner() {
             <>
               <h3>{t('support:form.title')}</h3>
               {error && (
-                <div style={{ background: '#fff0f0', color: '#c0392b', padding: '8px 12px', borderRadius: 6, marginBottom: 12 }}>
+                <div
+                  style={{
+                    background: '#fff0f0',
+                    color: '#c0392b',
+                    padding: '8px 12px',
+                    borderRadius: 6,
+                    marginBottom: 12,
+                  }}
+                >
                   {error}
                 </div>
               )}
@@ -117,15 +147,42 @@ function SupportInner() {
         <aside className="box">
           <h3>{t('support:channels.title')}</h3>
           <ul>
-            <li>{t('support:channels.email')}</li>
-            <li>{t('support:channels.phone')}</li>
-            <li>{t('support:channels.hours')}</li>
+            <li>
+              {t('support:channels.email')}:{' '}
+              <a href={`mailto:${contact.email}`}>{contact.email}</a>
+            </li>
+            <li>
+              {t('support:channels.phone')}:{' '}
+              <a href={`tel:${contact.phone}`}>{contact.phone}</a>
+            </li>
+            <li>
+              {t('support:channels.messenger')}: {contact.messenger_name}
+            </li>
+            <li>
+              {t('support:channels.hours')}: {contact.hours}
+            </li>
           </ul>
           <div className="line" />
-          <button className="btn block" onClick={() => navigateTopLevel('track-order')}>
+          <button
+            className="btn block"
+            onClick={() => navigateTopLevel('track-order')}
+          >
             {t('support:channels.trackOrder')}
           </button>
-          <button className="btn block" style={{ marginTop: 8 }} onClick={() => navigateTopLevel('place-new-order')}>
+          <button
+            className="btn block"
+            style={{ marginTop: 8 }}
+            onClick={() =>
+              window.open(contact.facebook_url, '_blank', 'noopener,noreferrer')
+            }
+          >
+            {t('support:channels.facebook')}
+          </button>
+          <button
+            className="btn block"
+            style={{ marginTop: 8 }}
+            onClick={() => navigateTopLevel('place-new-order')}
+          >
             {t('support:channels.newOrder')}
           </button>
         </aside>
