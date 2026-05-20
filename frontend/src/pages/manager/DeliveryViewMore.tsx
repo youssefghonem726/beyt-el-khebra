@@ -9,7 +9,7 @@ import {
   type DeliveryResponse,
 } from '../../lib/api/deliveriesService';
 
-function formatDate(value?: string | null, lang: string): string {
+function formatDate(value?: string | null, lang: string = 'en'): string {
   if (!value) return '—';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '—';

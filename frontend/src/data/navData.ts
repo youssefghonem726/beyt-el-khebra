@@ -2,6 +2,7 @@ export type Role = 'owner' | 'manager' | 'client';
 
 export interface NavItem {
   labelKey: string;
+  label?: string;
   page: string;
   path: string;
 }
@@ -25,7 +26,7 @@ export const NAVS: Record<Role, NavItem[]> = {
     { labelKey: 'workView',       page: 'order-work-view', path: '/manager/work-view' },
     { labelKey: 'batchLookup',    page: 'batch-lookup',    path: '/manager/batch-lookup' },
     { labelKey: 'delivery',       page: 'delivery-list',   path: '/manager/deliveries' },
-    { label: 'Notifications',  page: 'manager-notifications', path: '/manager/notifications' },
+    { labelKey: 'notifications',  page: 'manager-notifications', path: '/manager/notifications' },
   ],
   client: [
     { labelKey: 'dashboard',       page: 'client-dashboard',     path: '/client' },

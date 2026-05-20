@@ -26,8 +26,7 @@ interface Props {
   role?: 'manager' | 'owner';
 }
 
-// ─── Locale‑aware formatting (overrides the imported `formatDate` if needed) ────
-function formatDate(value?: string | null, lang: string): string {
+function formatDate(value?: string | null, lang: string = 'en'): string {
   if (!value) return '—';
   const d = new Date(value);
   if (isNaN(d.getTime())) return '—';
