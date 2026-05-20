@@ -45,13 +45,17 @@
   "status": {
     "UNPRICED_PENDING": "بانتظار التسعير",
     "PRICED_PENDING_CONFIRMATION": "بانتظار التأكيد",
+    "CONFIRMED": "مؤكد",
     "IN_PROGRESS": "قيد التنفيذ",
     "COMPLETED": "مكتمل",
-    "CANCELED": "ملغى"
+    "CANCELED": "ملغى",
+    "CANCELLED": "ملغى",
+    "completed": "مكتمل"
   },
   "statusLabels": {
     "UNPRICED_PENDING": "بانتظار التسعير",
     "PRICED_PENDING_CONFIRMATION": "بانتظار التأكيد",
+    "CONFIRMED": "مؤكد",
     "IN_PROGRESS": "قيد التنفيذ",
     "COMPLETED": "مكتمل",
     "CANCELED": "ملغى",
@@ -93,6 +97,8 @@
     "noResults": "لا توجد نتائج مطابقة",
     "error": "حدث خطأ ما"
   },
+  "orderItem": "عنصر الطلب",
+  "packageOrder": "طلب حزمة",
   "filter": {
     "status": "الحالة",
     "allStatus": "كل الحالات",

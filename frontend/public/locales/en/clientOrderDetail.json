@@ -8,6 +8,9 @@
     "loadFailed": "Could not load order details. Please try again later."
   },
   "backLabel": "My Orders",
+  "orderNumber": "Order #{{id}}",
+  "paymentStatus": "Payment Status",
+  "noDelivery": "No delivery scheduled.",
   "batchCode": "Batch Code",
   "orderDate": "Order Date",
   "estDelivery": "Est. Delivery",
@@ -16,6 +19,29 @@
   "paymentMethod": "Payment Method",
   "deliveryStatus": "Delivery Status",
   "productionProgress": "Production Progress",
+  "items": {
+    "title": "Order Items",
+    "empty": "No items.",
+    "pcs": "pcs",
+    "pages": "Pages: ",
+    "size": "Size: ",
+    "material": "Material: ",
+    "color": "Color: ",
+    "cover": "Cover: ",
+    "binding": "Binding: ",
+    "currentStep": "Current Step: ",
+    "notes": "Notes: "
+  },
+  "delivery": {
+    "title": "Delivery",
+    "status": "Status: ",
+    "scheduled": "Scheduled: ",
+    "delivered": "Delivered: ",
+    "address": "Address: ",
+    "driver": "Driver: ",
+    "notes": "Notes: ",
+    "empty": "No delivery information available."
+  },
   "specs": {
     "title": "Specifications",
     "qty": "Quantity",
@@ -24,6 +50,14 @@
   "timeline": {
     "title": "Timeline",
     "pending": "Pending",
+    "orderPlaced": "Order Placed",
+    "awaitingPricing": "Awaiting Pricing",
+    "quoteReady": "Quote Ready",
+    "confirmed": "Confirmed",
+    "inProduction": "In Production",
+    "completed": "Completed",
+    "cancelled": "Cancelled",
+    "delivery": "Delivery",
     "items": {
       "orderPlaced": "Order placed",
       "production": "Production",

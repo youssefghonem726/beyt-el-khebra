@@ -94,8 +94,8 @@ function ClientInvoicesInner() {
               </tr>
             ) : (
               invoices.map((inv) => {
-                const orderId = inv.order_id ?? inv.orderId ?? inv.order;
-                const status = inv.payment_status || inv.status;
+                const orderId = inv.order_id ?? inv.orderId;
+                const status = inv.status;
                 return (
                   <tr key={inv.id}>
                     <td><strong>#{inv.id}</strong></td>

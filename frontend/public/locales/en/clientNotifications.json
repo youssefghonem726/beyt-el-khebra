@@ -4,6 +4,14 @@
   "error": "Could not load your notifications. Please try again later.",
   "empty": "No notifications.",
   "dismiss": "Dismiss",
+  "unread": "unread",
+  "saving": "Saving...",
+  "markAllRead": "Mark All Read",
+  "markAllReadError": "Could not mark notifications as read.",
+  "clearRead": "Clear Read",
+  "clearReadError": "Could not clear read notifications.",
+  "dismissError": "Could not dismiss notification.",
+  "view": "View",
   "actions": {
     "View quote": "View Quote",
     "Open unpriced queue": "Open Unpriced Queue",
@@ -14,11 +22,13 @@
     "Open delivery": "Open Delivery",
     "View client": "View Client",
     "View orders": "View Orders",
-    "View delivery": "View Delivery"
+    "View delivery": "View Delivery",
+    "Track order": "Track Order"
   },
   "messages": {
     "titles": {
       "quoteReady": "Quote ready",
+      "orderConfirmed": "Order confirmed",
       "orderCompleted": "Order completed",
       "orderInProduction": "Order in production",
       "deliveryCreated": "Delivery created",
@@ -26,6 +36,7 @@
     },
     "bodies": {
       "quoteReady": "Your quote is ready for Order #{{orderId}}.",
+      "orderConfirmed": "Your order #{{orderId}} is confirmed and ready for production.",
       "orderCompleted": "Your order #{{orderId}} is completed.",
       "orderInProduction": "Your order #{{orderId}} is now in production.",
       "deliveryCreated": "Delivery was created for Order #{{orderId}}.",

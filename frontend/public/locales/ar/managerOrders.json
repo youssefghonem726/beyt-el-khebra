@@ -2,6 +2,19 @@
   "title": "جميع الطلبات",
   "loading": "جاري تحميل الطلبات…",
   "error": "تعذّر تحميل الطلبات. يرجى المحاولة مجدداً.",
+  "searchPlaceholder": "البحث في الطلبات...",
+  "noResults": "لا توجد طلبات.",
+  "productFallback": "الطلب #{{id}}",
+  "batchFallback": "—",
+  "filter": {
+    "active": "نشط",
+    "completed": "مكتمل",
+    "archive": "الأرشيف"
+  },
+  "actions": {
+    "view": "عرض",
+    "workView": "عرض العمل"
+  },
   "pending": {
     "title": "الطلبات المعلّقة",
     "empty": "لا توجد طلبات معلّقة"
@@ -39,6 +52,10 @@
     "status": "الحالة",
     "client": "العميل",
     "action": "إجراء",
-    "view": "عرض"
+    "view": "عرض",
+    "product": "المنتج",
+    "production": "الإنتاج",
+    "dueDate": "الموعد النهائي",
+    "batch": "الدفعة"
   }
 }
