@@ -43,6 +43,17 @@
     "vatPlaceholder": "14",
     "subtotal": "Subtotal ({{qty}} × EGP {{price}})",
     "vat": "VAT ({{rate}}%)",
+      "itemSpecs": {
+        "size": "Size",
+        "paper": "Paper",
+        "color": "Color",
+        "cover": "Cover",
+        "binding": "Binding",
+        "material": "Material",
+        "shape": "Shape",
+        "finish": "Finish",
+        "printType": "Print Type"
+      },
     "total": "Total",
     "notes": "Notes (optional)",
     "notesPlaceholder": "Any special pricing notes or conditions…",

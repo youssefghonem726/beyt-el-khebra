@@ -56,12 +56,56 @@ const ITEM_TYPES: { id: ItemType; labelEn: string; icon: string }[] = [
 const getItemLabel = (type: string): string =>
   ITEM_TYPES.find(t => t.id === type)?.labelEn ?? type;
 
-const buildOrderItemNotes = (data: Record<string, any>, extraNotes = ''): string => {
-  const specs = Object.entries(data)
-    .filter(([, value]) => value !== undefined && value !== null && value !== '' && !(value instanceof File))
-    .map(([key, value]) => `${key}: ${String(value)}`);
+/**
+ * Map the form fields of a single item to the actual `order_items` column names.
+ * Leaves out any key that is undefined, so the backend gets only populated fields.
+ */
+const mapItemDataToSpecs = (type: string, data: Record<string, any>): Record<string, any> => {
+  const spec: Record<string, any> = {};
 
-  return [...specs, extraNotes.trim()].filter(Boolean).join('\n');
+  switch (type) {
+    case 'book':
+      if (data.size)        spec.size       = data.size;
+      if (data.colors)      spec.color_mode = data.colors;
+      if (data.printType)   spec.print_type = data.printType;
+      if (data.casing)      spec.binding    = data.casing;
+      if (data.coverFinish) spec.cover      = data.coverFinish; // cover finish mapped to cover column
+      // page_count not yet collected – stays null
+      break;
+
+    case 'booklet':
+      if (data.size)      spec.size       = data.size;
+      if (data.weight)    spec.paper      = data.weight; // paper weight
+      if (data.colors)    spec.color_mode = data.colors;
+      if (data.printType) spec.print_type = data.printType;
+      if (data.casing)    spec.binding    = data.casing;
+      break;
+
+    case 'card':
+      if (data.size)      spec.size       = data.size;
+      if (data.weight)    spec.paper      = data.weight;
+      if (data.finish)    spec.finish     = data.finish;
+      if (data.printType) spec.print_type = data.printType;
+      break;
+
+    case 'sticker':
+      if (data.material)  spec.material = data.material;
+      if (data.shape)     spec.shape    = data.shape;
+      if (data.finish)    spec.finish   = data.finish;
+      break;
+
+    case 'poster':
+      if (data.size)      spec.size       = data.size;
+      if (data.weight)    spec.paper      = data.weight;
+      if (data.finish)    spec.finish     = data.finish;
+      if (data.printType) spec.print_type = data.printType;
+      break;
+
+    default:
+      break;
+  }
+
+  return spec; // only contains defined keys
 };
 
 import { DocLibrary } from '../../components/DocLibrary';
@@ -258,9 +302,9 @@ function OwnerPlaceOrderInner() {
 
   // ─── Package submit ───────────────────────────────────────────────────────
   const handlePackageSubmit = async (
-    pkgItems    : PackageItem[],
-    _doc        : ClientDocument | null,
-    _clientName : string,
+    pkgItems: PackageItem[],
+    _doc: ClientDocument | null,
+    _clientName: string,
   ) => {
     setSubmitting(true);
     setError(null);
@@ -268,44 +312,62 @@ function OwnerPlaceOrderInner() {
     try {
       const ownerId = Number(selectedClientId);
 
-      // Upload every file attached to every item before creating the order.
-      // Files that aren't File objects (e.g. doc references) are skipped.
-      for (const item of pkgItems) {
-        const itemLabel = getItemLabel(item.type); // e.g. 'Business Card'
+      // Build order items: upload files where necessary, then map specs
+      const orderItems = await Promise.all(
+        pkgItems.map(async (item) => {
+          let file_id: number | null = null;
+          let cover_file_id: number | null = null;
 
-        if (item.data.pdf instanceof File) {
-          await createUpload({
-            file      : item.data.pdf,
-            file_type : 'content',
-            owner_id  : ownerId,
-            item_type : itemLabel,
-          });
-        }
+          // 1. If the item references a library document, use its ID directly
+          if (item.data.docId) {
+            file_id = Number(item.data.docId);
+          } else {
+            // 2. Otherwise, upload a new content file if present
+            if (item.data.pdf instanceof File) {
+              const uploadRes = await createUpload({
+                file: item.data.pdf,
+                file_type: 'content',
+                owner_id: ownerId,
+                item_type: getItemLabel(item.type),
+              });
+              file_id = uploadRes.data.data.id;
+            }
 
-        // Books can also have a separate cover file
-        if (item.data.cover instanceof File) {
-          await createUpload({
-            file      : item.data.cover,
-            file_type : 'cover',
-            owner_id  : ownerId,
-            item_type : itemLabel,
-          });
-        }
-      }
+            // 3. Upload a cover file if present
+            if (item.data.cover instanceof File) {
+              const uploadRes = await createUpload({
+                file: item.data.cover,
+                file_type: 'cover',
+                owner_id: ownerId,
+                item_type: getItemLabel(item.type),
+              });
+              cover_file_id = uploadRes.data.data.id;
+            }
+          }
 
-      const totalQty = pkgItems.reduce((sum, item) => sum + (Number(item.data.qty) || 1), 0);
+          const specs = mapItemDataToSpecs(item.type, item.data);
+
+          return {
+            item_type: getItemLabel(item.type),
+            quantity: Number(item.data.qty) || 1,
+            ...specs,
+            file_id,
+            cover_file_id,
+            notes: null,
+          };
+        })
+      );
+
+      const totalQty = orderItems.reduce((sum, i) => sum + i.quantity, 0);
 
       await createOrder({
-        status      : 'UNPRICED_PENDING',
-        quantity    : totalQty || 1,
-        total_price : 0,
-        customer_id : ownerId,
-        order_items : pkgItems.map(item => ({
-          item_type : getItemLabel(item.type),
-          quantity  : Number(item.data.qty) || 1,
-          notes     : buildOrderItemNotes(item.data, notes),
-        })),
-      });
+        status: 'UNPRICED_PENDING',
+        quantity: totalQty,
+        total_price: 0,
+        customer_id: ownerId,
+        order_items: orderItems,
+        notes: notes || undefined, // order-level notes
+      } as any); // Cast to any to pass notes – backend will accept or ignore
 
       setSubmitted(true);
     } catch (err) {
@@ -318,52 +380,62 @@ function OwnerPlaceOrderInner() {
 
   // ─── Single submit ────────────────────────────────────────────────────────
   const handleSingleSubmit = async (
-    _itemType   : string,
-    data        : Record<string, any>,
-    _doc        : ClientDocument | null,
-    previewFile : File | null,
-    _clientName : string,
+    _itemType: string,
+    data: Record<string, any>,
+    _doc: ClientDocument | null,
+    previewFile: File | null,
+    _clientName: string,
   ) => {
     setSubmitting(true);
     setError(null);
 
     try {
-      const ownerId   = Number(selectedClientId);
-      const itemLabel = getItemLabel(_itemType); // e.g. 'Book'
+      const ownerId = Number(selectedClientId);
+      let file_id: number | null = null;
+      let cover_file_id: number | null = null;
 
-      // Upload content / print file
-      if (previewFile) {
-        await createUpload({
-          file      : previewFile,
-          file_type : 'content',
-          owner_id  : ownerId,
-          item_type : itemLabel,
+      // 1. Library document takes precedence over a newly uploaded file
+      if (selectedDoc) {
+        file_id = Number(selectedDoc.id);
+      } else if (previewFile) {
+        const uploadRes = await createUpload({
+          file: previewFile,
+          file_type: 'content',
+          owner_id: ownerId,
+          item_type: getItemLabel(_itemType),
         });
+        file_id = uploadRes.data.data.id;
       }
 
-      // Upload cover file (books only)
+      // 2. Upload cover file if present
       if (data.cover instanceof File) {
-        await createUpload({
-          file      : data.cover,
-          file_type : 'cover',
-          owner_id  : ownerId,
-          item_type : itemLabel,
+        const uploadRes = await createUpload({
+          file: data.cover,
+          file_type: 'cover',
+          owner_id: ownerId,
+          item_type: getItemLabel(_itemType),
         });
+        cover_file_id = uploadRes.data.data.id;
       }
 
+      const specs = mapItemDataToSpecs(_itemType, data);
       const qty = Number(data.qty) || 1;
 
       await createOrder({
-        status      : 'UNPRICED_PENDING',
-        quantity    : qty,
-        total_price : 0,
-        customer_id : ownerId,
-        order_items : [{
-          item_type : itemLabel,
-          quantity  : qty,
-          notes     : buildOrderItemNotes(data, notes),
+        status: 'UNPRICED_PENDING',
+        quantity: qty,
+        total_price: 0,
+        customer_id: ownerId,
+        order_items: [{
+          item_type: getItemLabel(_itemType),
+          quantity: qty,
+          ...specs,
+          file_id,
+          cover_file_id,
+          notes: null,
         }],
-      });
+        notes: notes || undefined,
+      } as any);
 
       setSubmitted(true);
     } catch (err) {
