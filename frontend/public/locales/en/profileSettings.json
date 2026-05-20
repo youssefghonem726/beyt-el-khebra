@@ -9,6 +9,7 @@
     "fullName": "Full Name",
     "email": "Email",
     "phone": "Phone",
+    "address": "Address",
     "saving": "Saving…",
     "save": "Save Changes"
   },

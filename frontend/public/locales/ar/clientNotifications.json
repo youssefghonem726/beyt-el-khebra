@@ -4,6 +4,14 @@
   "error": "تعذّر تحميل إشعاراتك. يرجى المحاولة مجدداً.",
   "empty": "لا توجد إشعارات.",
   "dismiss": "إغلاق",
+  "unread": "غير مقروءة",
+  "saving": "جاري الحفظ...",
+  "markAllRead": "تعليم الكل كمقروء",
+  "markAllReadError": "تعذّر تعليم الإشعارات كمقروءة.",
+  "clearRead": "حذف المقروءة",
+  "clearReadError": "تعذّر حذف الإشعارات المقروءة.",
+  "dismissError": "تعذّر إغلاق الإشعار.",
+  "view": "عرض",
   "actions": {
     "View quote": "عرض السعر",
     "Open unpriced queue": "فتح قائمة التسعير",
@@ -14,11 +22,13 @@
     "Open delivery": "فتح التوصيل",
     "View client": "عرض العميل",
     "View orders": "عرض الطلبات",
-    "View delivery": "عرض التوصيل"
+    "View delivery": "عرض التوصيل",
+    "Track order": "تتبع الطلب"
   },
   "messages": {
     "titles": {
       "quoteReady": "عرض السعر جاهز",
+      "orderConfirmed": "تم تأكيد الطلب",
       "orderCompleted": "الطلب مكتمل",
       "orderInProduction": "الطلب قيد الإنتاج",
       "deliveryCreated": "تم إنشاء التوصيل",
@@ -26,6 +36,7 @@
     },
     "bodies": {
       "quoteReady": "عرض السعر للطلب #{{orderId}} جاهز للمراجعة.",
+      "orderConfirmed": "تم تأكيد طلبك رقم #{{orderId}} وهو جاهز للإنتاج.",
       "orderCompleted": "طلبك رقم #{{orderId}} اكتمل بنجاح.",
       "orderInProduction": "طلبك رقم #{{orderId}} قيد الإنتاج الآن.",
       "deliveryCreated": "تم إنشاء توصيل للطلب #{{orderId}}.",

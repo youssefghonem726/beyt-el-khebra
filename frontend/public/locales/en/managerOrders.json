@@ -2,6 +2,19 @@
   "title": "All Orders",
   "loading": "Loading orders…",
   "error": "Could not load orders. Please try again later.",
+  "searchPlaceholder": "Search orders...",
+  "noResults": "No orders found.",
+  "productFallback": "Order #{{id}}",
+  "batchFallback": "—",
+  "filter": {
+    "active": "Active",
+    "completed": "Completed",
+    "archive": "Archive"
+  },
+  "actions": {
+    "view": "View",
+    "workView": "Work View"
+  },
   "pending": {
     "title": "Pending Orders",
     "empty": "No pending orders"
@@ -39,6 +52,10 @@
     "status": "Status",
     "client": "Client",
     "action": "Action",
-    "view": "View"
+    "view": "View",
+    "product": "Product",
+    "production": "Production",
+    "dueDate": "Due Date",
+    "batch": "Batch"
   }
 }

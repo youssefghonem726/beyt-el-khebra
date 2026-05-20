@@ -2,13 +2,13 @@ import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
-// ─── API imports ──────────────────────────────────────────────────────────
+// ─── API imports ──────────────────────────────────────────────────────────────
 import { getClients, createClientUser } from '../../lib/api/invoicesClientsSettingsService';
 import { createOrder } from '../../lib/api/ordersQuotesService';
 import { createUpload } from '../../lib/api/documentsProductionService';
 import { getDocuments } from '../../lib/api';
 
-// ── Types (unchanged) ────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 type ItemType = 'book' | 'booklet' | 'card' | 'sticker' | 'poster';
 
 interface PackageItem {
@@ -56,12 +56,56 @@ const ITEM_TYPES: { id: ItemType; labelEn: string; icon: string }[] = [
 const getItemLabel = (type: string): string =>
   ITEM_TYPES.find(t => t.id === type)?.labelEn ?? type;
 
-const buildOrderItemNotes = (data: Record<string, any>, extraNotes = ''): string => {
-  const specs = Object.entries(data)
-    .filter(([, value]) => value !== undefined && value !== null && value !== '' && !(value instanceof File))
-    .map(([key, value]) => `${key}: ${String(value)}`);
+/**
+ * Map the form fields of a single item to the actual `order_items` column names.
+ * Leaves out any key that is undefined, so the backend gets only populated fields.
+ */
+const mapItemDataToSpecs = (type: string, data: Record<string, any>): Record<string, any> => {
+  const spec: Record<string, any> = {};
 
-  return [...specs, extraNotes.trim()].filter(Boolean).join('\n');
+  switch (type) {
+    case 'book':
+      if (data.size)        spec.size       = data.size;
+      if (data.colors)      spec.color_mode = data.colors;
+      if (data.printType)   spec.print_type = data.printType;
+      if (data.casing)      spec.binding    = data.casing;
+      if (data.coverFinish) spec.cover      = data.coverFinish; // cover finish mapped to cover column
+      // page_count not yet collected – stays null
+      break;
+
+    case 'booklet':
+      if (data.size)      spec.size       = data.size;
+      if (data.weight)    spec.paper      = data.weight; // paper weight
+      if (data.colors)    spec.color_mode = data.colors;
+      if (data.printType) spec.print_type = data.printType;
+      if (data.casing)    spec.binding    = data.casing;
+      break;
+
+    case 'card':
+      if (data.size)      spec.size       = data.size;
+      if (data.weight)    spec.paper      = data.weight;
+      if (data.finish)    spec.finish     = data.finish;
+      if (data.printType) spec.print_type = data.printType;
+      break;
+
+    case 'sticker':
+      if (data.material)  spec.material = data.material;
+      if (data.shape)     spec.shape    = data.shape;
+      if (data.finish)    spec.finish   = data.finish;
+      break;
+
+    case 'poster':
+      if (data.size)      spec.size       = data.size;
+      if (data.weight)    spec.paper      = data.weight;
+      if (data.finish)    spec.finish     = data.finish;
+      if (data.printType) spec.print_type = data.printType;
+      break;
+
+    default:
+      break;
+  }
+
+  return spec; // only contains defined keys
 };
 
 import { DocLibrary } from '../../components/DocLibrary';
@@ -83,28 +127,28 @@ export default function OwnerPlaceOrder() {
 function OwnerPlaceOrderInner() {
   const { t } = useTranslation(['common', 'ownerPlaceOrder']);
 
-  const [clients, setClients]               = useState<Client[]>([]);
+  const [clients, setClients]                   = useState<Client[]>([]);
   const [selectedClientId, setSelectedClientId] = useState('');
-  const [orderType, setOrderType]           = useState<OrderType>(null);
-  const [items, setItems]                   = useState<PackageItem[]>([]);
-  const [singleType, setSingleType]         = useState<ItemType | ''>('');
-  const [singleData, setSingleData]         = useState<Record<string, any>>({});
-  const [allDocs, setAllDocs]               = useState<ClientDocument[]>([]);
-  const [selectedDocId, setSelectedDocId]   = useState('');
-  const [notes, setNotes]                   = useState('');
-  const [submitted, setSubmitted]           = useState(false);
+  const [orderType, setOrderType]               = useState<OrderType>(null);
+  const [items, setItems]                       = useState<PackageItem[]>([]);
+  const [singleType, setSingleType]             = useState<ItemType | ''>('');
+  const [singleData, setSingleData]             = useState<Record<string, any>>({});
+  const [allDocs, setAllDocs]                   = useState<ClientDocument[]>([]);
+  const [selectedDocId, setSelectedDocId]       = useState('');
+  const [notes, setNotes]                       = useState('');
+  const [submitted, setSubmitted]               = useState(false);
 
   const [showNewClientForm, setShowNewClientForm] = useState(false);
   const [newClientName, setNewClientName]         = useState('');
   const [newClientEmail, setNewClientEmail]       = useState('');
   const [newClientPhone, setNewClientPhone]       = useState('');
 
-  const [submitting, setSubmitting]                   = useState(false);
-  const [creatingClient, setCreatingClient]           = useState(false);
-  const [error, setError]                             = useState<string | null>(null);
+  const [submitting, setSubmitting]     = useState(false);
+  const [creatingClient, setCreatingClient] = useState(false);
+  const [error, setError]               = useState<string | null>(null);
 
-  const [localPreviewFile, setLocalPreviewFile]       = useState<File | null>(null);
-  const [localPreviewUrl, setLocalPreviewUrl]         = useState<string | null>(null);
+  const [localPreviewFile, setLocalPreviewFile]           = useState<File | null>(null);
+  const [localPreviewUrl, setLocalPreviewUrl]             = useState<string | null>(null);
   const [localCoverPreviewFile, setLocalCoverPreviewFile] = useState<File | null>(null);
   const [localCoverPreviewUrl, setLocalCoverPreviewUrl]   = useState<string | null>(null);
 
@@ -113,8 +157,7 @@ function OwnerPlaceOrderInner() {
   const handleLocalFilePreview = useCallback((file: File | null) => {
     if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
     if (file) {
-      const url = URL.createObjectURL(file);
-      setLocalPreviewUrl(url);
+      setLocalPreviewUrl(URL.createObjectURL(file));
       setLocalPreviewFile(file);
     } else {
       setLocalPreviewUrl(null);
@@ -125,8 +168,7 @@ function OwnerPlaceOrderInner() {
   const handleLocalCoverPreview = useCallback((file: File | null) => {
     if (localCoverPreviewUrl) URL.revokeObjectURL(localCoverPreviewUrl);
     if (file) {
-      const url = URL.createObjectURL(file);
-      setLocalCoverPreviewUrl(url);
+      setLocalCoverPreviewUrl(URL.createObjectURL(file));
       setLocalCoverPreviewFile(file);
     } else {
       setLocalCoverPreviewUrl(null);
@@ -157,10 +199,7 @@ function OwnerPlaceOrderInner() {
     (async () => {
       try {
         const res = await getDocuments();
-        setAllDocs(res.data.data.map(doc => ({
-          ...doc,
-          ownerId: doc.ownerId ?? '',
-        })));
+        setAllDocs(res.data.data.map((doc: any) => ({ ...doc, ownerId: doc.ownerId ?? '' })));
       } catch (err) {
         console.error('Failed to load documents:', err);
       }
@@ -168,8 +207,8 @@ function OwnerPlaceOrderInner() {
   }, []);
 
   const selectedClient = clients.find(c => c.id === selectedClientId);
-  const clientDocs = allDocs.filter(doc => doc.ownerType === 'client' && doc.ownerId === selectedClientId);
-  const selectedDoc = clientDocs.find(d => d.id === selectedDocId) ?? null;
+  const clientDocs     = allDocs.filter(d => d.ownerType === 'client' && d.ownerId === selectedClientId);
+  const selectedDoc    = clientDocs.find(d => d.id === selectedDocId) ?? null;
 
   function resetOrder() {
     setOrderType(null);
@@ -197,16 +236,11 @@ function OwnerPlaceOrderInner() {
 
   const handleAddDocumentAsItem = () => {
     if (!selectedDoc) return;
-    const newItem: PackageItem = {
+    setItems(prev => [...prev, {
       id: crypto.randomUUID(),
       type: docItemType,
-      data: {
-        docId: selectedDoc.id,
-        docName: selectedDoc.name,
-        docFileName: selectedDoc.fileName,
-      },
-    };
-    setItems(prev => [...prev, newItem]);
+      data: { docId: selectedDoc.id, docName: selectedDoc.name, docFileName: selectedDoc.fileName },
+    }]);
   };
 
   const handleClientNameChange = (name: string) => {
@@ -227,10 +261,9 @@ function OwnerPlaceOrderInner() {
 
   const createNewClient = async () => {
     if (!newClientName.trim()) return;
-
-    const parts = newClientName.trim().split(' ');
+    const parts      = newClientName.trim().split(' ');
     const first_name = parts[0];
-    const last_name = parts.slice(1).join(' ');
+    const last_name  = parts.slice(1).join(' ');
 
     setCreatingClient(true);
     setError(null);
@@ -267,22 +300,75 @@ function OwnerPlaceOrderInner() {
     }
   };
 
-  const handlePackageSubmit = async (pkgItems: PackageItem[], _doc: ClientDocument | null, _clientName: string) => {
+  // ─── Package submit ───────────────────────────────────────────────────────
+  const handlePackageSubmit = async (
+    pkgItems: PackageItem[],
+    _doc: ClientDocument | null,
+    _clientName: string,
+  ) => {
     setSubmitting(true);
     setError(null);
+
     try {
-      const totalQty = pkgItems.reduce((sum, item) => sum + (Number(item.data.qty) || 1), 0);
+      const ownerId = Number(selectedClientId);
+
+      // Build order items: upload files where necessary, then map specs
+      const orderItems = await Promise.all(
+        pkgItems.map(async (item) => {
+          let file_id: number | null = null;
+          let cover_file_id: number | null = null;
+
+          // 1. If the item references a library document, use its ID directly
+          if (item.data.docId) {
+            file_id = Number(item.data.docId);
+          } else {
+            // 2. Otherwise, upload a new content file if present
+            if (item.data.pdf instanceof File) {
+              const uploadRes = await createUpload({
+                file: item.data.pdf,
+                file_type: 'content',
+                owner_id: ownerId,
+                item_type: getItemLabel(item.type),
+              });
+              file_id = uploadRes.data.data.id;
+            }
+
+            // 3. Upload a cover file if present
+            if (item.data.cover instanceof File) {
+              const uploadRes = await createUpload({
+                file: item.data.cover,
+                file_type: 'cover',
+                owner_id: ownerId,
+                item_type: getItemLabel(item.type),
+              });
+              cover_file_id = uploadRes.data.data.id;
+            }
+          }
+
+          const specs = mapItemDataToSpecs(item.type, item.data);
+
+          return {
+            item_type: getItemLabel(item.type),
+            quantity: Number(item.data.qty) || 1,
+            ...specs,
+            file_id,
+            cover_file_id,
+            notes: null,
+          };
+        })
+      );
+
+      const totalQty = orderItems.reduce((sum, i) => sum + i.quantity, 0);
+
       await createOrder({
         status: 'UNPRICED_PENDING',
-        quantity: totalQty || 1,
+        quantity: totalQty,
         total_price: 0,
-        customer_id: Number(selectedClientId),
-        order_items: pkgItems.map(item => ({
-          item_type: getItemLabel(item.type),
-          quantity: Number(item.data.qty) || 1,
-          notes: buildOrderItemNotes(item.data, notes),
-        })),
-      });
+        customer_id: ownerId,
+        order_items: orderItems,
+        notes: notes || undefined, // order-level notes
+      } as any); // Cast to any to pass notes – backend will accept or ignore
+
       setSubmitted(true);
     } catch (err) {
       console.error('Failed to create order:', err);
@@ -292,37 +378,65 @@ function OwnerPlaceOrderInner() {
     }
   };
 
+  // ─── Single submit ────────────────────────────────────────────────────────
   const handleSingleSubmit = async (
     _itemType: string,
     data: Record<string, any>,
     _doc: ClientDocument | null,
     previewFile: File | null,
-    _clientName: string
+    _clientName: string,
   ) => {
     setSubmitting(true);
     setError(null);
+
     try {
-      if (previewFile) {
-        await createUpload({ file: previewFile, file_type: 'content' });
-      }
-      if (data.cover instanceof File) {
-        await createUpload({ file: data.cover, file_type: 'cover' });
+      const ownerId = Number(selectedClientId);
+      let file_id: number | null = null;
+      let cover_file_id: number | null = null;
+
+      // 1. Library document takes precedence over a newly uploaded file
+      if (selectedDoc) {
+        file_id = Number(selectedDoc.id);
+      } else if (previewFile) {
+        const uploadRes = await createUpload({
+          file: previewFile,
+          file_type: 'content',
+          owner_id: ownerId,
+          item_type: getItemLabel(_itemType),
+        });
+        file_id = uploadRes.data.data.id;
       }
 
+      // 2. Upload cover file if present
+      if (data.cover instanceof File) {
+        const uploadRes = await createUpload({
+          file: data.cover,
+          file_type: 'cover',
+          owner_id: ownerId,
+          item_type: getItemLabel(_itemType),
+        });
+        cover_file_id = uploadRes.data.data.id;
+      }
+
+      const specs = mapItemDataToSpecs(_itemType, data);
       const qty = Number(data.qty) || 1;
+
       await createOrder({
         status: 'UNPRICED_PENDING',
         quantity: qty,
         total_price: 0,
-        customer_id: Number(selectedClientId),
-        order_items: [
-          {
-            item_type: getItemLabel(_itemType),
-            quantity: qty,
-            notes: buildOrderItemNotes(data, notes),
-          },
-        ],
-      });
+        customer_id: ownerId,
+        order_items: [{
+          item_type: getItemLabel(_itemType),
+          quantity: qty,
+          ...specs,
+          file_id,
+          cover_file_id,
+          notes: null,
+        }],
+        notes: notes || undefined,
+      } as any);
+
       setSubmitted(true);
     } catch (err) {
       console.error('Failed to create order:', err);
@@ -332,11 +446,11 @@ function OwnerPlaceOrderInner() {
     }
   };
 
-  // ── Submission success view ─────────────────────────────────────────────
+  // ─── Success screen ───────────────────────────────────────────────────────
   if (submitted) {
     const packageSummary = items.length === 1
       ? t('ownerPlaceOrder:success.packageItemSingular', { count: 1 })
-      : t('ownerPlaceOrder:success.packageItemPlural', { count: items.length });
+      : t('ownerPlaceOrder:success.packageItemPlural',   { count: items.length });
 
     const singleSummary = singleType
       ? `${t(`ownerPlaceOrder:itemTypes.${singleType}`)} · ${singleData.qty
@@ -364,7 +478,7 @@ function OwnerPlaceOrderInner() {
     );
   }
 
-  // ── Main UI ─────────────────────────────────────────────────────────────
+  // ─── Main UI ──────────────────────────────────────────────────────────────
   return (
     <AppShell role="owner" activePage="owner-place-order">
       <Topbar title={t('ownerPlaceOrder:title')} />
@@ -394,6 +508,7 @@ function OwnerPlaceOrderInner() {
               {clients.map(c => <option key={c.id} value={c.name} />)}
             </datalist>
           </div>
+
           {selectedClient && (
             <div className="client-card-mini">
               <span className="client-card-mini__name">{selectedClient.name}</span>
@@ -401,6 +516,7 @@ function OwnerPlaceOrderInner() {
               <span className="client-card-mini__detail">{selectedClient.phone}</span>
             </div>
           )}
+
           {showNewClientForm && (
             <div className="box mt-3 p-3" style={{ background: '#f8f9ff' }}>
               <h4 style={{ marginTop: 0 }}>{t('ownerPlaceOrder:client.newClientForm.title')}</h4>
@@ -469,9 +585,9 @@ function OwnerPlaceOrderInner() {
                       onChange={e => setDocItemType(e.target.value as ItemType)}
                       style={{ width: 160 }}
                     >
-                      {ITEM_TYPES.map(itemType => (
-                        <option key={itemType.id} value={itemType.id}>
-                          {itemType.icon} {t(`ownerPlaceOrder:itemTypes.${itemType.id}`)}
+                      {ITEM_TYPES.map(it => (
+                        <option key={it.id} value={it.id}>
+                          {it.icon} {t(`ownerPlaceOrder:itemTypes.${it.id}`)}
                         </option>
                       ))}
                     </select>
@@ -489,10 +605,10 @@ function OwnerPlaceOrderInner() {
                 <h3 className="add-items-heading">{t('ownerPlaceOrder:addItems.title')}</h3>
                 <p className="add-items-help">{t('ownerPlaceOrder:addItems.help')}</p>
                 <div className="item-type-grid">
-                  {ITEM_TYPES.map(itemType => (
-                    <button key={itemType.id} onClick={() => addItem(itemType.id)} className="item-type-btn">
-                      <span className="item-type-icon">{itemType.icon}</span>
-                      <span className="item-type-label">{t(`ownerPlaceOrder:itemTypes.${itemType.id}`)}</span>
+                  {ITEM_TYPES.map(it => (
+                    <button key={it.id} onClick={() => addItem(it.id)} className="item-type-btn">
+                      <span className="item-type-icon">{it.icon}</span>
+                      <span className="item-type-label">{t(`ownerPlaceOrder:itemTypes.${it.id}`)}</span>
                     </button>
                   ))}
                 </div>
@@ -545,16 +661,16 @@ function OwnerPlaceOrderInner() {
                 <p className="single-type-help">{t('ownerPlaceOrder:singleType.help')}</p>
 
                 <div className="item-type-grid single-type-grid">
-                  {ITEM_TYPES.map(itemType => {
-                    const active = singleType === itemType.id;
+                  {ITEM_TYPES.map(it => {
+                    const active = singleType === it.id;
                     return (
                       <button
-                        key={itemType.id}
-                        onClick={() => { setSingleType(itemType.id as ItemType); setSingleData({}); }}
+                        key={it.id}
+                        onClick={() => { setSingleType(it.id as ItemType); setSingleData({}); }}
                         className={`item-type-btn ${active ? 'item-type-btn--active' : ''}`}
                       >
-                        <span className="item-type-icon">{itemType.icon}</span>
-                        <span className="item-type-label">{t(`ownerPlaceOrder:itemTypes.${itemType.id}`)}</span>
+                        <span className="item-type-icon">{it.icon}</span>
+                        <span className="item-type-label">{t(`ownerPlaceOrder:itemTypes.${it.id}`)}</span>
                       </button>
                     );
                   })}
@@ -597,11 +713,11 @@ function OwnerPlaceOrderInner() {
                           />
                         )}
                         <div className="form-grid-2 mt-1">
-                          <SelectField label={t('ownerPlaceOrder:shared.fields.coverFinish')} options={['Matte', 'Shiny', 'Transparent']} value={singleData.coverFinish ?? 'Matte'} onChange={v => setSingleData(d => ({ ...d, coverFinish: v }))} />
-                          <SelectField label={t('ownerPlaceOrder:shared.fields.colors')}      options={['B&W', 'Colors']}                 value={singleData.colors ?? 'Colors'}      onChange={v => setSingleData(d => ({ ...d, colors: v }))} />
-                          <SelectField label={t('ownerPlaceOrder:shared.fields.size')}        options={['A4', 'A5']}                       value={singleData.size ?? 'A4'}            onChange={v => setSingleData(d => ({ ...d, size: v }))} />
-                          <SelectField label={t('ownerPlaceOrder:shared.fields.printType')}   options={['Front', 'Front & Back']}          value={singleData.printType ?? 'Front & Back'} onChange={v => setSingleData(d => ({ ...d, printType: v }))} />
-                          <SelectField label={t('ownerPlaceOrder:shared.fields.binding')}     options={['Softcover', 'Hardcover', 'Spiral']} value={singleData.casing ?? 'Softcover'} onChange={v => setSingleData(d => ({ ...d, casing: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.coverFinish')} options={['Matte', 'Shiny', 'Transparent']}  value={singleData.coverFinish ?? 'Matte'}       onChange={v => setSingleData(d => ({ ...d, coverFinish: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.colors')}      options={['B&W', 'Colors']}                  value={singleData.colors ?? 'Colors'}           onChange={v => setSingleData(d => ({ ...d, colors: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.size')}        options={['A4', 'A5']}                        value={singleData.size ?? 'A4'}                 onChange={v => setSingleData(d => ({ ...d, size: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.printType')}   options={['Front', 'Front & Back']}           value={singleData.printType ?? 'Front & Back'}  onChange={v => setSingleData(d => ({ ...d, printType: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.binding')}     options={['Softcover', 'Hardcover', 'Spiral']} value={singleData.casing ?? 'Softcover'}        onChange={v => setSingleData(d => ({ ...d, casing: v }))} />
                         </div>
                       </>
                     )}
@@ -610,11 +726,11 @@ function OwnerPlaceOrderInner() {
                         <div className="line line--compact" />
                         <p className="spec-section-label">{t('ownerPlaceOrder:shared.specs.booklet')}</p>
                         <div className="form-grid-2">
-                          <SelectField label={t('ownerPlaceOrder:shared.fields.paperWeight')} options={['150g', '200g', '300g']}         value={singleData.weight ?? '150g'}        onChange={v => setSingleData(d => ({ ...d, weight: v }))} />
-                          <SelectField label={t('ownerPlaceOrder:shared.fields.size')}        options={['A4', 'A3 (Centerfold)']}         value={singleData.size ?? 'A4'}            onChange={v => setSingleData(d => ({ ...d, size: v }))} />
-                          <SelectField label={t('ownerPlaceOrder:shared.fields.colors')}      options={['B&W', 'Colors']}                 value={singleData.colors ?? 'Colors'}      onChange={v => setSingleData(d => ({ ...d, colors: v }))} />
-                          <SelectField label={t('ownerPlaceOrder:shared.fields.printType')}   options={['Front', 'Front & Back']}          value={singleData.printType ?? 'Front & Back'} onChange={v => setSingleData(d => ({ ...d, printType: v }))} />
-                          <SelectField label={t('ownerPlaceOrder:shared.fields.binding')}     options={['Staple', 'Glue']}                 value={singleData.casing ?? 'Staple'}     onChange={v => setSingleData(d => ({ ...d, casing: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.paperWeight')} options={['150g', '200g', '300g']}          value={singleData.weight ?? '150g'}            onChange={v => setSingleData(d => ({ ...d, weight: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.size')}        options={['A4', 'A3 (Centerfold)']}          value={singleData.size ?? 'A4'}                onChange={v => setSingleData(d => ({ ...d, size: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.colors')}      options={['B&W', 'Colors']}                  value={singleData.colors ?? 'Colors'}          onChange={v => setSingleData(d => ({ ...d, colors: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.printType')}   options={['Front', 'Front & Back']}           value={singleData.printType ?? 'Front & Back'} onChange={v => setSingleData(d => ({ ...d, printType: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.binding')}     options={['Staple', 'Glue']}                  value={singleData.casing ?? 'Staple'}          onChange={v => setSingleData(d => ({ ...d, casing: v }))} />
                         </div>
                       </>
                     )}
@@ -623,10 +739,10 @@ function OwnerPlaceOrderInner() {
                         <div className="line line--compact" />
                         <p className="spec-section-label">{t('ownerPlaceOrder:shared.specs.card')}</p>
                         <div className="form-grid-2">
-                          <SelectField label={t('ownerPlaceOrder:shared.fields.paperWeight')} options={['200g', '300g', '400g']}          value={singleData.weight ?? '300g'}        onChange={v => setSingleData(d => ({ ...d, weight: v }))} />
-                          <SelectField label={t('ownerPlaceOrder:shared.fields.size')}        options={['6×9 cm', '3×6 cm', 'A5', 'A4 ÷ 8']} value={singleData.size ?? '6×9 cm'}   onChange={v => setSingleData(d => ({ ...d, size: v }))} />
-                          <SelectField label={t('ownerPlaceOrder:shared.fields.finish')}      options={['Matte', 'Glossy', 'UV']}          value={singleData.finish ?? 'Matte'}      onChange={v => setSingleData(d => ({ ...d, finish: v }))} />
-                          <SelectField label={t('ownerPlaceOrder:shared.fields.printType')}   options={['Front', 'Front & Back']}          value={singleData.printType ?? 'Front & Back'} onChange={v => setSingleData(d => ({ ...d, printType: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.paperWeight')} options={['200g', '300g', '400g']}               value={singleData.weight ?? '300g'}            onChange={v => setSingleData(d => ({ ...d, weight: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.size')}        options={['6×9 cm', '3×6 cm', 'A5', 'A4 ÷ 8']}   value={singleData.size ?? '6×9 cm'}            onChange={v => setSingleData(d => ({ ...d, size: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.finish')}      options={['Matte', 'Glossy', 'UV']}                value={singleData.finish ?? 'Matte'}           onChange={v => setSingleData(d => ({ ...d, finish: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.printType')}   options={['Front', 'Front & Back']}                value={singleData.printType ?? 'Front & Back'} onChange={v => setSingleData(d => ({ ...d, printType: v }))} />
                         </div>
                       </>
                     )}
@@ -635,9 +751,9 @@ function OwnerPlaceOrderInner() {
                         <div className="line line--compact" />
                         <p className="spec-section-label">{t('ownerPlaceOrder:shared.specs.sticker')}</p>
                         <div className="form-grid-2">
-                          <SelectField label={t('ownerPlaceOrder:shared.fields.material')} options={['Vinyl', 'Paper', 'Clear']}            value={singleData.material ?? 'Vinyl'}    onChange={v => setSingleData(d => ({ ...d, material: v }))} />
-                          <SelectField label={t('ownerPlaceOrder:shared.fields.shape')}    options={['Rectangle', 'Circle', 'Custom']}      value={singleData.shape ?? 'Rectangle'}   onChange={v => setSingleData(d => ({ ...d, shape: v }))} />
-                          <SelectField label={t('ownerPlaceOrder:shared.fields.finish')}   options={['Glossy', 'Matte']}                    value={singleData.finish ?? 'Glossy'}     onChange={v => setSingleData(d => ({ ...d, finish: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.material')} options={['Vinyl', 'Paper', 'Clear']}          value={singleData.material ?? 'Vinyl'}    onChange={v => setSingleData(d => ({ ...d, material: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.shape')}    options={['Rectangle', 'Circle', 'Custom']}    value={singleData.shape ?? 'Rectangle'}   onChange={v => setSingleData(d => ({ ...d, shape: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.finish')}   options={['Glossy', 'Matte']}                  value={singleData.finish ?? 'Glossy'}     onChange={v => setSingleData(d => ({ ...d, finish: v }))} />
                         </div>
                       </>
                     )}
@@ -646,10 +762,10 @@ function OwnerPlaceOrderInner() {
                         <div className="line line--compact" />
                         <p className="spec-section-label">{t('ownerPlaceOrder:shared.specs.poster')}</p>
                         <div className="form-grid-2">
-                          <SelectField label={t('ownerPlaceOrder:shared.fields.size')}        options={['A3', 'A2', 'A1', 'A0']}          value={singleData.size ?? 'A3'}           onChange={v => setSingleData(d => ({ ...d, size: v }))} />
-                          <SelectField label={t('ownerPlaceOrder:shared.fields.paperWeight')} options={['150g', '200g', '300g']}           value={singleData.weight ?? '200g'}       onChange={v => setSingleData(d => ({ ...d, weight: v }))} />
-                          <SelectField label={t('ownerPlaceOrder:shared.fields.finish')}      options={['Matte', 'Glossy']}                value={singleData.finish ?? 'Matte'}      onChange={v => setSingleData(d => ({ ...d, finish: v }))} />
-                          <SelectField label={t('ownerPlaceOrder:shared.fields.printType')}   options={['Front', 'Front & Back']}          value={singleData.printType ?? 'Front'}   onChange={v => setSingleData(d => ({ ...d, printType: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.size')}        options={['A3', 'A2', 'A1', 'A0']}   value={singleData.size ?? 'A3'}     onChange={v => setSingleData(d => ({ ...d, size: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.paperWeight')} options={['150g', '200g', '300g']}   value={singleData.weight ?? '200g'} onChange={v => setSingleData(d => ({ ...d, weight: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.finish')}      options={['Matte', 'Glossy']}        value={singleData.finish ?? 'Matte'} onChange={v => setSingleData(d => ({ ...d, finish: v }))} />
+                          <SelectField label={t('ownerPlaceOrder:shared.fields.printType')}   options={['Front', 'Front & Back']}  value={singleData.printType ?? 'Front'} onChange={v => setSingleData(d => ({ ...d, printType: v }))} />
                         </div>
                       </>
                     )}
@@ -680,13 +796,13 @@ function OwnerPlaceOrderInner() {
                     selectedDoc
                       ? selectedDoc
                       : {
-                          id: 'local-preview',
-                          name: localPreviewFile!.name,
-                          fileName: localPreviewFile!.name,
-                          type: (localPreviewFile!.name.split('.').pop() ?? 'PDF').toUpperCase(),
-                          sizeKB: Math.round(localPreviewFile!.size / 1024),
+                          id          : 'local-preview',
+                          name        : localPreviewFile!.name,
+                          fileName    : localPreviewFile!.name,
+                          type        : (localPreviewFile!.name.split('.').pop() ?? 'PDF').toUpperCase(),
+                          sizeKB      : Math.round(localPreviewFile!.size / 1024),
                           uploadedDate: new Date().toLocaleDateString(),
-                          url: localPreviewUrl!,
+                          url         : localPreviewUrl!,
                         }
                   }
                 />

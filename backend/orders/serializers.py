@@ -108,6 +108,11 @@ class OrderSerializer(serializers.ModelSerializer):
         if packages:
             return "Package Order"
 
+        # Use the name of any directly attached file as the product summary
+        first_file = obj.files.first()
+        if first_file and first_file.file_name:
+            return first_file.file_name
+
         return f"Order #{obj.id}"
 
     def get_batch_code(self, obj):

@@ -26,6 +26,7 @@ interface DisplayNotification {
 
 const TITLE_KEY_MAP: Record<string, string> = {
   'Quote ready': 'quoteReady',
+  'Order confirmed': 'orderConfirmed',
   'Order completed': 'orderCompleted',
   'Order in production': 'orderInProduction',
   'Delivery created': 'deliveryCreated',
@@ -44,6 +45,9 @@ function translateBody(body: string, t: (key: string, opts?: Record<string, stri
 
   m = body.match(/^Your quote is ready for Order #(\d+)\.$/);
   if (m) return t('clientNotifications:messages.bodies.quoteReady', { orderId: m[1] });
+
+  m = body.match(/^Your order #(\d+) is confirmed and ready for production\.$/);
+  if (m) return t('clientNotifications:messages.bodies.orderConfirmed', { orderId: m[1] });
 
   m = body.match(/^Your order #(\d+) is completed\.$/);
   if (m) return t('clientNotifications:messages.bodies.orderCompleted', { orderId: m[1] });
@@ -279,7 +283,7 @@ function ClientNotificationsInner() {
             <p>{translateBody(n.body, t)}</p>
             <div className="notification-actions" style={{ marginTop: 10, display: 'flex', gap: 8 }}>
               <button
-                className={`btn btn-sm${n.unread ? ' primary' : ''}`}
+                className="btn btn-sm primary"
                 onClick={() => openNotification(n)}
               >
                 {translateActionLabel(n.action.label || t('clientNotifications:view'), t)}

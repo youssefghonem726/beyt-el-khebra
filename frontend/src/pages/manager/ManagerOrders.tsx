@@ -15,7 +15,7 @@ interface Props {
 type FilterMode = 'active' | 'completed' | 'archive';
 
 // ─── Helpers ──────────────────────────────────────────────────────
-function formatDate(value?: string | null, lang: string): string {
+function formatDate(value?: string | null, lang: string = 'en'): string {
   if (!value) return '—';
   const d = new Date(value);
   if (isNaN(d.getTime())) return '—';

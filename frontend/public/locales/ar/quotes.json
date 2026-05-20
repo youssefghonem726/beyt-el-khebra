@@ -5,11 +5,53 @@
   "myQuotes": "أسعاري",
   "requestNew": "طلب سعر جديد",
   "empty": "لا توجد أسعار متاحة.",
+  "orderPlaceholder": "سعر",
   "table": {
     "id": "رقم السعر",
     "status": "الحالة",
     "amount": "المبلغ",
     "action": "إجراء",
-    "review": "مراجعة السعر"
+    "review": "مراجعة السعر",
+    "order": "الطلب",
+    "product": "المنتج",
+    "created": "تاريخ الإنشاء"
+  },
+  "detail": {
+    "loadingTitle": "تفاصيل عرض السعر",
+    "backLabel": "عروض الأسعار",
+    "title": "تفاصيل عرض السعر",
+    "titleWithId": "عرض السعر #{{id}}",
+    "noId": "لم يتم تحديد رقم عرض السعر.",
+    "loadError": "تعذّر تحميل تفاصيل عرض السعر.",
+    "notFound": "عرض السعر غير موجود.",
+    "actionFailed": "تعذّر إرسال الرد. يرجى المحاولة مجدداً.",
+    "changeNotesRequired": "يرجى إدخال سبب طلب التغييرات.",
+    "quoteId": "عرض السعر #{{id}}",
+    "orderId": "الطلب #{{id}}",
+    "product": "المنتج",
+    "orderPlaceholder": "الطلب #{{id}}",
+    "totalAmount": "المبلغ الإجمالي",
+    "created": "تاريخ الإنشاء",
+    "orderStatus": "حالة الطلب",
+    "notes": "ملاحظات",
+    "breakdown": "تفصيل السعر",
+    "orderItems": "عناصر الطلب",
+    "table": {
+      "item": "الصنف",
+      "qty": "الكمية",
+      "unitPrice": "سعر الوحدة (جنيه)",
+      "total": "الإجمالي (جنيه)",
+      "notes": "ملاحظات",
+      "noItems": "لا توجد عناصر.",
+      "unknownItem": "صنف غير معروف"
+    },
+    "respond": {
+      "title": "الرد على عرض السعر",
+      "description": "راجع التسعير أعلاه واختر ردك.",
+      "approve": "موافقة والمتابعة",
+      "reject": "رفض عرض السعر",
+      "requestChanges": "طلب تغييرات (اشرح أدناه)",
+      "sendRequest": "إرسال طلب التغيير"
+    }
   }
 }

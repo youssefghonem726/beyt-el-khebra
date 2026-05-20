@@ -12,13 +12,18 @@
     "onHold": "معلّقة",
     "waiting": "في انتظار شيء",
     "completed": "مكتملة",
-    "finished": "وظائف منتهية"
+    "finished": "وظائف منتهية",
+    "readyItems": "العناصر الجاهزة",
+    "readySub": "جاهزة للتسليم",
+    "completedOrders": "الطلبات المكتملة",
+    "completedSub": "منتهية في هذه الجلسة"
   },
   "filter": {
     "all": "الكل",
     "inProgress": "قيد التنفيذ",
     "onHold": "معلّقة",
-    "completed": "مكتملة"
+    "completed": "مكتملة",
+    "ready": "جاهز"
   },
   "list": {
     "title": "الوظائف النشطة",
@@ -27,7 +32,10 @@
     "product": "المنتج",
     "due": "الموعد",
     "printed": "مطبوع",
-    "openWorkView": "فتح عرض العمل"
+    "openWorkView": "فتح عرض العمل",
+    "order": "الطلب",
+    "step": "الخطوة",
+    "complete": "مكتمل"
   },
   "detail": {
     "title": "تفاصيل الوظيفة",
@@ -40,7 +48,9 @@
     "complete": "مكتمل",
     "steps": "خطوات الإنتاج",
     "current": "← الحالية",
-    "openWorkView": "فتح عرض العمل"
+    "openWorkView": "فتح عرض العمل",
+    "orderAndClient": "الطلب #{{orderId}} — {{client}}",
+    "step": "الخطوة"
   },
   "steps": {
     "File Approved": "تمت الموافقة على الملف",
@@ -69,6 +79,8 @@
     "assignedTo": "مُسند إلى",
     "notes": "ملاحظات",
     "pcs": "قطعة",
-    "printed": "مطبوع"
+    "printed": "مطبوع",
+    "order": "الطلب",
+    "step": "الخطوة"
   }
 }

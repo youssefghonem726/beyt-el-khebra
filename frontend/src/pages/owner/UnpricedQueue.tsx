@@ -1,4 +1,4 @@
-import { useState, useEffect, Suspense, type ReactNode } from 'react';
+import React, { useState, useEffect, Suspense, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import AppShell from '../../components/AppShell';
 import Topbar from '../../components/Topbar';
@@ -37,6 +37,116 @@ const PRICING_OPTIONS: Array<{ key: PricingKey; label: string }> = [
   { key: 'coil_size_35', label: 'Coil Size 35' },
 ];
 
+const GROUPED_KEYS = {
+  front: ['front', 'front_and_back'] as PricingKey[],
+  cover: [
+    'digital_cover_300g',
+    'digital_cover_200g',
+    'offset_cover_200g',
+    'offset_cover_300g',
+  ] as PricingKey[],
+  coil: [
+    'coil_size_10',
+    'coil_size_12',
+    'coil_size_14',
+    'coil_size_16',
+    'coil_size_18',
+    'coil_size_20',
+    'coil_size_22',
+    'coil_size_25',
+    'coil_size_28',
+    'coil_size_30',
+    'coil_size_32',
+    'coil_size_35',
+  ] as PricingKey[],
+};
+
+// ─── Helper: determine which pricing groups are relevant for a set of items ───
+const getRelevantGroups = (items: UnpricedItem[]) => {
+  let showFront = false;
+  let showCover = false;
+  let showCoil = false;
+
+  for (const item of items) {
+    if (item.print_type != null && item.print_type !== '') showFront = true;
+    if (item.cover != null && item.cover !== '') showCover = true;
+    if (item.binding != null && item.binding !== '') showCover = true;
+    if (item.binding && (item.binding.toLowerCase().includes('spiral') || item.binding.toLowerCase().includes('coil'))) showCoil = true;
+    if (item.coil != null && item.coil !== '') showCoil = true;
+  }
+
+  return { showFront, showCover, showCoil };
+};
+
+// ─── Round to 2 decimal places (fixes 400 error on too many digits) ─────────
+const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+
+// ─── Item type → relevant spec fields (matching PlaceNewOrder forms) ──────────
+const ITEM_SPEC_MAP: Record<string, { key: keyof UnpricedItem; labelKey: string }[]> = {
+  book: [
+    { key: 'size', labelKey: 'unpricedQueue:pricing.itemSpecs.size' },
+    { key: 'color_mode', labelKey: 'unpricedQueue:pricing.itemSpecs.color' },
+    { key: 'cover', labelKey: 'unpricedQueue:pricing.itemSpecs.cover' },
+    { key: 'binding', labelKey: 'unpricedQueue:pricing.itemSpecs.binding' },
+    { key: 'print_type', labelKey: 'unpricedQueue:pricing.itemSpecs.printType' },
+  ],
+  booklet: [
+    { key: 'size', labelKey: 'unpricedQueue:pricing.itemSpecs.size' },
+    { key: 'paper', labelKey: 'unpricedQueue:pricing.itemSpecs.paper' },
+    { key: 'color_mode', labelKey: 'unpricedQueue:pricing.itemSpecs.color' },
+    { key: 'binding', labelKey: 'unpricedQueue:pricing.itemSpecs.binding' },
+    { key: 'print_type', labelKey: 'unpricedQueue:pricing.itemSpecs.printType' },
+  ],
+  card: [
+    { key: 'size', labelKey: 'unpricedQueue:pricing.itemSpecs.size' },
+    { key: 'paper', labelKey: 'unpricedQueue:pricing.itemSpecs.paper' },
+    { key: 'finish', labelKey: 'unpricedQueue:pricing.itemSpecs.finish' },
+    { key: 'print_type', labelKey: 'unpricedQueue:pricing.itemSpecs.printType' },
+  ],
+  sticker: [
+    { key: 'material', labelKey: 'unpricedQueue:pricing.itemSpecs.material' },
+    { key: 'shape', labelKey: 'unpricedQueue:pricing.itemSpecs.shape' },
+    { key: 'finish', labelKey: 'unpricedQueue:pricing.itemSpecs.finish' },
+  ],
+  poster: [
+    { key: 'size', labelKey: 'unpricedQueue:pricing.itemSpecs.size' },
+    { key: 'paper', labelKey: 'unpricedQueue:pricing.itemSpecs.paper' },
+    { key: 'finish', labelKey: 'unpricedQueue:pricing.itemSpecs.finish' },
+    { key: 'print_type', labelKey: 'unpricedQueue:pricing.itemSpecs.printType' },
+  ],
+};
+
+const getItemSpecs = (item: UnpricedItem, t: (key: string, options?: any) => string) => {
+  const typeMapping = ITEM_SPEC_MAP[item.item_type?.toLowerCase() ?? ''];
+  const allFields: { label: string; value: string }[] = [];
+
+  if (typeMapping) {
+    typeMapping.forEach(({ key, labelKey }) => {
+      const val = item[key] as string | number | null;
+      if (val !== null && val !== undefined && val !== '') {
+        const translated = t(labelKey);
+        const displayLabel = translated === labelKey
+          ? key.replace(/_/g, ' ')
+          : translated;
+        allFields.push({ label: displayLabel, value: String(val) });
+      }
+    });
+  } else {
+    const genericFields: (keyof UnpricedItem)[] = [
+      'size', 'paper', 'material', 'color_mode', 'cover', 'binding', 'coil',
+      'finish', 'shape', 'print_type', 'page_count', 'pages'
+    ];
+    genericFields.forEach(key => {
+      const val = item[key] as string | number | null;
+      if (val !== null && val !== undefined && val !== '') {
+        allFields.push({ label: key.replace(/_/g, ' '), value: String(val) });
+      }
+    });
+  }
+
+  return allFields;
+};
+
 interface UnpricedItem {
   id: number | string;
   item_type: string;
@@ -60,7 +170,7 @@ interface UnpricedItem {
 }
 
 interface UnpricedJob {
-  id: string;
+  id: number;
   displayId: string;
   client: string;
   clientEmail: string;
@@ -150,7 +260,9 @@ function UnpricedQueueInner() {
     vatRate: '14',
     notes: '',
   });
-  const [selectedPricingKey, setSelectedPricingKey] = useState<string>('');
+  const [selectedFront, setSelectedFront] = useState<PricingKey | ''>('');
+  const [selectedCover, setSelectedCover] = useState<PricingKey | ''>('');
+  const [selectedCoil, setSelectedCoil] = useState<PricingKey | ''>('');
   const [customPriceMode, setCustomPriceMode] = useState(false);
   const [pricingTable, setPricingTable] = useState<PricingRow | null>(null);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
@@ -194,7 +306,7 @@ function UnpricedQueueInner() {
           'Unknown';
 
         return {
-          id: String(order.id),
+          id: order.id,
           displayId: getShortOrderId(order.id),
           client: clientName,
           clientEmail:
@@ -249,10 +361,12 @@ function UnpricedQueueInner() {
     fetchData();
   }, []);
 
-  const openPricing = (id: string) => {
-    setPricingId(id === pricingId ? null : id);
+  const openPricing = (id: number) => {
+    setPricingId(prev => (prev === String(id) ? null : String(id)));
     setPricing({ unitPrice: '', vatRate: '14', notes: '' });
-    setSelectedPricingKey('');
+    setSelectedFront('');
+    setSelectedCover('');
+    setSelectedCoil('');
     setCustomPriceMode(false);
   };
 
@@ -262,11 +376,11 @@ function UnpricedQueueInner() {
     );
     if (!confirmed) return;
 
-    setCancellingId(job.id);
+    setCancellingId(String(job.id));
     setError(null);
     try {
-      await updateOrder(Number(job.id), { status: 'CANCELLED' });
-      if (pricingId === job.id) setPricingId(null);
+      await updateOrder(job.id, { status: 'CANCELLED' });
+      if (pricingId === String(job.id)) setPricingId(null);
       await fetchData();
     } catch (err) {
       console.error('Failed to cancel order:', err);
@@ -276,25 +390,40 @@ function UnpricedQueueInner() {
     }
   };
 
-  const unitPrice = parseFloat(pricing.unitPrice) || 0;
-  const vatRate = parseFloat(pricing.vatRate) / 100 || 0;
-
-  const getSubtotal = (qty: number) => unitPrice * qty;
-  const getVat = (qty: number) => getSubtotal(qty) * vatRate;
-  const getTotal = (qty: number) => getSubtotal(qty) + getVat(qty);
+  // Compute unit price: sum of selected prices from each RELEVANT group
+  const computeUnitPrice = (relevantGroups: { showFront: boolean; showCover: boolean; showCoil: boolean }): number => {
+    if (customPriceMode) return parseFloat(pricing.unitPrice) || 0;
+    if (!pricingTable) return 0;
+    let sum = 0;
+    if (relevantGroups.showFront && selectedFront && pricingTable[selectedFront] != null)
+      sum += Number(pricingTable[selectedFront]);
+    if (relevantGroups.showCover && selectedCover && pricingTable[selectedCover] != null)
+      sum += Number(pricingTable[selectedCover]);
+    if (relevantGroups.showCoil && selectedCoil && pricingTable[selectedCoil] != null)
+      sum += Number(pricingTable[selectedCoil]);
+    return sum;
+  };
 
   const submitPrice = async (job: UnpricedJob) => {
-    if (!pricing.unitPrice || unitPrice <= 0) return;
+    const relevantGroups = getRelevantGroups(job.items);
+    const currentUnitPrice = computeUnitPrice(relevantGroups);
+    if (currentUnitPrice <= 0) return;
 
-    const total = getTotal(job.qty || 1);
+    const vat = parseFloat(pricing.vatRate) / 100 || 0;
+
+    // Round all monetary values to 2 decimals to avoid validation errors
+    const unit = round2(currentUnitPrice);
+    const total = round2(job.qty * unit * (1 + vat));
+
     const quoteItems = job.items.length
       ? job.items.map((item) => {
-          const itemQuantity = item.quantity || 1;
+          const itemQty = item.quantity || 1;
+          const itemTotal = round2(itemQty * unit * (1 + vat));
           return {
             item_type: item.item_type,
-            quantity: itemQuantity,
-            estimated_unit_price: unitPrice,
-            estimated_total_price: getTotal(itemQuantity),
+            quantity: itemQty,
+            estimated_unit_price: unit,
+            estimated_total_price: itemTotal,
             notes: pricing.notes || item.notes || '',
           };
         })
@@ -302,17 +431,26 @@ function UnpricedQueueInner() {
           {
             item_type: job.product,
             quantity: job.qty || 1,
-            estimated_unit_price: unitPrice,
+            estimated_unit_price: unit,
             estimated_total_price: total,
             notes: pricing.notes,
           },
         ];
 
-    setSubmittingId(job.id);
+    // Debug logging – can be removed after verification
+    console.log('Submitting quote payload:', {
+      order_id: job.id,
+      status: 'pending',
+      total_estimated_price: total,
+      notes: pricing.notes,
+      items: quoteItems,
+    });
+
+    setSubmittingId(String(job.id));
     setError(null);
     try {
-      await submitQuoteForOrder(Number(job.id), {
-        order_id: Number(job.id),
+      await submitQuoteForOrder(job.id, {
+        order_id: job.id,
         status: 'pending',
         total_estimated_price: total,
         notes: pricing.notes,
@@ -321,9 +459,15 @@ function UnpricedQueueInner() {
 
       setPricingId(null);
       setPricing({ unitPrice: '', vatRate: '14', notes: '' });
+      setSelectedFront('');
+      setSelectedCover('');
+      setSelectedCoil('');
       await fetchData();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to submit quote:', err);
+      if (err?.response?.data) {
+        console.error('Server response:', JSON.stringify(err.response.data, null, 2));
+      }
       setError(t('unpricedQueue:submitError'));
     } finally {
       setSubmittingId(null);
@@ -409,7 +553,14 @@ function UnpricedQueueInner() {
 
       <div className="stack">
         {jobs.map((j) => {
-          const isOpen = pricingId === j.id;
+          const isOpen = pricingId === String(j.id);
+          const relevantGroups = getRelevantGroups(j.items);
+          const currentUnitPrice = computeUnitPrice(relevantGroups);
+          const currentVatRate = parseFloat(pricing.vatRate) / 100 || 0;
+          const currentSubtotal = currentUnitPrice * j.qty;
+          const currentVat = currentSubtotal * currentVatRate;
+          const currentTotal = currentSubtotal + currentVat;
+
           return (
             <article key={j.id} className="card">
               <div
@@ -482,10 +633,10 @@ function UnpricedQueueInner() {
                   className="btn danger"
                   onClick={() => cancelOrder(j)}
                   disabled={
-                    cancellingId === j.id || submittingId === j.id
+                    cancellingId === String(j.id) || submittingId === String(j.id)
                   }
                 >
-                  {cancellingId === j.id
+                  {cancellingId === String(j.id)
                     ? t('unpricedQueue:job.cancelling')
                     : t('unpricedQueue:job.cancelOrder')}
                 </button>
@@ -507,7 +658,6 @@ function UnpricedQueueInner() {
                     })}
                   </h4>
 
-                  {/* Order Details Table */}
                   <div className="table-responsive" style={{ marginBottom: 14 }}>
                     <table className="orders-table">
                       <tbody>
@@ -544,120 +694,76 @@ function UnpricedQueueInner() {
                     </table>
                   </div>
 
-                  {/* Items to Price Table */}
                   <h4 style={{ marginBottom: 10, fontSize: 14 }}>
                     {t('unpricedQueue:pricing.itemsToPrice')}
                   </h4>
-                  <div className="table-responsive" style={{ marginBottom: 16 }}>
-                    <table className="orders-table">
-                      <thead>
-                        <tr>
-                          <th>{t('unpricedQueue:pricing.itemCols.product')}</th>
-                          <th>{t('unpricedQueue:pricing.itemCols.qty')}</th>
-                          <th>{t('unpricedQueue:pricing.itemCols.pages')}</th>
-                          <th>{t('unpricedQueue:pricing.itemCols.size')}</th>
-                          <th>{t('unpricedQueue:pricing.itemCols.paperMaterial')}</th>
-                          <th>{t('unpricedQueue:pricing.itemCols.color')}</th>
-                          <th>{t('unpricedQueue:pricing.itemCols.cover')}</th>
-                          <th>{t('unpricedQueue:pricing.itemCols.bindingCoil')}</th>
-                          <th>{t('unpricedQueue:pricing.itemCols.files')}</th>
-                          <th>{t('unpricedQueue:pricing.itemCols.notes')}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {j.items.length ? (
-                          j.items.map((item) => (
-                            <tr key={item.id}>
-                              <td>{item.item_type}</td>
-                              <td>{item.quantity}</td>
-                              <td>
-                                {showValue(
-                                  item.page_count ?? item.pages,
-                                  t('unpricedQueue:pricing.notProvided')
-                                )}
-                              </td>
-                              <td>
-                                {showValue(
-                                  item.size,
-                                  t('unpricedQueue:pricing.notProvided')
-                                )}
-                              </td>
-                              <td>
-                                {showValue(
-                                  item.paper ?? item.material,
-                                  t('unpricedQueue:pricing.notProvided')
-                                )}
-                              </td>
-                              <td>
-                                {showValue(
-                                  item.color_mode,
-                                  t('unpricedQueue:pricing.notProvided')
-                                )}
-                              </td>
-                              <td>
-                                {showValue(
-                                  item.cover ?? item.finish,
-                                  t('unpricedQueue:pricing.notProvided')
-                                )}
-                              </td>
-                              <td>
-                                {showValue(
-                                  item.binding ?? item.coil ?? item.print_type,
-                                  t('unpricedQueue:pricing.notProvided')
-                                )}
-                              </td>
-                              <td>
+
+                  {j.items.length === 0 ? (
+                    <p style={{ marginBottom: 16 }} className="muted">
+                      {j.product} – {t('unpricedQueue:job.pcs', { count: j.qty || 1 })}
+                    </p>
+                  ) : (
+                    <div style={{ marginBottom: 16 }}>
+                      {j.items.map((item) => {
+                        const specs = getItemSpecs(item, t);
+                        return (
+                          <div
+                            key={item.id}
+                            style={{
+                              padding: '10px 14px',
+                              background: '#fff',
+                              borderRadius: 6,
+                              border: '1px solid var(--border)',
+                              marginBottom: 10,
+                            }}
+                          >
+                            <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                              {item.item_type} × {item.quantity}
+                            </div>
+                            {specs.length > 0 ? (
+                              <div style={{ fontSize: 13 }}>
+                                {specs.map((spec, i) => (
+                                  <div key={i} style={{ display: 'flex', gap: 12, marginBottom: 2 }}>
+                                    <span style={{ color: 'var(--muted)', minWidth: 80 }}>{spec.label}</span>
+                                    <span>{spec.value}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="muted">
+                                {t('unpricedQueue:pricing.notProvided')}
+                              </span>
+                            )}
+                            {[item.file, item.cover_file].filter(Boolean).length > 0 && (
+                              <div style={{ marginTop: 8, fontSize: 13 }}>
+                                <strong>{t('unpricedQueue:pricing.itemCols.files')}:</strong>{' '}
                                 {[item.file, item.cover_file]
                                   .filter(Boolean)
-                                  .length ? (
-                                  <div style={{ display: 'grid', gap: 4 }}>
-                                    {[item.file, item.cover_file]
-                                      .filter(Boolean)
-                                      .map((file: any) =>
-                                        file.url ? (
-                                          <a
-                                            key={file.id}
-                                            href={resolveFileUrl(file.url)}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                          >
-                                            {file.file_name ||
-                                              `File #${file.id}`}
-                                          </a>
-                                        ) : (
-                                          <span key={file.id}>
-                                            {file.file_name ||
-                                              `File #${file.id}`}
-                                          </span>
-                                        )
-                                      )}
-                                  </div>
-                                ) : (
-                                  t('unpricedQueue:pricing.notProvided')
-                                )}
-                              </td>
-                              <td>
-                                {showValue(
-                                  item.notes,
-                                  t('unpricedQueue:pricing.notProvided')
-                                )}
-                              </td>
-                            </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td>{j.product}</td>
-                            <td>{j.qty || 1}</td>
-                            <td colSpan={8}>
-                              {t('unpricedQueue:pricing.notProvided')}
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+                                  .map((file: any) =>
+                                    file.url ? (
+                                      <a
+                                        key={file.id}
+                                        href={resolveFileUrl(file.url)}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        style={{ marginRight: 8 }}
+                                      >
+                                        {file.file_name || `File #${file.id}`}
+                                      </a>
+                                    ) : (
+                                      <span key={file.id} style={{ marginRight: 8 }}>
+                                        {file.file_name || `File #${file.id}`}
+                                      </span>
+                                    )
+                                  )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
 
-                  {/* Set Price Section */}
                   <div
                     style={{
                       display: 'flex',
@@ -671,73 +777,184 @@ function UnpricedQueueInner() {
                         id: j.displayId,
                       })}
                     </h4>
-                    {pricingTable &&
-                      PRICING_OPTIONS.some(
-                        (opt) => Number(pricingTable[opt.key]) > 0
-                      ) && (
-                        <button
-                          className={`btn${customPriceMode ? ' primary' : ''}`}
-                          style={{ fontSize: 11, padding: '3px 10px' }}
-                          onClick={() => {
-                            setCustomPriceMode((v) => !v);
-                            setPricing((p) => ({ ...p, unitPrice: '' }));
-                            setSelectedPricingKey('');
-                          }}
-                        >
-                          {t('unpricedQueue:pricing.customPriceBtn')}
-                        </button>
-                      )}
+                    {pricingTable && (
+                      <button
+                        className={`btn${customPriceMode ? ' primary' : ''}`}
+                        style={{ fontSize: 11, padding: '3px 10px' }}
+                        onClick={() => {
+                          setCustomPriceMode((v) => !v);
+                          setPricing((p) => ({ ...p, unitPrice: '' }));
+                          setSelectedFront('');
+                          setSelectedCover('');
+                          setSelectedCoil('');
+                        }}
+                      >
+                        {t('unpricedQueue:pricing.customPriceBtn')}
+                      </button>
+                    )}
                   </div>
 
-                  {/* Dropdown mode */}
-                  {!customPriceMode &&
-                    pricingTable &&
-                    PRICING_OPTIONS.some(
-                      (opt) => Number(pricingTable[opt.key]) > 0
-                    ) && (
-                      <div className="field" style={{ margin: '0 0 12px' }}>
-                        <label>
-                          {t('unpricedQueue:pricing.priceTableLabel')}
-                        </label>
-                        <select
-                          className="input"
-                          value={selectedPricingKey}
-                          onChange={(e) => {
-                            const key = e.target.value as PricingKey;
-                            setSelectedPricingKey(key);
-                            if (key && pricingTable[key] != null) {
-                              setPricing((p) => ({
-                                ...p,
-                                unitPrice: String(pricingTable[key]),
-                              }));
-                            } else {
-                              setPricing((p) => ({ ...p, unitPrice: '' }));
-                            }
-                          }}
-                        >
-                          <option value="">
-                            {t('unpricedQueue:pricing.selectPlaceholder')}
-                          </option>
-                          {PRICING_OPTIONS.filter(
-                            (opt) => Number(pricingTable[opt.key]) > 0
-                          ).map((opt) => {
-                            const val = Number(pricingTable[opt.key]);
-                            return (
-                              <option key={opt.key} value={opt.key}>
-                                {opt.label} — EGP {fmt(val)}
-                              </option>
-                            );
-                          })}
-                        </select>
-                      </div>
-                    )}
+                  {!customPriceMode && pricingTable && (
+                    <>
+                      {relevantGroups.showFront && (
+                        <div style={{ marginBottom: 12 }}>
+                          <h5 style={{ marginBottom: 8, fontSize: 13 }}>
+                            {t('unpricedQueue:pricing.group.front', 'Print Side')}
+                          </h5>
+                          <table className="orders-table">
+                            <thead>
+                              <tr>
+                                <th>{t('unpricedQueue:pricing.table.option', 'Option')}</th>
+                                <th>{t('unpricedQueue:pricing.table.price', 'Price (EGP)')}</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {GROUPED_KEYS.front.map((key) => {
+                                const price = Number(pricingTable[key]) || 0;
+                                const isSelected = selectedFront === key;
+                                return (
+                                  <tr
+                                    key={key}
+                                    onClick={() => setSelectedFront(key)}
+                                    style={{
+                                      cursor: 'pointer',
+                                      backgroundColor: isSelected
+                                        ? 'var(--surface-3, #e8f0fe)'
+                                        : 'transparent',
+                                      transition: 'background-color 0.15s',
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      if (!isSelected)
+                                        (e.currentTarget as HTMLTableRowElement).style.backgroundColor =
+                                          'var(--surface-2, #f5f5f5)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      if (!isSelected)
+                                        (e.currentTarget as HTMLTableRowElement).style.backgroundColor =
+                                          'transparent';
+                                    }}
+                                  >
+                                    <td style={{ fontWeight: isSelected ? 600 : 400 }}>
+                                      {PRICING_OPTIONS.find((o) => o.key === key)?.label || key}
+                                    </td>
+                                    <td>
+                                      <span>{fmt(price)}</span>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
 
-                  {/* Custom price input */}
-                  {(customPriceMode ||
-                    !pricingTable ||
-                    !PRICING_OPTIONS.some(
-                      (opt) => Number(pricingTable[opt.key]) > 0
-                    )) && (
+                      {relevantGroups.showCover && (
+                        <div style={{ marginBottom: 12 }}>
+                          <h5 style={{ marginBottom: 8, fontSize: 13 }}>
+                            {t('unpricedQueue:pricing.group.cover', 'Cover Options')}
+                          </h5>
+                          <table className="orders-table">
+                            <thead>
+                              <tr>
+                                <th>{t('unpricedQueue:pricing.table.option', 'Option')}</th>
+                                <th>{t('unpricedQueue:pricing.table.price', 'Price (EGP)')}</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {GROUPED_KEYS.cover.map((key) => {
+                                const price = Number(pricingTable[key]) || 0;
+                                const isSelected = selectedCover === key;
+                                return (
+                                  <tr
+                                    key={key}
+                                    onClick={() => setSelectedCover(key)}
+                                    style={{
+                                      cursor: 'pointer',
+                                      backgroundColor: isSelected
+                                        ? 'var(--surface-3, #e8f0fe)'
+                                        : 'transparent',
+                                      transition: 'background-color 0.15s',
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      if (!isSelected)
+                                        (e.currentTarget as HTMLTableRowElement).style.backgroundColor =
+                                          'var(--surface-2, #f5f5f5)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      if (!isSelected)
+                                        (e.currentTarget as HTMLTableRowElement).style.backgroundColor =
+                                          'transparent';
+                                    }}
+                                  >
+                                    <td style={{ fontWeight: isSelected ? 600 : 400 }}>
+                                      {PRICING_OPTIONS.find((o) => o.key === key)?.label || key}
+                                    </td>
+                                    <td>
+                                      <span>{fmt(price)}</span>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+
+                      {relevantGroups.showCoil && (
+                        <div style={{ marginBottom: 12 }}>
+                          <h5 style={{ marginBottom: 8, fontSize: 13 }}>
+                            {t('unpricedQueue:pricing.group.coil', 'Coil Size Options')}
+                          </h5>
+                          <table className="orders-table">
+                            <thead>
+                              <tr>
+                                <th>{t('unpricedQueue:pricing.table.option', 'Option')}</th>
+                                <th>{t('unpricedQueue:pricing.table.price', 'Price (EGP)')}</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {GROUPED_KEYS.coil.map((key) => {
+                                const price = Number(pricingTable[key]) || 0;
+                                const isSelected = selectedCoil === key;
+                                return (
+                                  <tr
+                                    key={key}
+                                    onClick={() => setSelectedCoil(key)}
+                                    style={{
+                                      cursor: 'pointer',
+                                      backgroundColor: isSelected
+                                        ? 'var(--surface-3, #e8f0fe)'
+                                        : 'transparent',
+                                      transition: 'background-color 0.15s',
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      if (!isSelected)
+                                        (e.currentTarget as HTMLTableRowElement).style.backgroundColor =
+                                          'var(--surface-2, #f5f5f5)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      if (!isSelected)
+                                        (e.currentTarget as HTMLTableRowElement).style.backgroundColor =
+                                          'transparent';
+                                    }}
+                                  >
+                                    <td style={{ fontWeight: isSelected ? 600 : 400 }}>
+                                      {PRICING_OPTIONS.find((o) => o.key === key)?.label || key}
+                                    </td>
+                                    <td>
+                                      <span>{fmt(price)}</span>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {customPriceMode && (
                     <div className="field" style={{ margin: '0 0 12px' }}>
                       <label>{t('unpricedQueue:pricing.unitPrice')}</label>
                       <input
@@ -759,6 +976,12 @@ function UnpricedQueueInner() {
                     </div>
                   )}
 
+                  {!customPriceMode && pricingTable && currentUnitPrice > 0 && (
+                    <div style={{ marginBottom: 12, fontSize: 13, fontWeight: 600 }}>
+                      {t('unpricedQueue:pricing.unitPriceLabel', 'Unit Price')}: EGP {fmt(currentUnitPrice)}
+                    </div>
+                  )}
+
                   <div className="field" style={{ margin: '0 0 12px' }}>
                     <label>{t('unpricedQueue:pricing.vatRate')}</label>
                     <input
@@ -777,7 +1000,7 @@ function UnpricedQueueInner() {
                     />
                   </div>
 
-                  {unitPrice > 0 && (
+                  {currentUnitPrice > 0 && (
                     <div
                       style={{
                         marginBottom: 12,
@@ -798,10 +1021,10 @@ function UnpricedQueueInner() {
                         <span className="muted">
                           {t('unpricedQueue:pricing.subtotal', {
                             qty: j.qty,
-                            price: fmt(unitPrice),
+                            price: fmt(currentUnitPrice),
                           })}
                         </span>
-                        <span>EGP {fmt(getSubtotal(j.qty))}</span>
+                        <span>EGP {fmt(currentSubtotal)}</span>
                       </div>
                       <div
                         style={{
@@ -815,7 +1038,7 @@ function UnpricedQueueInner() {
                             rate: pricing.vatRate,
                           })}
                         </span>
-                        <span>EGP {fmt(getVat(j.qty))}</span>
+                        <span>EGP {fmt(currentVat)}</span>
                       </div>
                       <div
                         style={{
@@ -825,7 +1048,7 @@ function UnpricedQueueInner() {
                         }}
                       >
                         <span>{t('unpricedQueue:pricing.total')}</span>
-                        <span>EGP {fmt(getTotal(j.qty))}</span>
+                        <span>EGP {fmt(currentTotal)}</span>
                       </div>
                     </div>
                   )}
@@ -847,21 +1070,20 @@ function UnpricedQueueInner() {
                     <button
                       className="btn primary"
                       disabled={
-                        !pricing.unitPrice ||
-                        unitPrice <= 0 ||
-                        submittingId === j.id ||
-                        cancellingId === j.id
+                        currentUnitPrice <= 0 ||
+                        submittingId === String(j.id) ||
+                        cancellingId === String(j.id)
                       }
                       onClick={() => submitPrice(j)}
                     >
-                      {submittingId === j.id
+                      {submittingId === String(j.id)
                         ? t('unpricedQueue:pricing.submitting')
                         : t('unpricedQueue:pricing.submit')}
                     </button>
                     <button
                       className="btn"
                       onClick={() => setPricingId(null)}
-                      disabled={submittingId === j.id}
+                      disabled={submittingId === String(j.id)}
                     >
                       {t('unpricedQueue:pricing.cancel')}
                     </button>

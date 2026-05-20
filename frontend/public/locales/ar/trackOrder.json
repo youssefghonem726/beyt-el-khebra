@@ -13,7 +13,14 @@
     "estDelivery": "التسليم المتوقع:",
     "total": "الإجمالي:",
     "complete": "مكتمل",
-    "now": "← الآن"
+    "now": "← الآن",
+    "orderInfo": "الطلب #{{id}} — {{product}}",
+    "summary": "تاريخ الطلب: {{orderDate}} · التسليم المتوقع: {{estimatedDelivery}} · الإجمالي: {{total}}",
+    "progress": "{{percent}}% مكتمل"
+  },
+  "delivery": {
+    "title": "حالة التوصيل",
+    "message": "التوصيل حالياً {{status}}"
   },
   "statusLabels": {
     "canceled": "تم إلغاء هذا الطلب.",

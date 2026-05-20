@@ -107,16 +107,14 @@ function InvoiceDetailInner() {
 
     const fetchInvoice = async () => {
       try {
-        // Fetch invoice and clients in parallel
         const [invRes, clientsRes] = await Promise.all([
           getInvoiceById(invoiceId),
           getClients(),
         ]);
 
-        const raw: RawInvoice = invRes.data.data;
+        const raw: RawInvoice = { ...invRes.data.data, id: Number(invRes.data.data.id) };
         const clients = clientsRes.data.data.results;
 
-        // Find the matching client (if any)
         const client = clients.find((c: any) => Number(c.id) === raw.client_id);
         const clientName = client?.name || raw.client_name || t('clientInvoices:detail.unknownClient');
         const clientAddress = client?.address || '—';

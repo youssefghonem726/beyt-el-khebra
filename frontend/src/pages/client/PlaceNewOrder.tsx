@@ -89,20 +89,22 @@ const toPositiveNumber = (value: unknown, fallback = 1) => {
   return Number.isFinite(numberValue) && numberValue > 0 ? numberValue : fallback;
 };
 
-// Note: Fixed `getItemLabel` → `getItemLabelEn` for proper item_type
+/**
+ * Build an order_item object ready for the API.
+ * Order-level notes are NOT included here – they belong on the order itself.
+ */
 const buildOrderItemPayload = (
   itemType: ItemType,
   data: Record<string, any>,
-  extraNotes = '',
   fileId: number | null = null,
   coverFileId: number | null = null
 ) => {
   const dataWithDefaults = { ...ITEM_DEFAULTS[itemType], ...data };
 
   return {
-    item_type: getItemLabelEn(itemType),  // <- fixed
+    item_type: getItemLabelEn(itemType),
     quantity: toPositiveNumber(dataWithDefaults.qty),
-    notes: extraNotes.trim() || cleanText(dataWithDefaults.notes),
+    notes: cleanText(dataWithDefaults.notes),      // per‑item notes (if any)
     page_count: cleanText(dataWithDefaults.pageCount),
     size: cleanText(dataWithDefaults.size),
     paper: cleanText(dataWithDefaults.weight),
@@ -673,7 +675,6 @@ function PlaceNewOrderInner() {
                       return buildOrderItemPayload(
                         item.type,
                         item.data,
-                        notes,
                         uploadedFileId || libraryFileId,
                         uploadedCoverId
                       );
@@ -684,7 +685,9 @@ function PlaceNewOrderInner() {
                       quantity: totalQty || 1,
                       total_price: 0,
                       order_items: payloadItems,
-                    });
+                      // Optional: send order-level notes (backend should accept)
+                      notes: notes || undefined,
+                    } as any);
                     await linkUploadedFiles(
                       orderRes.data.data.id,
                       orderRes.data.data.item_details || [],
@@ -922,7 +925,6 @@ function PlaceNewOrderInner() {
                       buildOrderItemPayload(
                         singleType as ItemType,
                         singleData,
-                        notes,
                         uploadedFileId || libraryFileId,
                         uploadedCoverId
                       ),
@@ -932,7 +934,8 @@ function PlaceNewOrderInner() {
                       quantity: qty,
                       total_price: 0,
                       order_items: payloadItems,
-                    });
+                      notes: notes || undefined,
+                    } as any);
                     await linkUploadedFiles(
                       orderRes.data.data.id,
                       orderRes.data.data.item_details || [],

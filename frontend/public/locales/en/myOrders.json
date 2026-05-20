@@ -6,6 +6,11 @@
   "searchPlaceholder": "Batch lookup by code, order ID, or product...",
   "newOrder": "New Order",
   "noResults": "No matching results",
+  "noDelivery": "No delivery",
+  "cancel": "Cancel Order",
+  "cancelling": "Cancelling...",
+  "cancelConfirm": "Are you sure you want to cancel Order #{{id}}?",
+  "cancelError": "Could not cancel order. Please try again.",
   "table": {
     "order": "Order",
     "batchCode": "Batch Code",
