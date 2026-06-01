@@ -1,184 +1,161 @@
-🚀 Project Collaboration Guide
+# Beyt El Khebra
 
-Stack: React + Django + Supabase auth
-Goal: Work together without conflicts, broken builds, or confusion
+A full-stack print shop management platform built to streamline customer orders, quotations, production workflows, invoicing, accounting, delivery tracking, and business operations.
 
-📦 Project Structure
-/frontend     # React app
-/backend      # Django backend
-/database     # DB scripts (optional)
-/docs         # API contracts
-/infra        # deployment + CI/CD
+## Project Overview
 
+Bayt El Khebra is a print-shop operations platform designed to manage the complete business lifecycle, from customer order submission and quotation approval to production, invoicing, accounting, and delivery tracking.
 
-🌿 Branching Strategy
-Branch	  Purpose
-main	    Production (live app)
-staging	  Pre-production testing
-develop	  Integration branch
-feature/*	Your work
+## Tech Stack
 
+### Frontend
 
-🧭 Step-by-Step Developer Workflow
-1. Start from latest code
-git checkout develop
-git pull origin develop
+* React
+* TypeScript
+* Vite
 
-2. Create your feature branch
-git checkout -b feature/your-feature-name
+### Backend
 
-Examples:
-feature/login-api
-feature/cart-ui
-fix/payment-bug
+* Django
+* Django REST Framework
 
-3. Do your work
-Backend → /backend
-Frontend → /frontend
-Follow API contracts in /docs/api.md
+### Database & Infrastructure
 
-Run locally:
-# backend
-cd backend
-python manage.py runserver
+* PostgreSQL
+* Supabase
+* JWT Authentication
 
-# frontend
-cd frontend
-npm run dev
+---
 
-4. Commit your changes
-git add .
-git commit -m "feat: short clear description"
+## Core Features
 
-Examples:
-feat: add order creation endpoint
-fix: correct price calculation
-refactor: split auth logic
+### Customer Portal
 
-5. Sync with team (DO THIS DAILY)
-git checkout develop
-git pull origin develop
+* Place Orders
+* Upload Files & Documents
+* Quote Review & Approval
+* Invoice Tracking
+* Order Tracking
+* Notifications
+* Profile Management
+* Support Tickets
 
-git checkout feature/your-feature-name
-git rebase develop
+### Owner Portal
 
-👉 Fix conflicts immediately if they appear.
+* Dashboard & Analytics
+* Pricing Management
+* Client Management
+* Accounting
+* Invoice Management
+* Notifications
+* Production Monitoring
 
-6. Push your branch
-git push origin feature/your-feature-name
+### Production Portal
 
-7. Open Pull Request → develop
+* Production Workflow Management
+* Smart Batch Grouping
+* Production Progress Tracking
+* Delivery Handoff
+* Batch Lookup System
 
-On GitHub:
+### Delivery Management
 
-Base: develop
-Compare: your feature branch
-Add clear description
-Request review
+* Delivery Creation
+* Delivery Tracking
+* Pickup & Collection Flow
+* Delivery Status Updates
 
-8. After approval
-Use Squash Merge
-Delete your branch
+---
 
-🔄 Full Feature Flow (IMPORTANT)
+## My Contributions
 
-For features touching both frontend & backend:
+### Backend Development
 
-1. Define API first
+* Designed and implemented REST APIs using Django REST Framework
+* Built authentication and authorization workflows
+* Developed Order, Quote, Invoice, Accounting, Delivery, and Notification systems
+* Implemented production workflow management
+* Developed smart batching logic for print production
 
-Update /docs/api.md:
+### Database & Infrastructure
 
-POST /api/v1/orders/
+* PostgreSQL schema design
+* Supabase integration
+* SQL migrations and data management
+* Authentication integration
+* Storage and document management integration
 
-Request:
-{
-  "items": [...]
-}
+### System Integration
 
-Response:
-{
-  "id": number,
-  "status": "pending"
-}
+* Frontend–Backend API integration
+* Business workflow implementation
+* Notifications workflow
+* Delivery workflow
+* Production workflow
 
-2. Implement backend (Django)
-cd backend
-python manage.py makemigrations
-python manage.py migrate
+### Testing & Stabilization
 
-3. Implement frontend (React)
+* End-to-end workflow validation
+* Regression testing
+* Bug fixing and system stability improvements
 
-Use centralized API calls:
+---
 
-// frontend/src/api/orders.js
+## Main Business Flow
 
-4. Test everything locally
-Backend works
-Frontend works
-No errors
-🗄️ Database Rules (Django + MySQL)
-Always run:
-python manage.py migrate
+1. Client places an order
+2. Owner reviews and prices the order
+3. Client approves or rejects the quote
+4. Approved orders enter production
+5. Production jobs are grouped into batches
+6. Production progress is tracked
+7. Invoice and accounting records are generated
+8. Delivery or pickup is arranged
+9. Client receives notifications throughout the process
 
-Never edit old migrations
-Always commit new migrations
-Resolve migration conflicts BEFORE PR
+---
 
+## Project Structure
 
-🚀 Deployment Flow
-feature → develop → staging → main
-Staging
-git checkout staging
-git merge develop
+```text
+frontend/
+├── React Application
 
-Deploy
-Test everything
+backend/
+├── Django REST API
 
-Production
-git checkout main
-git merge staging
-Deploy backend
-Run migrations
-Deploy frontend
+database/
+├── PostgreSQL & SQL Scripts
 
-🚑 Hotfix (Production Bug)
-git checkout main
-git checkout -b hotfix/bug-name
+storage/
+├── File & Document Management
+```
 
-Fix → commit → PR → main
+---
 
-Then sync back:
+## Development Process
 
-git checkout develop
-git merge main
+Developed collaboratively using:
 
-git checkout staging
-git merge main
-⚠️ Rules (STRICT)
-❌ No direct push to main or staging
-❌ No long-lived branches
-❌ No huge PRs
-❌ No breaking APIs without versioning
+* Git
+* Feature Branch Workflow
+* Pull Requests
+* Code Reviews
+* Staged Testing
 
-✅ Best Practices
-Keep PRs small (1 feature only)
-Rebase daily
-Communicate what you’re working on
-Split large files into smaller modules
-Use API versioning (/api/v1/)
+---
 
-🧠 Quick Summary
-Pull → Branch → Code → Commit → Rebase → Push → PR → Merge
+## Status
 
-🔧 Tools
-Version control: GitHub
-API testing: Postman
+Business management platform featuring:
 
-
-📌 Final Note
-
-If something breaks:
-
-Check develop
-Rebase your branch
-Fix locally BEFORE pushing
+* Orders
+* Quotes
+* Invoices
+* Accounting
+* Production Management
+* Smart Batching
+* Delivery Tracking
+* Notifications
+* File Management
+* Customer Management
